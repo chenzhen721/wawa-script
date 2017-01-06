@@ -1,0 +1,68 @@
+
+
+* * * * * root /empty/spread.sh 
+
+
+05,45 * * * * root source /etc/profile && /empty/crontab/RankGift.groovy >> /var/log/RankGift.log
+
+*/15 * * * * root source /etc/profile && /empty/crontab/RankStar.groovy >> /var/log/RankStar.log
+
+11 * * * * root source /etc/profile && /empty/crontab/RankUser.groovy >> /var/log/RankUser.log
+
+22 * * * * root source /etc/profile && /empty/crontab/RankSong.groovy >> /var/log/RankSong.log
+
+33 * * * * root source /etc/profile && /empty/crontab/RankFeather.groovy >> /var/log/RankFeather.log
+
+44 */1 * * * root source /etc/profile && /empty/crontab/RankUserRoom.groovy >> /var/log/RankUserRoom.log
+
+*/1 * * * * root source /etc/profile && /empty/crontab/UpdateUserAndLive.groovy >> /var/log/star_UpdateUserAndLive.log
+
+
+1 1 * * * root source /etc/profile && /empty/crontab/StaticsEveryDay.groovy  >> /var/log/star_StaticsEveryDay.log
+7 0 * * * root source /etc/profile && /empty/crontab/LiveStat.groovy  >> /var/log/star_LiveStat.log
+
+
+17 1 * * * root source /etc/profile && /empty/crontab/BrokerStat.groovy  >> /var/log/star_BrokerStat.log
+21 1 * * * root source /etc/profile && /empty/crontab/QdStat.groovy  >> /var/log/star_Qd.log
+
+01 09 * * * root source /etc/profile && /empty/crontab/TongjiActive.groovy >> /var/log/star_Qd.log
+
+00 06 * * * root source /etc/profile && /empty/crontab/SysEveryDay.groovy >> /var/log/SysEveryDay.log
+
+##add 2013-10-28 
+
+#40 */1 * * * root source /etc/profile && /empty/crontab/RankActiveValue.groovy  >> /var/log/RankActiveValue.log
+
+###add 2013-10-18 月统计 (2015-05-08改为30 11 01 */1 *)
+30 04 01 */1 * root source /etc/profile && /empty/crontab/StaticsEveryMonth.groovy >> /var/log/StaticsEveryMonth.log
+
+
+##临时脚本，每天零点跑
+00 00 * * * root source /etc/profile && /empty/crontab/DailyReport.groovy >> /var/log/DailyReport.log
+
+##add 2013-11-01 
+#50 */1 * * * root source /etc/profile && /empty/crontab/RankFamily.groovy >> /var/log/RankFamily.log
+
+##add 2014-04-03
+#20 */1 * * * root source /etc/profile && /empty/crontab/RankMemberFamily.groovy >> /var/log/RankMemberFamily.log
+
+#5 00 * * 1 root source /etc/profile && /empty/crontab/RankStarFamily.groovy >> /var/log/RankStarFamily.log
+
+#35 */1 * * * root source /etc/profile && /empty/crontab/RankStarLiveFamily.groovy >> /var/log/RankStarLiveFamily.log
+
+
+*/1 * * * * root source /etc/profile && /empty/crontab/Treasure.groovy >> /var/log/Treasure.log
+
+# need lftp support
+#1 1 * * * root /empty/crontab/lftp_rm_yesterday.sh >> /var/log/star_lftp_rm_yesterday.log
+
+*/7 * * * * ttpod /empty/crontab/static.sh rank.xhtml /empty/www.2339.com/rank.html >>/var/log/star_static.log
+* * * * * ttpod /empty/crontab/static.sh index.xhtml /empty/www.2339.com/index.html >>/var/log/star_static.log
+
+2 0 * * mon ttpod source /etc/profile && /empty/crontab/RankGiftMonDay.groovy >> /var/log/RankGiftMonDay.log
+
+
+#3 0 * * thu root cat /empty/delay_msg.txt  >> /etc/cron.d/root.cron
+57 5 * * * root redis-cli KEYS "room:*:client" | xargs redis-cli DEL >> /var/log/star_DelRoomUsers.log
+58 5 * * * root redis-cli KEYS "room:*:users" | xargs redis-cli DEL >> /var/log/star_DelRoomUsers.log
+
