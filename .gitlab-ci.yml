@@ -1,0 +1,17 @@
+stages :
+    - build
+    - deploy
+build_staging :
+    stage: build
+    script:
+          - source /etc/profile
+          - pwd
+          - echo "java Build..."
+          #- cd projects/star-admin/
+          - rsync -av src/main/groovy/crontab/*/* webserver@192.168.31.236:/empty/crontab/
+          - rsync -av src/main/groovy/crontab/crontab.txt webserver@192.168.31.236:/empty/crontab/
+          - ssh root@192.168.31.236  "chmod -Rf 755 /empty/crontab/* && cat /empty/crontab/crontab.txt > /etc/cron.d/root.cron"
+    only :
+        - dev
+    tags :
+        - java-shell
