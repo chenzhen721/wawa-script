@@ -257,14 +257,15 @@ class UpdateUserAndLive {
         String url = CLOSE_GAME_SERVER_URL.replace('ROOM_ID', roomId.toString()).replace('GAME_ID', game_id.toString()).replace('LIVE_ID', live_id)
         String resp = HttpClientUtil4_3.get(url, null)
         if (StringUtils.isBlank(resp)) {
-            print("invoke game server close api error ,resp is null ...")
+            println("invoke game server close api error ,resp is null ...")
             return
         }
         Map map = JSONUtil.jsonToMap(resp)
+        println("map is ${map}")
         def code = map['code'] as Integer
         if (code != 1) {
             def msg = map['msg']
-            print("invoke game server close api error ,msg is ${msg}")
+            println("invoke game server close api error ,msg is ${msg}")
         }
     }
 
