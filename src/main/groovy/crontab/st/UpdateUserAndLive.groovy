@@ -10,12 +10,10 @@ import com.mongodb.DBObject
         @Grab('redis.clients:jedis:2.1.0'),
 ])
 import com.mongodb.Mongo
-import com.ttpod.rest.AppProperties
 import com.ttpod.rest.common.util.JSONUtil
-import com.ttpod.rest.common.util.http.HttpClientUtil4_3
+import com.ttpod.rest.common.util.http.HttpClientUtil
 import org.apache.commons.lang.StringUtils
 import redis.clients.jedis.Jedis
-
 
 /**
  * 定时更新房间的在线人数
@@ -255,7 +253,7 @@ class UpdateUserAndLive {
      */
     private void notifyGameServerClose(String game_id, String roomId, String live_id) {
         String url = CLOSE_GAME_SERVER_URL.replace('ROOM_ID', roomId.toString()).replace('GAME_ID', game_id.toString()).replace('LIVE_ID', live_id)
-        String resp = HttpClientUtil4_3.get(url, null)
+        String resp = HttpClientUtil.get(url, null)
         if (StringUtils.isBlank(resp)) {
             println("invoke game server close api error ,resp is null ...")
             return
