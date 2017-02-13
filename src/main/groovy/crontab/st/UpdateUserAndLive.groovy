@@ -8,11 +8,20 @@ import com.mongodb.DBObject
         @Grab('org.mongodb:mongo-java-driver:2.14.2'),
         @Grab('commons-lang:commons-lang:2.6'),
         @Grab('redis.clients:jedis:2.1.0'),
+        @Grab('org.apache.httpcomponents:httpclient:4.2.5')
 ])
 import com.mongodb.Mongo
 import com.ttpod.rest.common.util.JSONUtil
 import com.ttpod.rest.common.util.http.HttpClientUtil
 import org.apache.commons.lang.StringUtils
+import org.apache.http.HttpEntity
+import org.apache.http.HttpResponse
+import org.apache.http.client.HttpClient
+import org.apache.http.client.methods.HttpGet
+import org.apache.http.impl.client.DefaultHttpClient
+import org.apache.http.params.HttpConnectionParams
+import org.apache.http.params.HttpParams
+import org.apache.http.util.EntityUtils
 import redis.clients.jedis.Jedis
 
 /**
@@ -253,17 +262,20 @@ class UpdateUserAndLive {
      */
     private void notifyGameServerClose(String game_id, String roomId, String live_id) {
         String url = CLOSE_GAME_SERVER_URL.replace('ROOM_ID', roomId.toString()).replace('GAME_ID', game_id.toString()).replace('LIVE_ID', live_id)
-        String resp = HttpClientUtil.get(url, null)
-        if (StringUtils.isBlank(resp)) {
-            println("invoke game server close api error ,resp is null ...")
-            return
-        }
-        Map map = JSONUtil.jsonToMap(resp)
-        println("map is ${map}")
-        def code = map['code'] as Integer
-        if (code != 1) {
-            def msg = map['msg']
-            println("invoke game server close api error ,msg is ${msg}")
+        HttpClient httpClient = getHttpClient()
+        HttpGet httpGet = new HttpGet(url)
+        HttpResponse httpResponse = httpClient.execute(httpGet)
+        if(httpResponse.getStatusLine().getStatusCode() == 200){
+            HttpEntity entity = httpResponse.getEntity();
+            String response = EntityUtils.toString(entity,"utf-8");
+            Map map = JSONUtil.jsonToMap(response)
+            if(map != null){
+                def code = map['code'] as Integer
+                if (code != 1) {
+                    def msg = map['msg']
+                    println("invoke game server close api error ,msg is ${msg}")
+                }
+            }
         }
     }
 
@@ -332,6 +344,18 @@ class UpdateUserAndLive {
 
     public static BasicDBObject $$(Map map) {
         return new BasicDBObject(map)
+    }
+
+    /**
+     * 获取httpClient
+     * @return
+     */
+    def static HttpClient getHttpClient() {
+        HttpClient httpClient = new DefaultHttpClient();
+        HttpParams httpParams = httpClient.getParams();
+        HttpConnectionParams.setSoTimeout(httpParams, 10 * 1000);
+        HttpConnectionParams.setConnectionTimeout(httpParams, 10 * 1000);
+        return httpClient
     }
 
 
