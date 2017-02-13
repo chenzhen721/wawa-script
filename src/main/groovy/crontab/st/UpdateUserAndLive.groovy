@@ -12,8 +12,6 @@ import com.mongodb.DBObject
 ])
 import com.mongodb.Mongo
 import com.ttpod.rest.common.util.JSONUtil
-import com.ttpod.rest.common.util.http.HttpClientUtil
-import org.apache.commons.lang.StringUtils
 import org.apache.http.HttpEntity
 import org.apache.http.HttpResponse
 import org.apache.http.client.HttpClient
