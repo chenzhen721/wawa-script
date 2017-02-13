@@ -11,7 +11,7 @@ import com.mongodb.DBObject
         @Grab('org.apache.httpcomponents:httpclient:4.2.5')
 ])
 import com.mongodb.Mongo
-import com.ttpod.rest.common.util.JSONUtil
+import groovy.json.JsonSlurper
 import org.apache.http.HttpEntity
 import org.apache.http.HttpResponse
 import org.apache.http.client.HttpClient
@@ -266,8 +266,10 @@ class UpdateUserAndLive {
         if(httpResponse.getStatusLine().getStatusCode() == 200){
             HttpEntity entity = httpResponse.getEntity();
             String response = EntityUtils.toString(entity,"utf-8");
-            Map map = JSONUtil.jsonToMap(response)
-            if(map != null){
+            def jsonSlurper = new JsonSlurper()
+            def result = jsonSlurper.parseText(response)
+            if(result != null){
+                Map map = result as Map
                 def code = map['code'] as Integer
                 if (code != 1) {
                     def msg = map['msg']
