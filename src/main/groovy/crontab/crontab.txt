@@ -10,6 +10,8 @@
 
 */1 * * * * root source /etc/profile && /empty/crontab/UpdateUserAndLive.groovy >> /empty/crontab/log/star_UpdateUserAndLive.log
 
+44 */1 * * * root source /etc/profile && /empty/crontab/RankUserRoom.groovy >> /empty/crontab/log/RankUserRoom.log
+
 1 1 * * * root source /etc/profile && /empty/crontab/StaticsEveryDay.groovy  >> /empty/crontab/log/star_StaticsEveryDay.log
 
 7 0 * * * root source /etc/profile && /empty/crontab/LiveStat.groovy  >> /empty/crontab/log/star_LiveStat.log
