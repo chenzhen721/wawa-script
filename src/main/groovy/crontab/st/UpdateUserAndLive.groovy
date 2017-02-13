@@ -52,7 +52,7 @@ class UpdateUserAndLive {
     static userRedis = new Jedis(user_jedis_host,user_jedis_port)
     static liveRedis = new Jedis(live_jedis_host,live_jedis_port)
 
-    static M  = new Mongo(new com.mongodb.MongoURI(getProperties('mongo.uri','mongodb://192.168.31.249:27017/?w=1') as String))
+    static M  = new Mongo(new com.mongodb.MongoURI(getProperties('mongo.uri','mongodb://192.168.31.246:27000/?w=1') as String))
 
     static mongo = M.getDB("xy")
     static logRoomEdit =M.getDB("xylog").getCollection("room_edit")
