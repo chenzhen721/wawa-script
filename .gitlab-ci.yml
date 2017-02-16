@@ -7,7 +7,7 @@ build_staging :
           - source /etc/profile
           - pwd
           - echo "java Build..."
-          #- cd projects/star-admin/
+          - /opt/ci-shell/2.0/to-git --rsync-from=$CI_PROJECT_DIR/src/main/groovy/crontab/*/*  --git-repository=online/ script.aiwan.com.git  --clean=false
           ##- rsync -av src/main/groovy/crontab/*/* webserver@192.168.31.236:/empty/crontab/
           ##- rsync -av src/main/groovy/crontab/crontab.txt webserver@192.168.31.236:/empty/crontab/
           ##- ssh root@192.168.31.236  "chmod -Rf 755 /empty/crontab/* && cat /empty/crontab/crontab.txt > /etc/cron.d/root.cron"
