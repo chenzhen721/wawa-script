@@ -35,24 +35,30 @@ class Aiwan {
 
     static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:10000,192.168.31.236:10000,192.168.31.231:10001/?w=1&slaveok=true') as String))
     static DBCollection users = mongo.getDB('xy').getCollection('users')
-    static DBCollection rounds = mongo.getDB('game_log').getCollection('game_round')
-    static DBCollection user_bet = mongo.getDB('game_log').getCollection('user_bet')
-    static DBCollection user_lottery = mongo.getDB('game_log').getCollection('user_lottery')
 
     /**
      * 初始化爱玩直播游戏数据库脚本
      * @param args
      */
     static void main(String[] args) {
+        init()
         buildGameRoundsIndex()
         buildUserBetIndex()
         buildUserLottery()
+    }
+
+    private static void init(){
+        mongo.getDB('game_log').dropDatabase()
+        mongo.getDB('game_log').createCollection('game_round',null)
+        mongo.getDB('game_log').createCollection('user_bet',null)
+        mongo.getDB('game_log').createCollection('user_lottery',null)
     }
 
     /**
      * 构建game_log下game_round集合的索引
      */
     private static void buildGameRoundsIndex() {
+        DBCollection rounds = mongo.getDB('game_log').getCollection('game_round')
         /** 普通索引**/
         def timestamp_index = $$('timestamp', -1)
         rounds.createIndex(timestamp_index,'_timestamp_')
@@ -89,6 +95,7 @@ class Aiwan {
      * 用户下注
      */
     private static void buildUserBetIndex() {
+        DBCollection user_bet = mongo.getDB('game_log').getCollection('user_bet')
         /** 普通索引**/
         def timestamp_index = $$('timestamp', -1)
         user_bet.createIndex(timestamp_index,'_timestamp_')
@@ -122,6 +129,7 @@ class Aiwan {
      * 用户奖励
      */
     private static void buildUserLottery() {
+        DBCollection user_lottery = mongo.getDB('game_log').getCollection('user_lottery')
         // 普通索引
         def timestamp_index = $$('timestamp', -1)
         user_lottery.createIndex(timestamp_index,'_timestamp_')
