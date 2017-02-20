@@ -41,76 +41,6 @@ class RankUserRoom {
     static fenSiDB = mongo.getDB("xylog").getCollection("room_fensi_cost")
     static familyFenSiDB = mongo.getDB("xylog").getCollection("family_fensi_cost")
     static long zeroMill = new Date().clearTime().getTime()
-    //TODO 已调优成 每个小时累加 不能重复执行脚本
-    /*
-    static void staticDay(List<DBObject> roomslst)
-     {
-         long now = System.currentTimeMillis()
-         def ymd = new Date().format("yyyyMMdd")
-         def begin = now - 3600 * 1000L
-         def timeBetween = [$gte:begin , $lt: now]
-         //def timeBetween = [$gte:zeroMill , $lt: now]
-         roomslst.each{
-             Integer roomId = it._id as Integer
-             def query = ['session.data.xy_star_id': roomId,timestamp:timeBetween]
-             def res = mongo.getDB("xylog").getCollection("room_cost").aggregate(
-                     new BasicDBObject('$match', query),
-                     new BasicDBObject('$project', [_id: '$session._id',earned:'$session.data.earned',cost:'$star_cost']),
-                     new BasicDBObject('$group', [_id: '$_id', num: [$sum: '$earned'], cost: [$sum: '$cost']]),
-                     new BasicDBObject('$sort', [num:-1]),
-                     new BasicDBObject('$limit',500) //top N 算法
-             )
-             Iterator objs =   res.results().iterator()
-             objs.each {row ->
-                 def user_id = row._id
-                 if(user_id)
-                 {
-                     def id = user_id + "_" + roomId + "_" + ymd
-                     def update = new BasicDBObject(user_id:user_id as Integer,room:roomId,timestamp:now)
-                     def incObject = new BasicDBObject(num:row.cost, bean:row.num)
-                     fenSiDB.findAndModify(new BasicDBObject('_id',id), null, null, false,
-                             new BasicDBObject('$inc':incObject,'$set':update),true, true)
-                 }
-             }
-         }
-     }
-     */
-
-    //每个小时累加
-    @Deprecated
-    static void staticOldDay(List<DBObject> roomslst)
-    {
-        long now = System.currentTimeMillis()
-        def ymd = new Date().format("yyyyMMdd")
-        def begin = getAndSetTaskTimestamp(now)
-        if(now == begin)
-            begin = now - 3600 * 1000L
-        def timeBetween = [$gte:begin , $lt: now]
-        //def timeBetween = [$gte:zeroMill , $lt: now]
-        roomslst.each{
-            Integer roomId = it._id as Integer
-            def query = ['session.data.xy_star_id': roomId,timestamp:timeBetween]
-            def res = mongo.getDB("xylog").getCollection("room_cost").aggregate(
-                    new BasicDBObject('$match', query),
-                    new BasicDBObject('$project', [_id: '$session._id',earned:'$session.data.earned',cost:'$star_cost']),
-                    new BasicDBObject('$group', [_id: '$_id', num: [$sum: '$earned'], cost: [$sum: '$cost']]),
-                    new BasicDBObject('$sort', [num:-1]),
-                    new BasicDBObject('$limit',1000) //top N 算法
-            )
-            Iterator objs =   res.results().iterator()
-            objs.each {row ->
-                def user_id = row._id
-                if(user_id)
-                {
-                    def id = user_id + "_" + roomId + "_" + ymd
-                    def update = new BasicDBObject(user_id:user_id as Integer,room:roomId,timestamp:now)
-                    def incObject = new BasicDBObject(num:row.cost, bean:row.num)
-                    fenSiDB.findAndModify(new BasicDBObject('_id',id), null, null, false,
-                            new BasicDBObject('$inc':incObject,'$set':update),true, true)
-                }
-            }
-        }
-    }
 
     private final static Long SLEEP_TIME = 3 * 1000l
     private final static Integer MAX_THRESHOLD = 10
@@ -222,55 +152,6 @@ class RankUserRoom {
         }
     }
 
-    //TODO 包厢定时任务=============================================================================== START
-    static box_cost = mongo.getDB("xylog").getCollection("box_cost")
-
-    //总
-    static staticBoxTotal(List<DBObject> boxlst)
-    {
-        String cat = "total"
-        saveBoxRank(cat,boxlst)
-    }
-
-    static void saveBoxRank(String cat,List<DBObject> boxlst)
-    {
-        boxlst.each{
-            Integer boxId = it._id as Integer
-            Iterator objs = bulidBoxRank(boxId,cat)
-            def list = new ArrayList(10)
-            int i = 0
-            objs.each {row ->
-                def user_id = row._id
-                if(user_id)
-                {
-                    i++
-                    list.add(new BasicDBObject(_id:"${boxId}_${cat}_${user_id}".toString(),
-                            cat:cat,user_id:user_id as Integer,num:row.total,rank:i,box:boxId,sj:new Date()))
-                }
-            }
-            def coll = mongo.getDB("xyrank").getCollection("user_box")
-            coll.remove(new BasicDBObject("cat":cat,box:boxId))
-            if(list.size() > 0)
-                coll.insert(list)
-        }
-    }
-
-    static bulidBoxRank(Integer boxId, String cat)
-    {
-        long now = System.currentTimeMillis()
-        long zeroMill = new Date().clearTime().getTime()
-        def query = [box : boxId, type:'send_gift']
-        def res = box_cost.aggregate(
-                new BasicDBObject('$match', query),
-                new BasicDBObject('$project', [_id: '$session._id',cost:'$cost']),
-                new BasicDBObject('$group', [_id: '$_id', total: [$sum: '$cost']]),
-                new BasicDBObject('$sort', [total:-1]),
-                new BasicDBObject('$limit',10) //top N 算法
-        )
-        return res.results().iterator()
-    }
-
-    //TODO 包厢定时任务=============================================================================== END
 
     static void main(String[] args)
     {
@@ -296,13 +177,6 @@ class RankUserRoom {
         staticTotal(roomslst)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   staticTotal, cost  ${System.currentTimeMillis() -l} ms"
         Thread.sleep(1000L)
-
-        //包厢总榜
-        /*l = System.currentTimeMillis()
-        def boxQuery = new BasicDBObject(status:2)
-        def boxlst = mongo.getDB("xy").getCollection("boxes").find(boxQuery,new BasicDBObject("_id",1)).toArray()
-        staticBoxTotal(boxlst)
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   staticBoxTotal, cost  ${System.currentTimeMillis() -l} ms"*/
 
         //落地定时执行的日志
         l = System.currentTimeMillis()

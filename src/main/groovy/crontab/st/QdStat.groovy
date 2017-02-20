@@ -62,9 +62,8 @@ class QdStat {
             new_payed_user.addAll(uids)
         }
 
-        //TODO 剔除快播 f101
         mongo.getDB('xy_admin').getCollection('channels').find(
-                new BasicDBObject("_id", [$nin: ["f101"]]), new BasicDBObject("reg_discount", 1).append("child_qd", 1).append("sence_id",1)
+                new BasicDBObject("_id", [$ne: null]), new BasicDBObject("reg_discount", 1).append("child_qd", 1).append("sence_id",1)
         ).toArray().each { BasicDBObject channnel ->
             def cId = channnel.removeField("_id")
             //String sence_id = channnel.removeField("sence_id") as String
@@ -90,45 +89,6 @@ class QdStat {
                 }
                 if (cpa != null) st.append("cpa2", cpa)
             }
-            //TODO 2016、9 停止  统计当天乐途扣费信息
-            /*
-            def query = new BasicDBObject()
-            query.append("qd", cId).append("via", "letu").append("resp.amount", ['$exists': true])
-            query.append('time', timeBetween)
-            List list = trade_logs.aggregate(
-                    new BasicDBObject('$match', query),
-                    new BasicDBObject('$project', [via: '$via', qd: '$qd', amount: '$resp.amount', uid: '$uid']),
-                    new BasicDBObject('$group', [_id: '$qd', amounts: [$push: '$amount'], uids: [$addToSet: '$uid']])
-            ).results().toList()
-            list.each { BasicDBObject obj ->
-                def uids = obj.remove("uids") as List
-                def amounts = obj.remove("amounts") as List
-                def amount = 0 as Double
-                if (amounts != null) {
-                    amounts.each { String am ->
-                        amount += new BigDecimal(am).doubleValue()
-                    }
-                }
-                st.put('deduct', [users: (uids == null ? 0 : uids.size()), amount: amount])
-            }
-            */
-            //TODO H5充值直接购买观看权限 2016/9/21
-            def query = new BasicDBObject()
-            query.append("type", "buy_watch")
-            query.append('timestamp', timeBetween)
-            query.append("qd", cId)
-            List list =  room_cost.aggregate(
-                    new BasicDBObject('$match', query),
-                    new BasicDBObject('$project', [ cost: '$cost', uid: '$session._id']),
-                    new BasicDBObject('$group', [_id: null, amounts: [$sum: '$cost'], uids: [$addToSet: '$uid']])
-            ).results().toList()
-            list.each { BasicDBObject obj ->
-                def uids = obj.remove("uids") as List
-                def amounts = obj.remove("amounts") as Long
-                st.put('deduct', [users: (uids == null ? 0 : uids.size()), amount: (amounts/100).toDouble()])
-            }
-
-
 
             //优化后
             def iter = finance_log.aggregate(
@@ -179,18 +139,6 @@ class QdStat {
             st.put('reg_pay_user', pay_reg.size())
             st.put('first_pay_cny', total)
             st.put('first_pay_user', pay_user.size())
-
-            //TODO 微信公众号关注数量统计
-            Integer weixin_followers = weixin_event_logs.count(new BasicDBObject(union: cId, timestamp:timeBetween))
-            st.put('weixin_followers', weixin_followers)
-
-            //TODO 微端激活统计
-            Integer ria_active = ria_event_logs.count(new BasicDBObject(event:"1", qd: cId, timestamp:timeBetween))
-            st.put('active', ria_active)
-
-            //TODO 微端安装统计
-            Integer ria_install = ria_event_logs.count(new BasicDBObject(event:"0", qd: cId, timestamp:timeBetween))
-            st.put('install', ria_install)
 
 
             coll.update(new BasicDBObject(_id: st.remove('_id') as String), new BasicDBObject($set: st), true, false)
