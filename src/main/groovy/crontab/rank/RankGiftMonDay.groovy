@@ -541,7 +541,7 @@ class RankGiftMonDay {
                     last_week_gifts.insert(giftList)
                 Thread.sleep(5000)
                 //更新缓存
-                String gifts_key = "all:ttxiuchang:gifts"
+                String gifts_key = "all:aiwanzhibo:gifts"
                 mainRedis.del(gifts_key)
                 new URL(refresh_gift_url).getText("utf-8")
             }

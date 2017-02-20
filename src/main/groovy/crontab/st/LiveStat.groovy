@@ -69,29 +69,25 @@ class LiveStat {
                 new BasicDBObject('$group', [_id: '$_id', earned: [$sum: '$earned'], lives: [$addToSet: '$live'], users: [$addToSet: '$user_id']])
         ).results()
 
-        //统计主播在其它房间收到的礼物201511月1日 开始
-        def sdf = new SimpleDateFormat('yyyyMMdd')
-        def begin = sdf.parse('20151101').clearTime()
-        if(!new Date(tmp).before(begin)) {
-            def result = new HashMap()
-            earnIter.each { BasicDBObject obj ->
-                def user_id = obj.get('_id') as Integer
-                result.put(user_id, obj)
-            }
-            def list = []
-            room_cost.aggregate(
-                    new BasicDBObject($match: ['session.data.xy_user_id': [$in: result.keySet()], timestamp: timeBetween]),
-                    new BasicDBObject($project: [_id: '$session.data.xy_user_id', earned: '$session.data.earned']),
-                    new BasicDBObject($group: [_id: '$_id', earned: [$sum: '$earned']])
-            ).results().each { BasicDBObject obj ->
-                def user_id = obj.get('_id') as Integer
-                def earned = obj.get('earned') as Long
-                def liveObj = result.get(user_id) as BasicDBObject
-                liveObj.put('earned', earned + ((liveObj?.get('earned') ?: 0) as Long))
-            }
-            list.addAll(result.values())
-            earnIter = list
+        //统计主播在其它房间收到的礼物
+        def result = new HashMap()
+        earnIter.each { BasicDBObject obj ->
+            def user_id = obj.get('_id') as Integer
+            result.put(user_id, obj)
         }
+        def list = []
+        room_cost.aggregate(
+                new BasicDBObject($match: ['session.data.xy_user_id': [$in: result.keySet()], timestamp: timeBetween]),
+                new BasicDBObject($project: [_id: '$session.data.xy_user_id', earned: '$session.data.earned']),
+                new BasicDBObject($group: [_id: '$_id', earned: [$sum: '$earned']])
+        ).results().each { BasicDBObject obj ->
+            def user_id = obj.get('_id') as Integer
+            def earned = obj.get('earned') as Long
+            def liveObj = result.get(user_id) as BasicDBObject
+            liveObj.put('earned', earned + ((liveObj?.get('earned') ?: 0) as Long))
+        }
+        list.addAll(result.values())
+        earnIter = list
         //统计主播在其它房间收到的礼物 结束
 
         def fmt = new SimpleDateFormat('yyyyMMddHHmmss')//20130403221054
@@ -549,8 +545,6 @@ class LiveStat {
         long l = System.currentTimeMillis()
         //直播统计
         long begin = l
-        //暂时废弃
-        //statics(1)
         //每天赚取柠檬数量
         staticsEarned(1);
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   live staticsEarned cost  ${System.currentTimeMillis() - l} ms"

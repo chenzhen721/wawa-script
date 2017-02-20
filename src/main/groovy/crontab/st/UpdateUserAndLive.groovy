@@ -61,7 +61,7 @@ class UpdateUserAndLive {
     static userRedis = new Jedis(user_jedis_host, user_jedis_port)
     static liveRedis = new Jedis(live_jedis_host, live_jedis_port)
 
-    static M = new Mongo(new com.mongodb.MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.249:27017/?w=1') as String))
+    static M  = new Mongo(new com.mongodb.MongoURI(getProperties('mongo.uri','mongodb://192.168.31.246:27000/?w=1') as String))
 
     static mongo = M.getDB("xy")
     static logRoomEdit = M.getDB("xylog").getCollection("room_edit")
@@ -208,7 +208,7 @@ class UpdateUserAndLive {
     }
 
     def liveCheck() {
-        rooms.find(new BasicDBObject('live', true), new BasicDBObject(live_id: 1, timestamp: 1, type: 1, mic_user: 1, mic_live_id: 1, live_type: 1)).toArray().each { room ->
+        rooms.find(new BasicDBObject('live', true), new BasicDBObject(live_id: 1, timestamp: 1, type: 1, game_id: 1, live_type: 1)).toArray().each { room ->
             def roomId = room.get("_id")
             String live_id = room.get("live_id")
             String game_id = room.get("game_id")
@@ -227,7 +227,7 @@ class UpdateUserAndLive {
                         logRoomEdit.save(new BasicDBObject(type: 'live_off', room: roomId, data: live_id, live_type: live_type, status: 'LiveStatusCheck', timestamp: l))
                     }
                     finally {
-                        def set = new BasicDBObject(live: false, live_id: '', timestamp: l, live_end_time: l, mic_user: 0, mic_live_id: '', position: null, pull_urls: null)
+                        def set = new BasicDBObject(live: false, live_id: '', timestamp: l, live_end_time: l, game_id: '', position: null, pull_urls: null)
                         //家族房间
                         if (type.equals(2)) {
                             set.append('xy_star_id', null)

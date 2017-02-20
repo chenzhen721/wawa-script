@@ -395,124 +395,6 @@ class TongjiActive {
 
     }
 
-    /**
-     * 扣费统计
-     */
-    static staticLetuData(int i) {
-        def gteMill = yesTday - i * DAY_MILLON
-        def prefix = new Date(gteMill).format("yyyyMMdd_")
-        def trade_logs = mongo.getDB("xylog").getCollection("trade_logs")
-        def stat_channels = mongo.getDB("xy_admin").getCollection('stat_channels')
-
-        //统计之前先删除无效的乐途信息
-        def dq = new BasicDBObject(via: 'letu', resp: null, time: [$lt: gteMill + DAY_MILLON])
-        trade_logs.remove(new BasicDBObject(dq))
-
-        def query = new BasicDBObject(via: "letu", "resp.amount": [$exists: true], time: [$gte: gteMill, $lt: gteMill + DAY_MILLON])
-        def list = trade_logs.aggregate(
-                new BasicDBObject('$match', query),
-                new BasicDBObject('$project', [via: '$via', qd: '$qd', amount: '$resp.amount', uid: '$uid']),
-                new BasicDBObject('$group', [_id: '$qd', amounts: [$push: '$amount'], uids: [$addToSet: '$uid']])
-        ).results().toList()
-        list.each { BasicDBObject obj ->
-            def qd = obj.get("_id") as String
-            def uids = obj.remove("uids") as List
-            obj.put("users", uids == null ? 0 : uids.size())
-            def amounts = obj.remove("amounts") as List
-            def amount = 0 as Double
-            if (amounts != null) {
-                amounts.each { String am ->
-                    amount += new BigDecimal(am).doubleValue()
-                }
-            }
-            obj.put("amount", amount)
-            stat_channels.update(new BasicDBObject('_id', "${prefix}${qd}".toString()),
-                    new BasicDBObject('$set', new BasicDBObject("deduct", [amount: amount, users: (uids == null ? 0 : uids.size())])))
-        }
-        //汇总父渠道扣费信息
-        def channelDB = mongo.getDB('xy_admin').getCollection('channels')
-        channelDB.aggregate(
-                new BasicDBObject('$match', [parent_qd: [$ne: null]]),
-                new BasicDBObject('$project', [_id: '$parent_qd', qd: '$_id']),
-                new BasicDBObject('$group', [_id: '$_id', qd: [$addToSet: '$qd']])
-        ).results().each { BasicDBObject obj ->
-            def _id = obj.get('_id') as String
-            def qds = obj.get('qd') as Set
-            stat_channels.aggregate(
-                    new BasicDBObject('$match', [qd: [$in: qds], deduct: [$ne: null], timestamp: gteMill]),
-                    new BasicDBObject('$project', [amount: '$deduct.amount', users: '$deduct.users']),
-                    new BasicDBObject('$group', [_id: null, amount: [$sum: '$amount'], users: [$sum: '$users']])
-            ).results().each { BasicDBObject deduct ->
-                def amount = deduct.get('amount') as Integer
-                def users = deduct.get('users') as Integer
-                stat_channels.update(new BasicDBObject('_id', "${prefix}${_id}".toString()),
-                        new BasicDBObject('$set', new BasicDBObject("deduct", [amount: amount, users: users])))
-            }
-        }
-    }
-
-    /**
-     * 同步乐途实际到账金额
-     * @param i
-     */
-    static void fetchLetuData(int i) {
-        def gteMill = yesTday - i * DAY_MILLON
-        def date = new Date(gteMill)
-        def dateStr = date.format('yyyy-MM-dd')
-        def prefix = new Date(gteMill).format("yyyyMMdd_")
-        def param = "merchantId=SHXAPAY1001&startDate=${dateStr}&endDate=${dateStr}".toString()
-        String md5str = "${param}&key=k@TW^0ZFg-3+fqQ&".toString()
-        String sign = md5HexString(md5str)
-        def stat_channels = mongo.getDB("xy_admin").getCollection('stat_channels')
-        try {
-            InputStream is = new URL("http://202.107.192.23:6821/chn-data/service/cpsettle.do?${param}&signMsg=${sign}".toString()).openStream()
-            def result = [:]
-            is.eachLine('UTF8') { String line ->
-                if (StringUtils.isNotBlank(line)) {
-                    def columns = line.split(',') as String[]
-                    if (columns.length >= 6) {
-                        def channelId = columns[3] as String
-                        def realStr = columns[5] as String
-                        def real = 0 as Double
-                        if (realStr.isDouble()) real = realStr.toDouble()
-                        if (!result.containsKey(channelId)) {
-                            result.put(channelId, 0)
-                        }
-                        def v = result.get(channelId) as Double
-                        result.put(channelId, v + real)
-                    }
-                }
-            }
-            result.each { String id, Double v ->
-                stat_channels.update(new BasicDBObject('_id', "${prefix}${id}".toString()),
-                        new BasicDBObject('$set', new BasicDBObject("deduct.real", v)))
-            }
-        } catch (Exception e) {
-
-        }
-
-        //汇总父渠道扣费信息
-        def channelDB = mongo.getDB('xy_admin').getCollection('channels')
-        channelDB.aggregate(
-                new BasicDBObject('$match', [parent_qd: [$ne: null]]),
-                new BasicDBObject('$project', [_id: '$parent_qd', qd: '$_id']),
-                new BasicDBObject('$group', [_id: '$_id', qd: [$addToSet: '$qd']])
-        ).results().each { BasicDBObject obj ->
-            def _id = obj.get('_id') as String
-            def qds = obj.get('qd') as Set
-            stat_channels.aggregate(
-                    new BasicDBObject('$match', [qd: [$in: qds], 'deduct.real': [$ne: null], timestamp: gteMill]),
-                    new BasicDBObject('$project', [real: '$deduct.real']),
-                    new BasicDBObject('$group', [_id: null, real: [$sum: '$real']])
-            ).results().each { BasicDBObject deduct ->
-                def real = deduct.get('real') as Double
-                stat_channels.update(new BasicDBObject('_id', "${prefix}${_id}".toString()),
-                        new BasicDBObject('$set', new BasicDBObject("deduct.real", real)))
-            }
-        }
-
-    }
-
     private static String md5HexString(String content) {
         def hexDigits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'] as char[];
         try {
@@ -538,53 +420,6 @@ class TongjiActive {
         return null
     }
 
-    static void fetchClickiData(int i) {
-        def coll = mongo.getDB('xy_admin').getCollection('stat_channels')
-        long l = System.currentTimeMillis()
-        def gteMill = yesTday - i * DAY_MILLON
-        def date = new Date(gteMill)
-        def dateStr = date.format('yyyy-MM-dd')
-        def limit = 10//最大支持单次10条查询
-        def offset = 0//分页参数，起始为0
-        def hasMore = Boolean.TRUE
-        while (hasMore) {
-            def data = new JsonSlurper().parseText(
-                    new URL("http://www.clicki.cn/api/page/url?begindate=${dateStr}&enddate=${dateStr}&offset=${offset}&limit=${limit}&token=01771f89a7ecd4d6074b53ba5d9c450c").getText()
-            )
-            if (data != null) {
-                def succ = data["success"] as Boolean
-                if (succ == null || !succ) {
-                    break
-                }
-                def items = data["items"]
-                items.each { Map row ->
-                    def page = row["page_url_name"] as String
-                    def visitors = row["visitors"] as Integer
-                    visitors = visitors ?: 0
-                    if (StringUtils.isNotBlank(page) && page.startsWith('http://www.2339.com') && page.contains('?id=')) {
-                        //解析页面对应的渠道号
-                        def channels = page.split(/\?id=/)[1]
-                        def qd = channels, parent_qd
-                        if (channels.contains("_")) {
-                            parent_qd = channels.split("_")[0]
-                            qd = channels.split("_")[1]
-                        }
-                        def day = date.format("yyyyMMdd_")
-                        def update = new BasicDBObject(visitors: visitors)
-                        coll.update(new BasicDBObject('_id', "${day}${qd}".toString()), new BasicDBObject('$set', update))
-                    }
-                }
-                def total = data['total'] as Integer
-                total = total ?: 0
-                if (total <= (limit + offset)) {
-                    hasMore = Boolean.FALSE
-                } else {
-                    offset += limit
-                }
-            }
-        }
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   currentDay, cost  ${System.currentTimeMillis() - l} ms"
-    }
 
     // 渠道激活信息
     static fetchTalkingData(int i) {
@@ -874,21 +709,6 @@ class TongjiActive {
         }
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd stayStatics, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
-
-        // 2016 乐途合作停止 更新乐途扣量
-        /*l = System.currentTimeMillis()
-        staticLetuData(day)
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd staticLetuData, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-
-        //同步乐途实际到账信息
-        l = System.currentTimeMillis()
-        fetchLetuData(day)
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd fetchLetuData, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-         */
-
         // 更新渠道的激活值
         l = System.currentTimeMillis()
         fetchUmengData(day)
