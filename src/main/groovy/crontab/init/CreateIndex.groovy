@@ -17,7 +17,7 @@ import com.mongodb.MongoURI
 /**
  * 爱玩项目初始化脚本
  */
-class Aiwan {
+class CreateIndex {
     static Properties props = null;
     static String profilepath = "/empty/crontab/db.properties";
 
@@ -74,15 +74,15 @@ class Aiwan {
 
         /** 组合索引 **/
         // 用于查询某一个房间某一场的某一局游戏
-        def round_live_room_index = $$('round_id': 1,'room_id': 1, 'live_id': 1)
+        def round_live_room_index = $$('round_id': 1,'room_id': 1)
         rounds.createIndex(round_live_room_index, '_round_live_room_')
 
         // 查看某个房间的游戏情况
-        def room_index = $$('room_id':1,'timestamp':-1)
+        def room_index = $$('timestamp':-1)
         rounds.createIndex(room_index, '_room_')
 
         // 用于查询某个时间的结果集
-        def result_index = $$('result':1,'timestamp':-1)
+        def result_index = $$('room_id':1, 'live_id': 1,'result':1,'timestamp':-1)
         rounds.createIndex(result_index,'_result_timestamp_')
 
 
