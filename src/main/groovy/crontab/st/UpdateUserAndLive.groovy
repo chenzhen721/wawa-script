@@ -259,24 +259,8 @@ class UpdateUserAndLive {
      * @param live_id
      */
     private void notifyGameServerClose(String game_id, String roomId, String live_id) {
-        String url = CLOSE_GAME_SERVER_URL.replace('ROOM_ID', roomId.toString()).replace('GAME_ID', game_id.toString()).replace('LIVE_ID', live_id)
-        HttpClient httpClient = getHttpClient()
-        HttpGet httpGet = new HttpGet(url)
-        HttpResponse httpResponse = httpClient.execute(httpGet)
-        if(httpResponse.getStatusLine().getStatusCode() == 200){
-            HttpEntity entity = httpResponse.getEntity();
-            String response = EntityUtils.toString(entity,"utf-8");
-            def jsonSlurper = new JsonSlurper()
-            def result = jsonSlurper.parseText(response)
-            if(result != null){
-                Map map = result as Map
-                def code = map['code'] as Integer
-                if (code != 1) {
-                    def msg = map['msg']
-                    println("invoke game server close api error ,msg is ${msg}")
-                }
-            }
-        }
+        String url = CLOSE_GAME_SERVER_URL.replace('ROOM_ID', roomId.toString()).replace('GAME_ID', game_id).replace('LIVE_ID', live_id)
+        println request(url)
     }
 
     long WAIT = 30 * 1000L
@@ -308,26 +292,31 @@ class UpdateUserAndLive {
     static final Integer speed = 0;
 
     def delayOrderCheck() {
+        def api_url = api_domain + "pay/delay_order_fix?speed=${speed}".toString()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')} result : ${request(api_url)}"
+    }
+
+    static String request(String url){
         HttpURLConnection conn = null;
         def jsonText = "";
-        try {
-            def api_url = new URL(api_domain + "pay/delay_order_fix?speed=${speed}".toString())
-            conn = (HttpURLConnection) api_url.openConnection()
+        try{
+            conn = (HttpURLConnection)new URL(url).openConnection()
             conn.setRequestMethod("GET")
             conn.setDoOutput(true)
-            conn.setConnectTimeout(TIME_OUT);
-            conn.setReadTimeout(TIME_OUT);
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
             conn.connect()
             jsonText = conn.getInputStream().getText("UTF-8")
-        } catch (Exception e) {
-            println "staticWeek Exception : " + e;
-        } finally {
+
+        }catch (Exception e){
+            println "request Exception : " + e;
+        }finally{
             if (conn != null) {
                 conn.disconnect();
                 conn = null;
             }
         }
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')} result : ${jsonText}"
+        return jsonText;
     }
 
     /**
