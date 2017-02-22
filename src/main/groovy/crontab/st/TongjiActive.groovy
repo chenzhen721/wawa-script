@@ -59,7 +59,7 @@ class TongjiActive {
         def coll = mongo.getDB('xy_admin').getCollection('stat_channels')
         def channelDB = mongo.getDB('xy_admin').getCollection('channels')
         def qdlist = channelDB.find(new BasicDBObject(is_close: false), new BasicDBObject(_id: 1))*._id
-        ['53ab9ff256240b97cf0164a5', '544f71eafd98c5a62b002aa3'].each { String appkey ->
+        ['58ac09dd717c195234000979'].each { String appkey ->
             def page = 1, per_page = 100
             def hasMore = true
             while (hasMore) {
@@ -433,7 +433,7 @@ class TongjiActive {
             //查询所有渠道信息
             def channellist = 'https://api.talkingdata.com/metrics/app/v1/channellist'
             def queryContent = [
-                    accesskey: '94c8954c3168b6d7adc9bcdcbf3fdf74',
+                    accesskey: 'B6C91AE433B94D9ABA77936AEEF21900',
                     filter   : [// *数据筛选条件
                                 platformids: [1, 2]
                     ]
