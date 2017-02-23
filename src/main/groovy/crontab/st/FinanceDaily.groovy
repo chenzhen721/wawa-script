@@ -169,8 +169,6 @@ class FinanceDaily {
         totalCoin += warpDataFromDaliyReport('login_coin', data)
         //新手任务
         totalCoin += warpDataFromDaliyReport('mission_coin', data)
-        //活动 抽奖等方式获取柠檬
-        totalCoin += warpDataFromDaliyReport('activity_award_coin', data)
         //游戏获得
         totalCoin += gameInfo(timebetween, data)
 
