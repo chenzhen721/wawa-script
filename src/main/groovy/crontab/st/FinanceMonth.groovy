@@ -160,32 +160,6 @@ class FinanceMonth {
         totalCoin += warpDataFromDaliyReport('login_coin', data)
         //新手任务
         totalCoin += warpDataFromDaliyReport('mission_coin', data)
-        //幸运礼物
-        totalCoin += warpDataFromDaliyReport('luck_coin', data)
-        //VC兑换柠檬
-        totalCoin += warpDataFromDaliyReport('exchange_coin', data)
-        //财神
-        totalCoin += warpDataFromDaliyReport('fortune_coin', data)
-        //宝藏
-        totalCoin += warpDataFromDaliyReport('treasure_coin', data)
-        //红包
-        totalCoin += warpDataFromDaliyReport('redPacket_coin', data)
-        //水果乐园
-        totalCoin += warpDataFromDaliyReport('kunbo_game_coin', data)
-        //点乐 百度积分墙
-        totalCoin += warpDataFromDaliyReport('dianle_share_coin', data)
-        //TODO 手机直播免费礼物
-        //totalCoin += warpDataFromDaliyReport('app_free_gift_coin', data)
-        //德州兑入
-        totalCoin += warpDataFromDaliyReport('texasholdem_game_coin', data)
-        //捕鱼兑入
-        totalCoin += warpDataFromDaliyReport('fishing_game_coin', data)
-        //牛牛兑入
-        totalCoin += warpDataFromDaliyReport('niuniu_game_coin', data)
-        //点歌退回柠檬
-        totalCoin += warpDataFromDaliyReport('coin_refund_song', data)
-        //活动 抽奖等方式获取柠檬
-        totalCoin += warpDataFromDaliyReport('activity_award_coin', data)
         //游戏获得 砸蛋 翻牌 点球
         totalCoin += gameInfo(timebetween, data)
         //TODO 第一名家族礼物发放价值
@@ -196,26 +170,15 @@ class FinanceMonth {
         return incData
     }
 
-    //礼物 砸蛋 点球	翻牌	铃铛	守护	VIP 座驾	沙发	靓号	财神	宝藏	接生	广播 点歌 家族 一元购 解绑 求爱签 接单
+    //礼物 玩游戏
 
-    private static final List<String> COST_FIELDS = ['send_gift','open_egg','open_bingo_egg','football_shoot','open_card','send_bell','buy_guard','buy_vip','buy_car','grab_sofa'
-                                                     ,'buy_prettynum','send_fortune','send_treasure','level_up','broadcast','song','nest_send_packet','unbind_mobile',
-                                                     'apply_family','buy_fund', 'label','reward_post','nest_send_gift','car_race', 'buy_watch']
+    private static final List<String> COST_FIELDS = ['send_gift','play_game',]
     static BasicDBObject decrease(Map timebetween){
         Number totalCoin = 0
         Map data = new HashMap();
         COST_FIELDS.each {String field ->
             totalCoin += warpDataFromStatDaily(field, data)
         }
-
-        //水果乐园
-        totalCoin += warpDataFromDaliyReport('kunbo_subtract_coin', data)
-        //德州兑出
-        totalCoin += warpDataFromDaliyReport('texasholdem_subtract_coin', data)
-        //捕鱼兑出
-        totalCoin += warpDataFromDaliyReport('fishing_subtract_coin', data)
-        //牛牛兑出
-        totalCoin += warpDataFromDaliyReport('niuniu_subtract_coin', data)
         def decData = $$('total',totalCoin);
         decData.putAll(data);
         return decData
@@ -550,143 +513,6 @@ class FinanceMonth {
 
     public static BasicDBObject $$(Map map) {
         return new BasicDBObject(map)
-    }
-
-    public static final String ls = System.lineSeparator();
-
-    def static final TreeMap incFieldMap = [
-        //"total": '获得柠檬总计',
-        //"charge_cny": '充值金额',
-        //"charge_coin": '充值柠檬',
-        "mission_coin": '任务奖励',
-        "login_coin": '签到',
-        "treasure_coin": '宝藏',
-        "luck_coin": '幸运礼物',
-        "hand_coin": '后台手动加币',
-        "family_award_price": '家族奖励',
-        "game_total": '游戏(砸蛋/踢球/翻牌)',
-        "kunbo_game_coin": '水果乐园',
-        "app_free_gift_coin":'手机直播免费礼物',
-        "redPacket_coin": '红包',
-        "texasholdem_game_coin": '德州扑克',
-        "fishing_game_coin": '捕鱼',
-        "dianle_share_coin": '积分墙分享',
-        "coin_refund_song": '点歌退回',
-        "exchange_coin": 'VC兑换柠檬',
-        "fortune_coin":'财神'
-    ]
-
-    def static final TreeMap decFieldMap = [
-            //"total": '消费柠檬总计',
-            "texasholdem_subtract_coin": '德州扑克',
-            "song": '点歌',
-            "buy_prettynum": '靓号',
-            "football_shoot": '踢球',
-            "broadcast": '广播',
-            "open_card": '翻牌',
-            "grab_sofa": '沙发',
-            "label": '求爱签',
-            "unbind_mobile": '解绑手机',
-            "open_egg": '砸蛋',
-            "nest_send_packet": '小窝红包',
-            "apply_family": '申请家族',
-            "send_treasure": '宝藏',
-            "send_gift": '送礼',
-            "level_up": '接生',
-            "buy_fund": '一元购',
-            "send_bell": '铃铛',
-            "buy_vip": 'vip购买',
-            "buy_car": '座驾购买',
-            "send_fortune": '财神',
-            "buy_guard": '守护',
-            "reward_post": '点秋香',
-            "kunbo_subtract_coin": '水果乐园'
-    ]
-
-    /**
-     * 导出财务报表
-     */
-    static export() {
-        def folder_path = '/empty/static/'
-        File folder = new File(folder_path)
-        if (!folder.exists()) {
-            folder.mkdirs()
-        }
-        def buf = new StringBuffer()
-        //初始化标题
-        initTitle(buf);
-        finance_monthReport.find().sort($$(date:-1)).toArray().each {DBObject data ->
-            def inc = data['inc'] as Map
-            def dec = data['dec'] as Map
-            buf.append(data['date']).append(',')
-            buf.append(data['begin_surplus']).append(',')
-            buf.append(inc['charge_cny']).append(',')
-            buf.append(inc['charge_coin']).append(',')
-            buf.append(inc['direct_total_cny']).append(',')
-            buf.append(inc['direct_total_coin']).append(',')
-            buf.append(inc['proxy_total_cny']).append(',')
-            buf.append(inc['proxy_total_coin']).append(',')
-            //增加柠檬
-            incFieldMap.keySet().each {String Field ->
-                buf.append(inc[Field]).append(',')
-            }
-            buf.append(inc['total']).append(',')
-
-            //消费柠檬
-            decFieldMap.keySet().each {String Field ->
-                buf.append(dec[Field]).append(',')
-            }
-            buf.append(dec['total']).append(',')
-            buf.append(data['end_surplus']).append(',')
-            //主播VC 相关
-            def star = data['star'] as Map
-            buf.append(star['vc_begin_surplus']).append(',')
-            buf.append(star['star_vail_vc']).append(',')
-            buf.append(star['star_frozen_vc']).append(',')
-            buf.append(star['star_withdrawl']).append(',')
-            buf.append(star['star_exchange']).append(',')
-            buf.append(star['vc_end_surplus'])
-            .append(ls)
-        }
-        //写入文件
-        File file = new File(folder_path + "/finance_${new Date().format("yyyyMMdd")}.csv");
-
-        if (!file.exists()) {
-            file.createNewFile();
-        }
-        file.withWriterAppend { Writer writer ->
-            writer.write(buf.toString())
-            writer.flush()
-            writer.close()
-        }
-    }
-
-    private static initTitle(StringBuffer buf){
-        buf.append('日期').append(',')
-        buf.append('期初结余').append(',')
-        buf.append('充值金额').append(',')
-        buf.append('充值柠檬').append(',')
-        buf.append('直充金额').append(',')
-        buf.append('直充柠檬').append(',')
-        buf.append('代充金额').append(',')
-        buf.append('代充柠檬').append(',')
-        incFieldMap.values().each {
-            buf.append(it).append(',')
-        }
-        buf.append('[增加柠檬总数]').append(',')
-        decFieldMap.values().each {
-            buf.append(it).append(',')
-        }
-        buf.append('[消费柠檬总数]').append(',')
-        buf.append('期末结余').append(',')
-        //主播VC 相关
-        buf.append('VC期初结余').append(',')
-        buf.append('本月新增有效vc').append(',')
-        buf.append('本月新增冻结vc').append(',')
-        buf.append('本月提现vc').append(',')
-        buf.append('本月兑换vc').append(',')
-        buf.append('vc期末结余')
-        .append(ls)
     }
 
     // 0 是上个月
