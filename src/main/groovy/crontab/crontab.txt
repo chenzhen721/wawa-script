@@ -2,27 +2,27 @@
 
 #### git push 后会自动覆盖服务器crontab ###
 
-05,45 * * * * root source /etc/profile && /empty/crontab/RankGift.groovy >> /empty/crontab/log/RankGift.log
+05,45 * * * * root source /etc/profile && /empty/crontab/RankGift.groovy >> /empty/crontab/logs/RankGift.log
 
-*/15 * * * * root source /etc/profile && /empty/crontab/RankStar.groovy >> /empty/crontab/log/RankStar.log
+*/15 * * * * root source /etc/profile && /empty/crontab/RankStar.groovy >> /empty/crontab/logs/RankStar.log
 
-11 * * * * root source /etc/profile && /empty/crontab/RankUser.groovy >> /empty/crontab/log/RankUser.log
+11 * * * * root source /etc/profile && /empty/crontab/RankUser.groovy >> /empty/crontab/logs/RankUser.log
 
 */1 * * * * root source /etc/profile && /empty/crontab/UpdateUserAndLive.groovy >> /empty/crontab/log/star_UpdateUserAndLive.log
 
-44 */1 * * * root source /etc/profile && /empty/crontab/RankUserRoom.groovy >> /empty/crontab/log/RankUserRoom.log
+44 */1 * * * root source /etc/profile && /empty/crontab/RankUserRoom.groovy >> /empty/crontab/log/RankUserRoom.log &
 
-1 1 * * * root source /etc/profile && /empty/crontab/StaticsEveryDay.groovy  >> /empty/crontab/log/star_StaticsEveryDay.log
+1 1 * * * root source /etc/profile && /empty/crontab/StaticsEveryDay.groovy  >> /empty/crontab/logs/star_StaticsEveryDay.log &
 
-7 0 * * * root source /etc/profile && /empty/crontab/LiveStat.groovy  >> /empty/crontab/log/star_LiveStat.log
+7 0 * * * root source /etc/profile && /empty/crontab/LiveStat.groovy  >> /empty/crontab/log/star_LiveStat.log &
 
-17 1 * * * root source /etc/profile && /empty/crontab/BrokerStat.groovy  >> /empty/crontab/log/star_BrokerStat.log
+17 1 * * * root source /etc/profile && /empty/crontab/BrokerStat.groovy  >> /empty/crontab/logs/star_BrokerStat.log &
 
-21 1 * * * root source /etc/profile && /empty/crontab/QdStat.groovy  >> /empty/crontab/log/star_Qd.log
+21 1 * * * root source /etc/profile && /empty/crontab/QdStat.groovy  >> /empty/crontab/logs/star_Qd.log &
 
-01 09 * * * root source /etc/profile && /empty/crontab/TongjiActive.groovy >> /empty/crontab/log/star_Qd.log
+03 08 * * * root source /etc/profile && /empty/crontab/TongjiActive.groovy >> /empty/crontab/logs/TongjiActive.log &
 
-00 06 * * * root source /etc/profile && /empty/crontab/SysEveryDay.groovy >> /empty/crontab/log/SysEveryDay.log
+00 06 * * * root source /etc/profile && /empty/crontab/SysEveryDay.groovy >> /empty/crontab/log/SysEveryDay.log &
 
 ###
 30 04 01 */1 * root source /etc/profile && /empty/crontab/StaticsEveryMonth.groovy >> /empty/crontab/log/StaticsEveryMonth.log
@@ -32,5 +32,7 @@
 
 2 0 * * mon root source /etc/profile && /empty/crontab/RankGiftMonDay.groovy >> /empty/crontab/log/RankGiftMonDay.log
 
+
+01 02 * * * root source /etc/profile && /empty/crontab/FinanceDaily.groovy >> /empty/crontab/logs/FinanceDaily.log &
 
 
