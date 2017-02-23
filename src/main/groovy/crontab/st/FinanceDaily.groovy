@@ -61,36 +61,9 @@ class FinanceDaily {
     def static Set<Integer> stars = new HashSet<>(5000);
 
     //比较每日统计和用户剩余柠檬快照差额 邮件报警
-    static Long EMAIL_THRESHOLD = 3500000
-
-    /**
-     * weixin_pc	1%
-     weixin_h5	1%
-     tenpay_m	1%
-     weixin_m	1%
-     shenzhoufu	2.50%
-     YB_wap	0.05%-0.08%,取0.06%
-     ali_m	0.06%
-     ali_wap	0.06%
-     unionpay	web:0.6% app:0.8%
-     itunes	30%
-     paypal	1.20%
-     tenpay	1%
-     YB	0.05%-0.08%,取0.06%
-     ali_pc	0.02%(网银直联）
-     mi-	32%
-     zhuoyi	50%
-     kx-	35%
-     vpay	54%
-     vpay_SMS	54%
-
-     */
+    static Long EMAIL_THRESHOLD = 3500
     //手续费比例
-    /*def static Map<String, Double> PAY_RATES = ['weixin_pc':0.01, 'weixin_h5':0.01, 'tenpay_m':0.01, 'weixin_m':0.01,'shenzhoufu':0.025, 'YB_wap':0.0006, 'ali_m':0.0006,
-                                                'ali_wap':0.0006, 'unionpay':0.007, 'itunes':0.3, 'paypal':0.12, 'tenpay':0.01, 'YB':0.0006, 'ali_pc':0.0002, 'mi-':0.32,
-                                                'zhuoyi':0.5, 'kx-':0.35, 'vpay':0.54, 'vpay_SMS':0.54]*/
-    //手续费比例
-    def static Map<String, Double> PAY_RATES = ['shenzhoufu_game':0.9, 'itunes':0.7, 'vpay':0.5, 'vpay_SMS':0.5]
+    def static Map<String, Double> PAY_RATES = ['itunes':0.7]
     static{
         //initChargeKeys();
         //initStars();
@@ -196,31 +169,9 @@ class FinanceDaily {
         totalCoin += warpDataFromDaliyReport('login_coin', data)
         //新手任务
         totalCoin += warpDataFromDaliyReport('mission_coin', data)
-        //幸运礼物
-        totalCoin += warpDataFromDaliyReport('luck_coin', data)
-        //VC兑换柠檬
-        totalCoin += warpDataFromDaliyReport('exchange_coin', data)
-        //财神
-        totalCoin += warpDataFromDaliyReport('fortune_coin', data)
-        //宝藏
-        totalCoin += warpDataFromDaliyReport('treasure_coin', data)
-        //红包
-        totalCoin += warpDataFromDaliyReport('redPacket_coin', data)
-        //水果乐园
-        totalCoin += warpDataFromDaliyReport('kunbo_game_coin', data)
-        //点乐 百度积分墙
-        totalCoin += warpDataFromDaliyReport('dianle_share_coin', data)
-        //德州兑入
-        totalCoin += warpDataFromDaliyReport('texasholdem_game_coin', data)
-        //捕鱼兑入
-        totalCoin += warpDataFromDaliyReport('fishing_game_coin', data)
-        //牛牛兑入
-        totalCoin += warpDataFromDaliyReport('niuniu_game_coin', data)
-        //点歌退回柠檬
-        totalCoin += warpDataFromDaliyReport('coin_refund_song', data)
         //活动 抽奖等方式获取柠檬
         totalCoin += warpDataFromDaliyReport('activity_award_coin', data)
-        //游戏获得 砸蛋 翻牌 点球
+        //游戏获得
         totalCoin += gameInfo(timebetween, data)
 
         def incData = $$('total',totalCoin);
@@ -230,27 +181,13 @@ class FinanceDaily {
 
     //礼物 砸蛋 点球	翻牌	铃铛	守护	VIP 座驾	沙发	靓号	财神	宝藏	接生	广播 点歌 家族 一元购 解绑 求爱签 接单
 
-    private static final List<String> COST_FIELDS = ['send_gift','open_egg','open_bingo_egg','football_shoot','open_card','send_bell','buy_guard','buy_vip','buy_car','grab_sofa'
-                                                     ,'buy_prettynum','send_fortune','send_treasure','level_up','broadcast','song','nest_send_packet','unbind_mobile',
-                                                     'apply_family','buy_fund', 'label','reward_post','nest_send_gift','car_race', 'buy_watch']
+    private static final List<String> COST_FIELDS = ['send_gift','play_game']
     static BasicDBObject decrease(Map timebetween){
         Number totalCoin = 0
         Map data = new HashMap();
         COST_FIELDS.each {String field ->
             totalCoin += warpDataFromStatDaily(field, data)
         }
-        Long userCost = warpDataFromStatDaily('user_cost', new HashMap())
-        if(totalCoin != userCost){
-            println ">>>>>>>>>>>>>totalCoin: ${totalCoin}, user cost  : ${userCost}  balance ${totalCoin - userCost}"
-        }
-        //水果乐园
-        totalCoin += warpDataFromDaliyReport('kunbo_subtract_coin', data)
-        //德州兑出
-        totalCoin += warpDataFromDaliyReport('texasholdem_subtract_coin', data)
-        //捕鱼兑出
-        totalCoin += warpDataFromDaliyReport('fishing_subtract_coin', data)
-        //牛牛兑出
-        totalCoin += warpDataFromDaliyReport('niuniu_subtract_coin', data)
         def decData = $$('total',totalCoin);
         decData.putAll(data);
         return decData
