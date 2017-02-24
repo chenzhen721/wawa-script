@@ -38,7 +38,7 @@ class StaticsEveryDay {
         return props.get(key, defaultValue)
     }
 
-    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.246:27017/?w=1') as String))
+    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:10000,192.168.31.236:10000,192.168.31.231:10001/?w=1&slaveok=true') as String))
 
     static final String api_domain = getProperties("api.domain", "http://localhost:8080/")
 
@@ -55,6 +55,10 @@ class StaticsEveryDay {
     static DBCollection users = mongo.getDB('xy').getCollection('users')
     static DBCollection channel_pay_DB = mongo.getDB('xy_admin').getCollection('channel_pay')
     static DBCollection active_award_logs = mongo.getDB('xyactive').getCollection('active_award_logs')
+    static DBCollection games_DB = mongo.getDB('xy_admin').getCollection('games')
+    static DBCollection user_bet_DB = mongo.getDB('game_log').getCollection('user_bet')
+    static DBCollection user_lottery_DB = mongo.getDB('game_log').getCollection('user_lottery')
+    static DBCollection game_round_DB = mongo.getDB('game_log').getCollection('game_round')
 
     static giftStatics() {
 
@@ -73,7 +77,6 @@ class StaticsEveryDay {
             coll.save(obj)
         }
     }
-
 
 
     static loginStatics(int i) {
@@ -253,7 +256,7 @@ class StaticsEveryDay {
         }
         users.aggregate(
                 new BasicDBObject('$match', new BasicDBObject('finance.bean_count': [$gt: 0])),
-                new BasicDBObject('$project', [ bean: '$finance.bean_count']),
+                new BasicDBObject('$project', [bean: '$finance.bean_count']),
                 new BasicDBObject('$group', [_id: null, bean: [$sum: '$bean']])
         ).results().each { BasicDBObject obj ->
             bean = obj.get('bean') as Long
@@ -521,14 +524,13 @@ class StaticsEveryDay {
                 }
                 if ('1'.equals(client)) {
                     pcMap.putAll(['daylogin': daySet.size(), 'day7login': day7Set.size(), 'day30login': day30Set.size()])
-                }else if('4'.equals(client)){
+                } else if ('4'.equals(client)) {
                     iosMap.putAll(['daylogin': daySet.size(), 'day7login': day7Set.size(), 'day30login': day30Set.size()])
-                }else if('5'.equals(client)){
+                } else if ('5'.equals(client)) {
                     h5Map.putAll(['daylogin': daySet.size(), 'day7login': day7Set.size(), 'day30login': day30Set.size()])
-                }else if('6'.equals(client)){
+                } else if ('6'.equals(client)) {
                     riaMap.putAll(['daylogin': daySet.size(), 'day7login': day7Set.size(), 'day30login': day30Set.size()])
-                }
-                else {
+                } else {
                     if (mobileMap.size() <= 0) {
                         mobileMap.putAll(['daylogin': daySet.size(), 'day7login': day7Set.size(), 'day30login': day30Set.size()])
                     } else {
@@ -540,11 +542,10 @@ class StaticsEveryDay {
             }
         }
         totalMap.putAll(['daylogin': totalDaySet.size(), 'day7login': totalDay7Set.size(), 'day30login': totalDay30Set.size()])
-        def info  = new BasicDBObject(type: 'alllogin', login_total: totalMap, pc_login: pcMap, mobile_login: mobileMap,
-                                        ios_login:iosMap,h5_login:h5Map, ria_login:riaMap,timestamp: gteMill);
-        coll.update(new BasicDBObject(_id: YMD + '_alllogin'),info, true, false)
+        def info = new BasicDBObject(type: 'alllogin', login_total: totalMap, pc_login: pcMap, mobile_login: mobileMap,
+                ios_login: iosMap, h5_login: h5Map, ria_login: riaMap, timestamp: gteMill);
+        coll.update(new BasicDBObject(_id: YMD + '_alllogin'), info, true, false)
     }
-
 
     /**
      * 统计每日签到人数和奖励信息（按渠道和版本划分）
@@ -726,16 +727,99 @@ class StaticsEveryDay {
         coll.save(row)
     }
 
+    /**
+     * 统计每个游戏每天有多少人玩过
+     * 统计每个有效游戏的局数
+     * 统计每个游戏每天下注金额
+     * 统计玩家输赢的总金额
+     */
+    static gameStatic() {
+        def timebetween = [$gte: yesTday, $lte: zeroMill]
+        def YMD = new Date(yesTday).format('yyyyMMdd_')
+        def gameList = games_DB.find()
+        def row = new BasicDBObject()
+        def playerTotal = new HashMap()
+        def roundTotal = new HashMap()
+        def betsTotal = new HashMap()
+        def lotteryTotal = new HashMap()
+        gameList.each {
+            it ->
+                def gameId = it._id as Integer
+                // 统计游戏参与人数
+                def query = $$('game_id': gameId, 'timestamp': timebetween)
+                def player_total = user_bet_DB.distinct('user_id', query)
+                def count = player_total.size()
+                playerTotal.put(gameId.toString(), count)
+
+                // 统计有效局数
+                def rounds = game_round_DB.find(query)
+                def participateCount = 0
+                while (rounds.hasNext()) {
+                    def obj = rounds.next()
+                    if (obj.containsField('participate')) {
+                        participateCount += 1
+                    }
+                }
+                roundTotal.put(gameId.toString(),participateCount)
+
+                // 统计每个游戏下注情况
+                def list = user_bet_DB.find(query)
+                def bets_coin_total = 0
+                while (list.hasNext()) {
+                    def obj = list.next()
+                    def cost = obj['cost'] as Integer
+                    bets_coin_total += cost
+                }
+                betsTotal.put(gameId.toString(),bets_coin_total)
+
+                // 统计玩家赢得情况
+                def userLottery = user_lottery_DB.find(query)
+                def win = 0
+                while (userLottery.hasNext()) {
+                    def obj = userLottery.next()
+                    def coin = obj['coin'] as Integer
+                    if (coin >= 0) {
+                        win += coin
+                    }
+                }
+                lotteryTotal.put(gameId.toString(),win)
+        }
+        row.player_total = playerTotal
+        row.round_total = roundTotal
+        row.bet_total = betsTotal
+        row.lottery_total = lotteryTotal
+        row._id = "${YMD}_game".toString()
+        row.timestamp = yesTday
+        row.type = "game"
+        coll.save(row)
+    }
+
     static Integer DAY = 0;
 
     static void main(String[] args) { //待优化，可以到历史表查询记录
         long l = System.currentTimeMillis()
-        //01.送礼日报表
+//        //01.送礼日报表
         long begin = l
+
+        gameStatic()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   gameStatic, cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
+        roundsStatic()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   roundsStatic, cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
+        betCostStatic()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   betCostStatic, cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
+        lotteryStatic()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   lotteryStatic, cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
         giftStatics()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   giftStatics, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
-
 
         //04.充值的日报表
         l = System.currentTimeMillis()
@@ -749,13 +833,11 @@ class StaticsEveryDay {
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   loginStatics, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
-
         //10.房间消费日报表
         l = System.currentTimeMillis()
         costStatics()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   costStatics, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
-
 
         //14.用户充值日报表（充值方式划分）
         l = System.currentTimeMillis()
@@ -807,7 +889,7 @@ class StaticsEveryDay {
      * 标记任务完成  用于运维监控
      * @return
      */
-    private static jobFinish(Long begin){
+    private static jobFinish(Long begin) {
         def timerName = 'StaticsEveryDay'
         Long totalCost = System.currentTimeMillis() - begin
         saveTimerLogs(timerName, totalCost)
@@ -823,6 +905,4 @@ class StaticsEveryDay {
         timerLogsDB.findAndModify(new BasicDBObject('_id', id), null, null, false, new BasicDBObject('$set', update), true, true)
     }
 
-
 }
-
