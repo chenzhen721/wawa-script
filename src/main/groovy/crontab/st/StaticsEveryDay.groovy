@@ -185,9 +185,10 @@ class StaticsEveryDay {
                 type: 'finance',
                 timestamp: yesTday
         )
-
         pays.each { String key, PayType type -> obj.put(StringUtils.isBlank(key) ? '' : key.toLowerCase(), type.toMap()) }
         cats.each { k, v ->
+            println("cats k is ${k}")
+            println("cats v is ${v.doubleValue()}")
             obj.put(k, v.doubleValue())
         }
         coll.save(obj)
