@@ -148,7 +148,7 @@ class StaticsEveryDay {
     }
 
     static financeStatics() {
-        def list = mongo.getDB('xy_admin').getCollection('finance_log').find(new BasicDBObject(timestamp: [$gte: yesTday, $lte: zeroMill]))
+        def list = mongo.getDB('xy_admin').getCollection('finance_log').find(new BasicDBObject(timestamp: [$gte: yesTday, $lt: zeroMill]))
                 .toArray()
 
         def cats = MapWithDefault.newInstance(new HashMap<String, BigDecimal>()) {
