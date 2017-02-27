@@ -735,7 +735,7 @@ class StaticsEveryDay {
      * 统计玩家输赢的总金额
      */
     static gameStatic() {
-        def timebetween = [$gte: yesTday, $lte: zeroMill]
+        def timebetween = [$gte: yesTday, $lt: zeroMill]
         def YMD = new Date(yesTday).format('yyyyMMdd_')
         def gameList = games_DB.find()
         def row = new BasicDBObject()
