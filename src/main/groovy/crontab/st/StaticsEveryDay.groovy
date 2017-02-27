@@ -148,12 +148,12 @@ class StaticsEveryDay {
     }
 
     static financeStatics() {
-        def list = mongo.getDB('xy_admin').getCollection('finance_log').find(new BasicDBObject(timestamp: [$gte: 1487692800000, $lt: 1487692800000 + DAY_MILLON]))
+        def list = mongo.getDB('xy_admin').getCollection('finance_log').find(new BasicDBObject(timestamp: [$gte: yesTday, $lt: zeroMill]))
                 .toArray()
 
-        def cats = MapWithDefault.newInstance(new HashMap<String, BigDecimal>()) {
-            return new BigDecimal(0)
-        }
+//        def cats = MapWithDefault.newInstance(new HashMap<String, BigDecimal>()) {
+//            return new BigDecimal(0)
+//        }
         def total = new BigDecimal(0)
         def totalCoin = new AtomicLong()
 
@@ -161,14 +161,14 @@ class StaticsEveryDay {
 
         list.each { obj ->
             def cny = obj.get('cny') as Double
-            def cat = getCat(obj)
+//            def cat = getCat(obj)
             def payType = pays[obj.via]
             payType.count.incrementAndGet()
             payType.user.add(obj.user_id)
             if (cny != null) {
                 cny = new BigDecimal(cny)
                 total = total.add(cny)
-                cats[cat] = cats[cat].add(cny)
+//                cats[cat] = cats[cat].add(cny)
                 payType.cny = payType.cny.add(cny)
             }
             def coin = obj.get('coin') as Long
@@ -186,11 +186,9 @@ class StaticsEveryDay {
                 timestamp: yesTday
         )
         pays.each { String key, PayType type -> obj.put(StringUtils.isBlank(key) ? '' : key.toLowerCase(), type.toMap()) }
-        cats.each { k, v ->
-            println("cats k is ${k}")
-            println("cats v is ${v.doubleValue()}")
-            obj.put(k, v.doubleValue())
-        }
+//        cats.each { k, v ->
+//            obj.put(k, v.doubleValue())
+//        }
         coll.save(obj)
 
     }
