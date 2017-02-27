@@ -80,6 +80,7 @@ class StaticsEveryDay {
 
 
     static loginStatics(int i) {
+        // yesTday 昨天凌晨 - 1天 = 前天凌晨
         def begin = yesTday - i * DAY_MILLON
         def end = begin + DAY_MILLON
         def YMD = new Date(begin).format('yyyyMMdd')
@@ -801,20 +802,9 @@ class StaticsEveryDay {
 //        //01.送礼日报表
         long begin = l
 
+        // 游戏统计
         gameStatic()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   gameStatic, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-        roundsStatic()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   roundsStatic, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-        betCostStatic()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   betCostStatic, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-        lotteryStatic()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   lotteryStatic, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         giftStatics()
