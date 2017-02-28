@@ -119,7 +119,6 @@ class FinanceDaily {
                 dec_total:dec_total, //总消费柠檬
                 hand_cut_coin:hand_cut_coin,//运营后台扣币
                 charge_cny:charge_cny, //用户端充值金额
-
                 charge_coin:charge_coin, //充值新增柠檬
                 inc_coin:inc_coin, //非充值新增柠檬
                 begin_surplus : begin_surplus,
@@ -179,8 +178,6 @@ class FinanceDaily {
         COST_FIELDS.each {String field ->
             totalCoin += warpDataFromStatDaily(field, data)
         }
-
-        // todo 要测试 增加了游戏统计的逻辑
         def gameList = games_DB.find()
         gameList.each {
             def field = it.name as String
@@ -377,4 +374,3 @@ class FinanceDaily {
     }
 
 }
-

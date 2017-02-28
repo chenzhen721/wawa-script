@@ -76,12 +76,13 @@ class FinanceMonth {
         String year = new Date(firstDayOfLastMonth).format("yyyy")
 
 
+//        def timebetween = [timestamp: [$gte: 1485878400000, $lt: 1488211200000]]
         def timebetween = [timestamp: [$gte: firstDayOfLastMonth, $lt: firstDayOfCurrentMonth]]
 
         //初始化工作
         getDailyReportList(timebetween)
         getStatDaily(timebetween)
-
+        println("statDailyList is ${statDailyList},timebetween is ${timebetween}")
         //增加柠檬
         def inc = increase(timebetween)
 
@@ -546,4 +547,3 @@ class FinanceMonth {
     }
 
 }
-

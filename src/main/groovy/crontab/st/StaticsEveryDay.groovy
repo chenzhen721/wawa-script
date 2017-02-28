@@ -301,13 +301,11 @@ class StaticsEveryDay {
         }
 
         // todo 测试 加入游戏下注的逻辑
-        println("开始统计每天用户在游戏里下注的信息")
         def gameList = games_DB.find()
         gameList.each {
-            println("foreach gamelist current obj is ${it}")
             def game_type = it.name
             def game_cost = 0L
-            def query = $$('timestamp': [$gte: yesTday, $lt: zeroMill])
+            def query = $$('timestamp': [$gte: yesTday, $lt: zeroMill], 'game_id': it._id as Integer)
             def field = $$('cost': 1, 'user_id': 1)
             def list = user_bet_DB.find(query, field).toArray()
             def game_user = new HashSet()
@@ -324,6 +322,7 @@ class StaticsEveryDay {
         // 对游戏和送礼加起来统计
 
         result.put('user_cost', [cost: costs, user: users.size()])
+
         return result
     }
 
