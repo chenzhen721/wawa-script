@@ -64,9 +64,6 @@ class CreateIndex {
         def round_room_live_timestamp_index = $$('round_id': 1, 'room_id': 1, 'live_id': 1, 'timestamp': -1)
         rounds.createIndex(round_room_live_timestamp_index, 'round_room_live_timestamp_')
 
-        /** 唯一索引 **/
-        def unique_roundId = $$('round_id': 1)
-        rounds.createIndex(unique_roundId, '_round_id_', true)
     }
 
     /**
