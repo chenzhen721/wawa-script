@@ -792,17 +792,6 @@ class StaticsEveryDay {
                 def count = player_total.size()
                 playerTotal.put(gameId.toString(), count)
 
-                // 统计有效局数
-                def rounds = game_round_DB.find(query)
-                def participateCount = 0
-                while (rounds.hasNext()) {
-                    def obj = rounds.next()
-                    if (obj.containsField('participate')) {
-                        participateCount += 1
-                    }
-                }
-                roundTotal.put(gameId.toString(), participateCount)
-
                 // 统计每个游戏下注情况
                 def list = user_bet_DB.find(query)
                 def bets_coin_total = 0
@@ -824,6 +813,17 @@ class StaticsEveryDay {
                     }
                 }
                 lotteryTotal.put(gameId.toString(), win)
+
+                // 统计有效局数
+                def rounds = game_round_DB.find(query)
+                def total_player = 0
+                while (rounds.hasNext()) {
+                    def obj = rounds.next()
+                    if (obj.containsField('total_player')) {
+                        total_player += obj['total_player'] as Integer
+                    }
+                }
+                roundTotal.put(gameId.toString(), total_player)
         }
         row.player_total = playerTotal
         row.round_total = roundTotal
