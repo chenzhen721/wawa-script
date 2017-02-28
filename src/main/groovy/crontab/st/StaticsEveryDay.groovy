@@ -245,7 +245,6 @@ class StaticsEveryDay {
         }
     }
 
-
     static userRemainByAggregate() {
         def coin = 0
         def bean = 0
@@ -280,8 +279,12 @@ class StaticsEveryDay {
         coll.save(new BasicDBObject(cost))
     }
 
+    /**
+     * 日虚拟币消耗
+     * @return
+     */
     static dayCost() {
-        def q = new BasicDBObject(timestamp: [$gte: yesTday, $lt: zeroMill])
+        def q = new BasicDBObject('type': 'send_gift', 'timestamp': [$gte: yesTday, $lt: zeroMill])
         def result = [:], costs = 0L, users = new HashSet()
         room_cost_DB.aggregate(
                 new BasicDBObject('$match', q),
@@ -296,6 +299,30 @@ class StaticsEveryDay {
             users.addAll(user)
             result.put(type, [cost: cost, user: user.size()])
         }
+
+        // todo 测试 加入游戏下注的逻辑
+        println("开始统计每天用户在游戏里下注的信息")
+        def gameList = games_DB.find()
+        gameList.each {
+            println("foreach gamelist current obj is ${it}")
+            def game_type = it.name
+            def game_cost = 0L
+            def query = $$('timestamp': [$gte: yesTday, $lt: zeroMill])
+            def field = $$('cost': 1, 'user_id': 1)
+            def list = user_bet_DB.find(query, field).toArray()
+            def game_user = new HashSet()
+            list.each {
+                BasicDBObject obj ->
+                    game_cost += obj['cost'] as Long
+                    users.add(obj['user_id'] as Integer)
+                    game_user.add(obj['user_id'] as Integer)
+            }
+            costs += game_cost
+            result.put(game_type, [cost: game_cost, user: game_user.size()])
+        }
+
+        // 对游戏和送礼加起来统计
+
         result.put('user_cost', [cost: costs, user: users.size()])
         return result
     }

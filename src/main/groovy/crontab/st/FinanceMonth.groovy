@@ -37,7 +37,7 @@ class FinanceMonth {
         return props.get(key, defaultValue)
     }
 
-    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.246:27017/?w=1') as String))
+    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:10000,192.168.31.236:10000,192.168.31.231:10001/?w=1&slaveok=true') as String))
 
     static historyMongo = new Mongo(new MongoURI(getProperties('mongo_history.uri', 'mongodb://192.168.31.246:27017/?w=1') as String))
 
@@ -52,6 +52,7 @@ class FinanceMonth {
     static DBCollection stat_lives = mongo.getDB('xy_admin').getCollection('stat_lives')
     static DBCollection withdrawl_log = mongo.getDB('xy_admin').getCollection('withdrawl_log')
     static DBCollection exchange_log = mongo.getDB('xylog').getCollection('exchange_log')
+    static DBCollection games_DB = mongo.getDB('xy_admin').getCollection('games')
 
 
     def static List<DBObject> dailyReportList = null;
@@ -161,7 +162,7 @@ class FinanceMonth {
         //新手任务
         totalCoin += warpDataFromDaliyReport('mission_coin', data)
         //游戏获得 砸蛋 翻牌 点球
-        totalCoin += gameInfo(timebetween, data)
+        totalCoin += warpDataFromDaliyReport('game_coin', data)
         //TODO 第一名家族礼物发放价值
         //totalCoin += familyAwardCoin(timebetween, data)
 
@@ -172,13 +173,21 @@ class FinanceMonth {
 
     //礼物 玩游戏
 
-    private static final List<String> COST_FIELDS = ['send_gift','play_game',]
+    private static final List<String> COST_FIELDS = ['send_gift']
     static BasicDBObject decrease(Map timebetween){
         Number totalCoin = 0
         Map data = new HashMap();
         COST_FIELDS.each {String field ->
             totalCoin += warpDataFromStatDaily(field, data)
         }
+
+        // todo 要测试 增加了游戏统计的逻辑
+        def gameList = games_DB.find()
+        gameList.each {
+            def field = it.name as String
+            totalCoin += warpDataFromStatDaily(field, data)
+        }
+
         def decData = $$('total',totalCoin);
         decData.putAll(data);
         return decData

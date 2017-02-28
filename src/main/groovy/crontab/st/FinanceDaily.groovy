@@ -1,21 +1,13 @@
 #!/usr/bin/env groovy
 package crontab.st
 
-import com.mongodb.BasicDBObject
-import com.mongodb.DB
-import com.mongodb.DBCollection
-import com.mongodb.DBCursor
+import com.mongodb.*
 @Grapes([
         @Grab('org.mongodb:mongo-java-driver:2.14.2'),
         @Grab('commons-lang:commons-lang:2.6'),
         @Grab('redis.clients:jedis:2.1.0'),
 ])
 import com.mongodb.Mongo
-import com.mongodb.MongoURI
-import org.apache.commons.lang.StringUtils
-
-import java.text.SimpleDateFormat
-import com.mongodb.DBObject
 
 /**
  * 每日充值消费报表（财务-真实柠檬币比例）
@@ -37,12 +29,12 @@ class FinanceDaily {
         return props.get(key, defaultValue)
     }
 
-    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.246:27017/?w=1') as String))
+    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:10000,192.168.31.236:10000,192.168.31.231:10001/?w=1&slaveok=true') as String))
 
     static historyMongo = new Mongo(new MongoURI(getProperties('mongo_history.uri', 'mongodb://192.168.31.246:27017/?w=1') as String))
 
     static DB historyDB = historyMongo.getDB('xylog_history')
-    static DBCollection coll = mongo.getDB('xy_admin').getCollection('stat_month')
+//    static DBCollection coll = mongo.getDB('xy_admin').getCollection('stat_month')
     static DBCollection finance_dailyReport = mongo.getDB('xy_admin').getCollection('finance_dailyReport')
     static DBCollection finance_daily_log = mongo.getDB('xy_admin').getCollection('finance_daily_log')
     static DBCollection channel_pay = mongo.getDB('xy_admin').getCollection('channel_pay')
@@ -50,6 +42,8 @@ class FinanceDaily {
     static DBCollection applys = mongo.getDB('xy_admin').getCollection('applys')
     static DBCollection family_award_log = mongo.getDB('xy_family').getCollection('award_log')
     static DBCollection finance_log  = mongo.getDB('xy_admin').getCollection('finance_log')
+    static DBCollection games_DB = mongo.getDB('xy_admin').getCollection('games')
+
     static DAY_MILLON = 24 * 3600 * 1000L
     static long zeroMill = new Date().clearTime().getTime()
     static Long yesTday = zeroMill - DAY_MILLON
@@ -101,7 +95,7 @@ class FinanceDaily {
         //总新增柠檬= 充值新增柠檬 + 非充值新增柠檬- 运营后台减币
         def inc_total = charge_coin + inc_coin  - hand_cut_coin
 
-        //总消费柠檬
+        //总消费柠檬 todo 这里要加上游戏下注的coin
         def dec = decrease(timebetween)
         def dec_total = dec['total'] as Number
 
@@ -170,22 +164,29 @@ class FinanceDaily {
         //新手任务
         totalCoin += warpDataFromDaliyReport('mission_coin', data)
         //游戏获得
-        totalCoin += gameInfo(timebetween, data)
+        totalCoin += warpDataFromDaliyReport('game_coin', data)
 
         def incData = $$('total',totalCoin);
         incData.putAll(data);
         return incData
     }
 
-    //礼物 砸蛋 点球	翻牌	铃铛	守护	VIP 座驾	沙发	靓号	财神	宝藏	接生	广播 点歌 家族 一元购 解绑 求爱签 接单
-
-    private static final List<String> COST_FIELDS = ['send_gift','play_game']
+    //礼物 + 游戏下注
+    private static final List<String> COST_FIELDS = ['send_gift']
     static BasicDBObject decrease(Map timebetween){
         Number totalCoin = 0
         Map data = new HashMap();
         COST_FIELDS.each {String field ->
             totalCoin += warpDataFromStatDaily(field, data)
         }
+
+        // todo 要测试 增加了游戏统计的逻辑
+        def gameList = games_DB.find()
+        gameList.each {
+            def field = it.name as String
+            totalCoin += warpDataFromStatDaily(field, data)
+        }
+
         def decData = $$('total',totalCoin);
         decData.putAll(data);
         return decData
@@ -279,6 +280,10 @@ class FinanceDaily {
         }
     }
 
+    @Deprecated
+    /**
+     * 爱玩直播没有这个统计
+     */
     static Long gameInfo(Map timebetween, Map data){
         Long game_total = 0;
         def game = new HashMap();
