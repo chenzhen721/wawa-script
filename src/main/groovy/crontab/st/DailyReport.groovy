@@ -33,12 +33,13 @@ class DailyReport {
         return props.get(key, defaultValue)
     }
 
-    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.249:27017/?w=1') as String))
+    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:10000,192.168.31.236:10000,192.168.31.231:10001/?w=1&slaveok=true') as String))
     static DAY_MILLON = 24 * 3600 * 1000L
     static long zeroMill = new Date().clearTime().getTime()
     static Long yesTday = zeroMill - DAY_MILLON
     static String myId = "finance_" + new Date(yesTday).format("yyyyMMdd")
     static financeTmpDB = mongo.getDB('xy_admin').getCollection('finance_dailyReport')
+    static bet_log = mongo.getDB('game_log').getCollection('user_bet')
 
     static {
         def curr_date = new Date(yesTday - day * DAY_MILLON)//
@@ -106,8 +107,25 @@ class DailyReport {
         def rq = new BasicDBObject(timestamp: timeBetween, type: [$nin: ['label', "song"]])
         def coinList = mongo.getDB('xylog').getCollection("room_cost").find(rq, new BasicDBObject(cost: 1)).toArray()
         def coin_spend_day = coinList.sum { it.cost ?: 0 } as Long
+        // 日消耗要加游戏统计的
+        def query = $$('timestamp': timeBetween)
+        def field = $$('cost': 1)
+        def list = bet_log.find(query, field).toArray()
+        def game_spend_coin = list.sum { it.cost ?: 0 } as Long
+        println("game_spend_coin is ${game_spend_coin}")
+        coin_spend_day += game_spend_coin
         println "coin_spend_day:---->:${coin_spend_day}"
         financeTmpDB.update(new BasicDBObject(_id: myId), new BasicDBObject('$set', new BasicDBObject(coin_spend_room: coin_spend_day)))
+    }
+
+    //02.游戏减币
+    static staticsBetCoin() {
+        def query = $$('timestamp': timeBetween)
+        def field = $$('cost': 1)
+        def list = bet_log.find(query, field).toArray()
+        def game_spend_coin = list.sum { it.cost ?: 0 } as Long
+        println "game_spend_coin:---->:${game_spend_coin}"
+        financeTmpDB.update($$(_id: myId), $$('$set', $$(game_spend_coin: game_spend_coin)))
     }
 
     //03.在途阳光
@@ -220,57 +238,6 @@ class DailyReport {
     //07.签到加币
     static staticsLoginCoin() {
         def timeBetween = getTimeBetween()
-/*      TODO 老版本签到 已暂停
-        def awards_login = mongo.getDB('xylog').getCollection('awards_login')
-        def qAwardLogin1 = new BasicDBObject(type:1,timestamp:timeBetween)
-        def awardLoginList1 = awards_login.
-                find(qAwardLogin1,new BasicDBObject(_id:1))
-                .toArray()
-        def loginCoin1 =  8L * (awardLoginList1.size())
-        Thread.sleep(1000L)
-
-        def qAwardLogin2 = new BasicDBObject(type:2,timestamp:timeBetween)
-        def awardLoginList2 = awards_login.
-                find(qAwardLogin2,new BasicDBObject(_id:1))
-                .toArray()
-        def loginCoin2 =  20L * (awardLoginList2.size())
-        Thread.sleep(1000L)
-
-        def qAwardLogin3 = new BasicDBObject(type:3,timestamp:timeBetween)
-        def awardLoginList3 = awards_login.
-                find(qAwardLogin3,new BasicDBObject(_id:1))
-                .toArray()
-        def loginCoin3 =  50L * (awardLoginList3.size())
-        Thread.sleep(1000L)
-
-        def qAwardLogin4 = new BasicDBObject(type:4,timestamp:timeBetween)
-        def awardLoginList4 = awards_login.
-                find(qAwardLogin4,new BasicDBObject(_id:1))
-                .toArray()
-        def loginCoin4 =  100L * (awardLoginList4.size())
-        Thread.sleep(1000L)
-
-
-        def qSign = new BasicDBObject(award:true,timestamp:timeBetween)
-        def day_login = mongo.getDB('xylog').getCollection('day_login')
-        def signList = day_login.
-                find(qSign,new BasicDBObject(_id:1))
-                .toArray()
-
-        def signCoin =  4L * (signList.size())
-        Thread.sleep(1000L)
-
-        Long login_coin =  signCoin + loginCoin1 + loginCoin2 + loginCoin3 + loginCoin4
-        println "login_coin:---->:${login_coin}"
-        financeTmpDB.update(new BasicDBObject(_id:myId),new BasicDBObject('$set',new BasicDBObject(login_coin:login_coin)))
-
-
-         def query = new BasicDBObject(timestamp:getTimeBetween(), "award_name": "coin_4", "active_name":'sign_chest')
-        def lottery_log = mongo.getDB('xylog').getCollection('lottery_logs')
-        Long login_coin = lottery_log.count(query)  * 4l
-        println "login_coin:---->:${login_coin}"
-        financeTmpDB.update(new BasicDBObject(_id:myId),new BasicDBObject('$set',new BasicDBObject(login_coin:login_coin)))
-        */
         def sign_log = mongo.getDB('xylog').getCollection('sign_logs')
         def query = $$('timestamp': timeBetween)
         def list = sign_log.find(query).toArray()
@@ -302,8 +269,8 @@ class DailyReport {
         def query = $$('timestamp': timeBetween, 'coin': ['$gt': 0])
         def field = $$('coin': 1)
         def lottery_log = mongo.getDB('game_log').getCollection('user_lottery')
-        def list = lottery_log.find(query,field).toArray()
-        def game_coin = list.sum{it.coin?:0} as Long
+        def list = lottery_log.find(query, field).toArray()
+        def game_coin = list.sum { it.coin ?: 0 } as Long
         println "game_coin:---->:${game_coin}"
 
         financeTmpDB.update($$(_id: myId), $$('$set', $$(game_coin: game_coin)))
@@ -516,6 +483,12 @@ class DailyReport {
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},staticsRoomSpendCoin cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
+        //02. 游戏下注消耗
+        l = System.currentTimeMillis()
+        staticsBetCoin()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},staticsBetCoin cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
         //03.在途阳光
         l = System.currentTimeMillis()
         staticsTransitCoin()
@@ -567,10 +540,10 @@ class DailyReport {
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},staticsMissionCoin cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
-
+        //09.游戏加币
         l = System.currentTimeMillis()
         staticsGameCoin()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},staticsMissionCoin cost  ${System.currentTimeMillis() - l} ms"
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},staticsGameCoin cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         //16.活动中奖--获得币
@@ -672,5 +645,3 @@ class DailyReport {
     }
 
 }
-
-
