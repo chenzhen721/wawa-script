@@ -59,13 +59,11 @@ class CreateIndex {
      */
     private static void buildGameRoundsIndex() {
         DBCollection rounds = mongo.getDB('game_log').getCollection('game_round')
+
         /** 组合索引 **/
         def round_room_live_timestamp_index = $$('round_id': 1, 'room_id': 1, 'live_id': 1, 'timestamp': -1)
         rounds.createIndex(round_room_live_timestamp_index, 'round_room_live_timestamp_')
 
-        /** 唯一索引 **/
-        def unique_roundId = $$('round_id': 1)
-        rounds.createIndex(unique_roundId, '_round_id_', true)
     }
 
     /**
@@ -78,9 +76,6 @@ class CreateIndex {
         def user_round_room_live_timestamp_index = $$('user_id': 1, 'round_id': 1, 'room_id': 1, 'live_id': 1, 'timestamp': -1)
         user_bet.createIndex(user_round_room_live_timestamp_index, 'user_round_room_live_timestamp_')
 
-        /** 唯一索引 **/
-        def unique_roundId = $$('round_id': 1)
-        user_bet.createIndex(unique_roundId, '_round_id_', true)
     }
 
     /**
@@ -92,10 +87,6 @@ class CreateIndex {
 
         def user_round_room_live_timestamp_index = $$('user_id': 1, 'round_id': 1, 'room_id': 1, 'live_id': 1, 'timestamp': -1)
         user_lottery.createIndex(user_round_room_live_timestamp_index, 'user_round_room_live_timestamp_')
-
-        /** 唯一索引 **/
-        def unique_roundId = $$('round_id': 1)
-        user_lottery.createIndex(unique_roundId, '_round_id_', true)
 
     }
 

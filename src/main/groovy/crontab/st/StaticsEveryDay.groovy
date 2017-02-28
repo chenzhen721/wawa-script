@@ -59,6 +59,7 @@ class StaticsEveryDay {
     static DBCollection user_bet_DB = mongo.getDB('game_log').getCollection('user_bet')
     static DBCollection user_lottery_DB = mongo.getDB('game_log').getCollection('user_lottery')
     static DBCollection game_round_DB = mongo.getDB('game_log').getCollection('game_round')
+    static String DEFAULT_QD = 'aiwan_default'
 
     static giftStatics() {
 
@@ -80,6 +81,7 @@ class StaticsEveryDay {
 
 
     static loginStatics(int i) {
+        // yesTday 昨天凌晨 - 1天 = 前天凌晨
         def begin = yesTday - i * DAY_MILLON
         def end = begin + DAY_MILLON
         def YMD = new Date(begin).format('yyyyMMdd')
@@ -147,12 +149,12 @@ class StaticsEveryDay {
     }
 
     static financeStatics() {
-        def list = mongo.getDB('xy_admin').getCollection('finance_log').find(new BasicDBObject(timestamp: [$gte: yesTday, $lte: zeroMill]))
+        def list = mongo.getDB('xy_admin').getCollection('finance_log').find(new BasicDBObject(timestamp: [$gte: yesTday, $lt: zeroMill]))
                 .toArray()
 
-        def cats = MapWithDefault.newInstance(new HashMap<String, BigDecimal>()) {
-            return new BigDecimal(0)
-        }
+//        def cats = MapWithDefault.newInstance(new HashMap<String, BigDecimal>()) {
+//            return new BigDecimal(0)
+//        }
         def total = new BigDecimal(0)
         def totalCoin = new AtomicLong()
 
@@ -160,14 +162,14 @@ class StaticsEveryDay {
 
         list.each { obj ->
             def cny = obj.get('cny') as Double
-            def cat = getCat(obj)
+//            def cat = getCat(obj)
             def payType = pays[obj.via]
             payType.count.incrementAndGet()
             payType.user.add(obj.user_id)
             if (cny != null) {
                 cny = new BigDecimal(cny)
                 total = total.add(cny)
-                cats[cat] = cats[cat].add(cny)
+//                cats[cat] = cats[cat].add(cny)
                 payType.cny = payType.cny.add(cny)
             }
             def coin = obj.get('coin') as Long
@@ -184,11 +186,10 @@ class StaticsEveryDay {
                 type: 'finance',
                 timestamp: yesTday
         )
-
         pays.each { String key, PayType type -> obj.put(StringUtils.isBlank(key) ? '' : key.toLowerCase(), type.toMap()) }
-        cats.each { k, v ->
-            obj.put(k, v.doubleValue())
-        }
+//        cats.each { k, v ->
+//            obj.put(k, v.doubleValue())
+//        }
         coll.save(obj)
 
     }
@@ -197,6 +198,7 @@ class StaticsEveryDay {
     static String getCat(Map obj) {
         String via = obj.get('via')
         String shop
+        println("vai is ${via}")
         if ('Admin'.equals(via)) {
             return "1"
         } else if ('ali_pc'.equals(via)) {
@@ -243,7 +245,6 @@ class StaticsEveryDay {
         }
     }
 
-
     static userRemainByAggregate() {
         def coin = 0
         def bean = 0
@@ -278,8 +279,12 @@ class StaticsEveryDay {
         coll.save(new BasicDBObject(cost))
     }
 
+    /**
+     * 日虚拟币消耗
+     * @return
+     */
     static dayCost() {
-        def q = new BasicDBObject(timestamp: [$gte: yesTday, $lt: zeroMill])
+        def q = new BasicDBObject('type': 'send_gift', 'timestamp': [$gte: yesTday, $lt: zeroMill])
         def result = [:], costs = 0L, users = new HashSet()
         room_cost_DB.aggregate(
                 new BasicDBObject('$match', q),
@@ -294,7 +299,30 @@ class StaticsEveryDay {
             users.addAll(user)
             result.put(type, [cost: cost, user: user.size()])
         }
+
+        // todo 测试 加入游戏下注的逻辑
+        def gameList = games_DB.find()
+        gameList.each {
+            def game_type = it.name
+            def game_cost = 0L
+            def query = $$('timestamp': [$gte: yesTday, $lt: zeroMill], 'game_id': it._id as Integer)
+            def field = $$('cost': 1, 'user_id': 1)
+            def list = user_bet_DB.find(query, field).toArray()
+            def game_user = new HashSet()
+            list.each {
+                BasicDBObject obj ->
+                    game_cost += obj['cost'] as Long
+                    users.add(obj['user_id'] as Integer)
+                    game_user.add(obj['user_id'] as Integer)
+            }
+            costs += game_cost
+            result.put(game_type, [cost: game_cost, user: game_user.size()])
+        }
+
+        // 对游戏和送礼加起来统计
+
         result.put('user_cost', [cost: costs, user: users.size()])
+
         return result
     }
 
@@ -549,42 +577,81 @@ class StaticsEveryDay {
 
     /**
      * 统计每日签到人数和奖励信息（按渠道和版本划分）
+     * todo 爱玩只有签到日志 没有抽奖目前
      * @param i
      */
+//    static staticSign(int i) {
+//        long l = System.currentTimeMillis()
+//        def gteMill = yesTday - i * DAY_MILLON
+//        def date = new Date(gteMill)//
+//        def coll = mongo.getDB('xy_admin').getCollection('stat_sign')
+//        def day_login = mongo.getDB('xylog').getCollection('day_login')
+//        def lotterylog = mongo.getDB('xylog').getCollection('lottery_logs')
+//        def users = mongo.getDB('xy').getCollection('users')
+//        //查询签到抽奖情况
+//        def award_map = new HashMap()
+//        lotterylog.find(new BasicDBObject(active_name: 'sign_chest', timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON]))
+//                .toArray().each { BasicDBObject obj ->
+//            award_map.put(obj.get('user_id') as Integer, obj.get('award_name'))
+//        }
+//        def map = new HashMap<String, SignType>()
+//        day_login.find(new BasicDBObject($or: [[sign: true, sign_time: [$gte: gteMill, $lt: gteMill + DAY_MILLON]], [award: true, award_time: [$gte: gteMill, $lt: gteMill + DAY_MILLON]]]))
+//                .toArray().each { BasicDBObject obj ->
+//            def userId = obj.get('user_id') as Integer
+//            def user = users.findOne(new BasicDBObject(_id: userId), new BasicDBObject(app_ver: 1, qd: 1))
+//            def version = (user?.get('app_ver') ?: '0.0.0') as String
+//            def qd = (user?.get('qd') ?: 'MM') as String//default official
+//            def awardName = award_map.get(userId) as String
+//            def _id = "${qd}_${version}".toString()
+//            SignType signType = map.get(_id)
+//            if (signType == null) {
+//                signType = new SignType(qd, version)
+//                map.put(_id, signType)
+//            }
+//            signType.add(userId, awardName)
+//        }
+//        map.each { String k, SignType signType ->
+//            coll.update(new BasicDBObject(_id: "${date.format('yyyyMMdd')}_${k}".toString()),
+//                    new BasicDBObject(signType.toMap()).append('timestamp', gteMill), true, false)
+//        }
+//    }
+
+    /**
+     * 爱玩签到
+     * @param i
+     * @return
+     */
     static staticSign(int i) {
-        long l = System.currentTimeMillis()
         def gteMill = yesTday - i * DAY_MILLON
-        def date = new Date(gteMill)//
+        def date = new Date(gteMill).format('yyyyMMdd')
         def coll = mongo.getDB('xy_admin').getCollection('stat_sign')
-        def day_login = mongo.getDB('xylog').getCollection('day_login')
-        def lotterylog = mongo.getDB('xylog').getCollection('lottery_logs')
-        def users = mongo.getDB('xy').getCollection('users')
-        //查询签到抽奖情况
-        def award_map = new HashMap()
-        lotterylog.find(new BasicDBObject(active_name: 'sign_chest', timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON]))
-                .toArray().each { BasicDBObject obj ->
-            award_map.put(obj.get('user_id') as Integer, obj.get('award_name'))
+        def sign_log = mongo.getDB('xylog').getCollection('sign_logs')
+        Map default_qd = ['_id': date + '_' + DEFAULT_QD, 'qd': DEFAULT_QD, 'timestamp': gteMill, 'coin': 0, 'user_count': 0]
+        sign_log.aggregate(
+                $$('$match': $$('timestamp': [$gte: gteMill, $lt: gteMill + DAY_MILLON])),
+                $$('$project': $$('coin': '$coin', qd: '$qd', 'user_id': '$user_id')),
+                $$('$group': $$('_id': '$qd', 'coin': $$('$sum': '$coin'), 'users': $$('$addToSet': '$user_id')))
+        ).results().each {
+            BasicDBObject obj ->
+                def users = obj['users'] as List
+                def user_count = users.size()
+                def qd = obj['qd']
+                def coin = obj['coin']
+                // 把qd是空或者默认渠道的数据归并一起统计
+                if (qd == null || qd == DEFAULT_QD) {
+                    def tmp_user_count = default_qd['user_count'] as Integer
+                    def tmp_coin = default_qd['coin'] as Integer
+                    default_qd.put('user_count', user_count + tmp_user_count)
+                    default_qd.put('coin', coin + tmp_coin)
+                    return
+                }
+                def id = date + '_' + qd
+                def row = $$('_id': id, 'qd': qd, 'coin': coin, 'user_count': user_count, 'timestamp': gteMill)
+                println("row is ${row}")
+                coll.save(row)
         }
-        def map = new HashMap<String, SignType>()
-        day_login.find(new BasicDBObject($or: [[sign: true, sign_time: [$gte: gteMill, $lt: gteMill + DAY_MILLON]], [award: true, award_time: [$gte: gteMill, $lt: gteMill + DAY_MILLON]]]))
-                .toArray().each { BasicDBObject obj ->
-            def userId = obj.get('user_id') as Integer
-            def user = users.findOne(new BasicDBObject(_id: userId), new BasicDBObject(app_ver: 1, qd: 1))
-            def version = (user?.get('app_ver') ?: '0.0.0') as String
-            def qd = (user?.get('qd') ?: 'MM') as String//default official
-            def awardName = award_map.get(userId) as String
-            def _id = "${qd}_${version}".toString()
-            SignType signType = map.get(_id)
-            if (signType == null) {
-                signType = new SignType(qd, version)
-                map.put(_id, signType)
-            }
-            signType.add(userId, awardName)
-        }
-        map.each { String k, SignType signType ->
-            coll.update(new BasicDBObject(_id: "${date.format('yyyyMMdd')}_${k}".toString()),
-                    new BasicDBObject(signType.toMap()).append('timestamp', gteMill), true, false)
-        }
+
+        coll.save($$(default_qd))
     }
 
     static class SignType {
@@ -734,7 +801,7 @@ class StaticsEveryDay {
      * 统计玩家输赢的总金额
      */
     static gameStatic() {
-        def timebetween = [$gte: yesTday, $lte: zeroMill]
+        def timebetween = [$gte: yesTday, $lt: zeroMill]
         def YMD = new Date(yesTday).format('yyyyMMdd_')
         def gameList = games_DB.find()
         def row = new BasicDBObject()
@@ -751,17 +818,6 @@ class StaticsEveryDay {
                 def count = player_total.size()
                 playerTotal.put(gameId.toString(), count)
 
-                // 统计有效局数
-                def rounds = game_round_DB.find(query)
-                def participateCount = 0
-                while (rounds.hasNext()) {
-                    def obj = rounds.next()
-                    if (obj.containsField('participate')) {
-                        participateCount += 1
-                    }
-                }
-                roundTotal.put(gameId.toString(),participateCount)
-
                 // 统计每个游戏下注情况
                 def list = user_bet_DB.find(query)
                 def bets_coin_total = 0
@@ -770,7 +826,7 @@ class StaticsEveryDay {
                     def cost = obj['cost'] as Integer
                     bets_coin_total += cost
                 }
-                betsTotal.put(gameId.toString(),bets_coin_total)
+                betsTotal.put(gameId.toString(), bets_coin_total)
 
                 // 统计玩家赢得情况
                 def userLottery = user_lottery_DB.find(query)
@@ -782,7 +838,18 @@ class StaticsEveryDay {
                         win += coin
                     }
                 }
-                lotteryTotal.put(gameId.toString(),win)
+                lotteryTotal.put(gameId.toString(), win)
+
+                // 统计有效局数
+                def rounds = game_round_DB.find(query)
+                def total_player = 0
+                while (rounds.hasNext()) {
+                    def obj = rounds.next()
+                    if (obj.containsField('total_player')) {
+                        total_player += obj['total_player'] as Integer
+                    }
+                }
+                roundTotal.put(gameId.toString(), total_player)
         }
         row.player_total = playerTotal
         row.round_total = roundTotal
@@ -801,20 +868,9 @@ class StaticsEveryDay {
 //        //01.送礼日报表
         long begin = l
 
+        // 游戏统计
         gameStatic()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   gameStatic, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-        roundsStatic()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   roundsStatic, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-        betCostStatic()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   betCostStatic, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-        lotteryStatic()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   lotteryStatic, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         giftStatics()
