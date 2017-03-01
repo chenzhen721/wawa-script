@@ -266,14 +266,22 @@ class DailyReport {
     // 游戏加币
     static staticsGameCoin() {
         def timeBetween = getTimeBetween()
-        def query = $$('timestamp': timeBetween, 'coin': ['$gt': 0])
         def field = $$('coin': 1)
         def lottery_log = mongo.getDB('game_log').getCollection('user_lottery')
-        def list = lottery_log.find(query, field).toArray()
-        def game_coin = list.sum { it.coin ?: 0 } as Long
-        println "game_coin:---->:${game_coin}"
-
-        financeTmpDB.update($$(_id: myId), $$('$set', $$(game_coin: game_coin)))
+        def game_coin = 0
+        def map = new HashMap()
+        // 加入游戏节点
+        def gameList = mongo.getDB('xy_admin').getCollection('games').find()
+        gameList.each {
+            BasicDBObject obj ->
+                def id = obj['_id'] as Integer
+                def query = $$('timestamp': timeBetween, 'coin': ['$gt': 0],'game_id':id)
+                def list = lottery_log.find(query,field).toArray()
+                def sum = list.sum { it.coin ?: 0 } as Long
+                game_coin += sum
+                map.put(id.toString(),sum)
+        }
+        financeTmpDB.update($$(_id: myId), $$('$set', $$(game_coin: game_coin,'game':map)))
     }
 
     //16.活动中奖--获得币  活动类型："10month","CardYouxi","Christmas","Fortune","SF","chargeRank","dianliang","laodong", "new_year","qq_wx_wb_share","send_hongbao" ,"worldcup"
