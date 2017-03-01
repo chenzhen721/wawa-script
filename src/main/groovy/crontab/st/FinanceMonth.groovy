@@ -182,8 +182,8 @@ class FinanceMonth {
             totalCoin += warpDataFromStatDaily(field, data)
         }
 
-        // todo 要测试 增加了游戏统计的逻辑
-        def gameList = games_DB.find()
+        // 要测试 增加了游戏统计的逻辑
+        def gameList = games_DB.find().sort($$('_id':1))
         gameList.each {
             def field = it._id as String
             totalCoin += warpDataFromStatDaily(field, data)

@@ -178,7 +178,7 @@ class FinanceDaily {
         COST_FIELDS.each {String field ->
             totalCoin += warpDataFromStatDaily(field, data)
         }
-        def gameList = games_DB.find()
+        def gameList = games_DB.find().sort($$('_id':1))
         gameList.each {
             def field = it._id as String
             totalCoin += warpDataFromStatDaily(field, data)
