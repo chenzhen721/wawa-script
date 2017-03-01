@@ -450,7 +450,7 @@ class FinanceMonth {
     static void giftVC(String year, Map timebetween, Map data){
         Map<String, Long> giftVcs = new HashMap();//消费柠檬礼物
         Map<String, Long> bagGiftVcs = new HashMap();//背包礼物
-        def query = $$(type : 'send_gift')
+        def query = $$('type' : 'send_gift','session.data':[$ne:null])
         query.putAll(timebetween)
         DBCursor cursor = historyDB.getCollection("room_cost_${year}".toString())
                             .find($$(query),$$('session.data':1,star_cost:1,cost:1)).batchSize(10000)
