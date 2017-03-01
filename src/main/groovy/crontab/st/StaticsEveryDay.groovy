@@ -844,8 +844,8 @@ class StaticsEveryDay {
                 def total_player = 0
                 while (rounds.hasNext()) {
                     def obj = rounds.next()
-                    if (obj.containsField('total_player')) {
-                        total_player += obj['total_player'] as Integer
+                    if (obj.containsField('total_user_count')) {
+                        total_player += obj['total_user_count'] as Integer
                     }
                 }
                 roundTotal.put(gameId.toString(), total_player)
