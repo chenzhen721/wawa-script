@@ -182,10 +182,10 @@ class FinanceMonth {
             totalCoin += warpDataFromStatDaily(field, data)
         }
 
-        // todo 要测试 增加了游戏统计的逻辑
-        def gameList = games_DB.find()
+        // 要测试 增加了游戏统计的逻辑
+        def gameList = games_DB.find().sort($$('_id':1))
         gameList.each {
-            def field = it.name as String
+            def field = it._id as String
             totalCoin += warpDataFromStatDaily(field, data)
         }
 
@@ -450,7 +450,7 @@ class FinanceMonth {
     static void giftVC(String year, Map timebetween, Map data){
         Map<String, Long> giftVcs = new HashMap();//消费柠檬礼物
         Map<String, Long> bagGiftVcs = new HashMap();//背包礼物
-        def query = $$(type : 'send_gift')
+        def query = $$('type' : 'send_gift','session.data':[$ne:null])
         query.putAll(timebetween)
         DBCursor cursor = historyDB.getCollection("room_cost_${year}".toString())
                             .find($$(query),$$('session.data':1,star_cost:1,cost:1)).batchSize(10000)
