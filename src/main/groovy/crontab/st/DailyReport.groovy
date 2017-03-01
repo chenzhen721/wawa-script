@@ -120,12 +120,22 @@ class DailyReport {
 
     //02.游戏减币
     static staticsBetCoin() {
-        def query = $$('timestamp': timeBetween)
         def field = $$('cost': 1)
-        def list = bet_log.find(query, field).toArray()
-        def game_spend_coin = list.sum { it.cost ?: 0 } as Long
+//        def list = bet_log.find(query, field).toArray()
+        def game_spend_coin = 0
+        def map = new HashMap()
         println "game_spend_coin:---->:${game_spend_coin}"
-        financeTmpDB.update($$(_id: myId), $$('$set', $$(game_spend_coin: game_spend_coin)))
+        def gameList = mongo.getDB('xy_admin').getCollection('games')
+        gameList.find().each {
+            BasicDBObject obj->
+                def id = obj['_id'] as Integer
+                def query = $$('timestamp': timeBetween,'game_id':id)
+                def list = bet_log.find(query, field).toArray()
+                def sum = list.sum { it.cost ?: 0 } as Long
+                game_spend_coin += sum
+                map.put(id.toString(),sum)
+        }
+        financeTmpDB.update($$(_id: myId), $$('$set', $$(game_spend_coin: game_spend_coin,'game_dec':map)))
     }
 
     //03.在途阳光
@@ -281,7 +291,7 @@ class DailyReport {
                 game_coin += sum
                 map.put(id.toString(),sum)
         }
-        financeTmpDB.update($$(_id: myId), $$('$set', $$(game_coin: game_coin,'game':map)))
+        financeTmpDB.update($$(_id: myId), $$('$set', $$(game_coin: game_coin,'game_inc':map)))
     }
 
     //16.活动中奖--获得币  活动类型："10month","CardYouxi","Christmas","Fortune","SF","chargeRank","dianliang","laodong", "new_year","qq_wx_wb_share","send_hongbao" ,"worldcup"
