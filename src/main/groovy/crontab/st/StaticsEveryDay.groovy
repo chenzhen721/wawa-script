@@ -9,14 +9,13 @@ import com.mongodb.DBObject
         @Grab('commons-lang:commons-lang:2.6'),
         @Grab('redis.clients:jedis:2.1.0'),
 ])
+
 import com.mongodb.Mongo
 import com.mongodb.MongoURI
 import org.apache.commons.lang.StringUtils
 
-import java.text.SimpleDateFormat
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
-
 
 /**
  * 每天统计一份数据
@@ -300,12 +299,12 @@ class StaticsEveryDay {
             result.put(type, [cost: cost, user: user.size()])
         }
 
-        // todo 测试 加入游戏下注的逻辑
+        // 加入游戏下注的逻辑
         def gameList = games_DB.find()
         gameList.each {
-            def game_type = it.name
+            def id = it._id as Integer
             def game_cost = 0L
-            def query = $$('timestamp': [$gte: yesTday, $lt: zeroMill], 'game_id': it._id as Integer)
+            def query = $$('timestamp': [$gte: yesTday, $lt: zeroMill], 'game_id': id)
             def field = $$('cost': 1, 'user_id': 1)
             def list = user_bet_DB.find(query, field).toArray()
             def game_user = new HashSet()
@@ -316,7 +315,7 @@ class StaticsEveryDay {
                     game_user.add(obj['user_id'] as Integer)
             }
             costs += game_cost
-            result.put(game_type, [cost: game_cost, user: game_user.size()])
+            result.put(id.toString(), [cost: game_cost, user: game_user.size()])
         }
 
         // 对游戏和送礼加起来统计

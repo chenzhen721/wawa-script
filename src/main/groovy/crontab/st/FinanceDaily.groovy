@@ -180,7 +180,7 @@ class FinanceDaily {
         }
         def gameList = games_DB.find()
         gameList.each {
-            def field = it.name as String
+            def field = it._id as String
             totalCoin += warpDataFromStatDaily(field, data)
         }
 
