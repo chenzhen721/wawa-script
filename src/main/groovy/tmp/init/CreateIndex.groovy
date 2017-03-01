@@ -41,17 +41,9 @@ class CreateIndex {
      * @param args
      */
     static void main(String[] args) {
-        init()
         buildGameRoundsIndex()
         buildUserBetIndex()
         buildUserLottery()
-    }
-
-    private static void init() {
-        mongo.getDB('game_log').dropDatabase()
-        mongo.getDB('game_log').createCollection('game_round', null)
-        mongo.getDB('game_log').createCollection('user_bet', null)
-        mongo.getDB('game_log').createCollection('user_lottery', null)
     }
 
     /**
