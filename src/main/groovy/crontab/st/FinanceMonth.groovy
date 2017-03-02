@@ -162,12 +162,27 @@ class FinanceMonth {
         totalCoin += warpDataFromDaliyReport('login_coin', data)
         //新手任务
         totalCoin += warpDataFromDaliyReport('mission_coin', data)
-        //游戏获得 砸蛋 翻牌 点球
+        //游戏
         totalCoin += warpDataFromDaliyReport('game_coin', data)
-        //TODO 第一名家族礼物发放价值
-        //totalCoin += familyAwardCoin(timebetween, data)
 
-        def incData = $$('total',totalCoin);
+        def inc_map = new HashMap()
+        dailyReportList.each {
+            BasicDBObject obj ->
+                if (obj.containsField('game_inc')) {
+                    def node = obj['game_inc']
+                    for (String key : node.keySet()) {
+                        def v = node[key] as Integer
+                        Integer tmp = 0
+                        if (inc_map.containsKey(key)) {
+                            tmp = inc_map[key] as Integer
+                        }
+                        def current_sum = tmp + v
+                        inc_map.put(key, current_sum)
+                    }
+                }
+        }
+
+        def incData = $$('total': totalCoin, 'game': inc_map);
         incData.putAll(data);
         return incData
     }
@@ -182,14 +197,26 @@ class FinanceMonth {
             totalCoin += warpDataFromStatDaily(field, data)
         }
 
-        // 要测试 增加了游戏统计的逻辑
-        def gameList = games_DB.find().sort($$('_id':1))
-        gameList.each {
-            def field = it._id as String
-            totalCoin += warpDataFromStatDaily(field, data)
+        totalCoin += warpDataFromDaliyReport('game_spend_coin', data)
+
+        def dec_map = new HashMap()
+        dailyReportList.each {
+            BasicDBObject obj ->
+                if (obj.containsField('game_inc')) {
+                    def node = obj['game_dec']
+                    for (String key : node.keySet()) {
+                        def v = node[key] as Integer
+                        Integer tmp = 0
+                        if (dec_map.containsKey(key)) {
+                            tmp = dec_map[key] as Integer
+                        }
+                        def current_sum = tmp + v
+                        dec_map.put(key, current_sum)
+                    }
+                }
         }
 
-        def decData = $$('total',totalCoin);
+        def decData = $$('total': totalCoin, 'game': dec_map);
         decData.putAll(data);
         return decData
     }
