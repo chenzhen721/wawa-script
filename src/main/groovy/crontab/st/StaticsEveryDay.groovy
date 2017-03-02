@@ -625,32 +625,44 @@ class StaticsEveryDay {
         def date = new Date(gteMill).format('yyyyMMdd')
         def coll = mongo.getDB('xy_admin').getCollection('stat_sign')
         def sign_log = mongo.getDB('xylog').getCollection('sign_logs')
-        Map default_qd = ['_id': date + '_' + DEFAULT_QD, 'qd': DEFAULT_QD, 'timestamp': gteMill, 'coin': 0, 'user_count': 0]
+        def map = new HashMap()
+        def total_count = 0
+        def total_coin = 0L
         sign_log.aggregate(
                 $$('$match': $$('timestamp': [$gte: gteMill, $lt: gteMill + DAY_MILLON])),
                 $$('$project': $$('coin': '$coin', qd: '$qd', 'user_id': '$user_id')),
                 $$('$group': $$('_id': '$qd', 'coin': $$('$sum': '$coin'), 'users': $$('$addToSet': '$user_id')))
         ).results().each {
             BasicDBObject obj ->
-                def users = obj['users'] as List
-                def user_count = users.size()
-                def qd = obj['qd']
-                def coin = obj['coin']
-                // 把qd是空或者默认渠道的数据归并一起统计
-                if (qd == null || qd == DEFAULT_QD) {
-                    def tmp_user_count = default_qd['user_count'] as Integer
-                    def tmp_coin = default_qd['coin'] as Integer
-                    default_qd.put('user_count', user_count + tmp_user_count)
-                    default_qd.put('coin', coin + tmp_coin)
-                    return
+                def tmp = new HashMap()
+                def qd = obj['_id'] as String
+                // 如果渠道是null就算在aiwan_default上
+                if(StringUtils.isBlank(qd)){
+                    qd = DEFAULT_QD
                 }
-                def id = date + '_' + qd
-                def row = $$('_id': id, 'qd': qd, 'coin': coin, 'user_count': user_count, 'timestamp': gteMill)
-                println("row is ${row}")
-                coll.save(row)
+                def users = obj['users'] as HashSet
+                def user_count = users.size()
+                def coin = obj['coin'] as Long
+                total_coin += coin
+                total_count += user_count
+                tmp.put('qd', qd)
+                tmp.put('user_count', user_count)
+                tmp.put('coin', coin)
+                // 将null的渠道归并到aiwan_default
+                if(map.containsKey(qd.toString())){
+                    def v = map.get(qd.toString()) as Map
+                    def current_coin = v['coin'] as Long
+                    def current_count = v['user_count'] as Integer
+                    coin += current_coin
+                    user_count += current_count
+                    tmp.put('user_count', user_count)
+                    tmp.put('coin', coin)
+                }
+                map.put(qd.toString(),tmp)
         }
-
-        coll.save($$(default_qd))
+        def id = date + '_check_in'
+        def row = ['_id':id,'timestamp':gteMill,'qd':map,'total_count':total_count,'total_coin':total_coin]
+        coll.save($$(row))
     }
 
     static class SignType {
