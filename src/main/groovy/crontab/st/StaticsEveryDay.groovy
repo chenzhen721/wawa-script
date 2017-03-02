@@ -623,7 +623,7 @@ class StaticsEveryDay {
     static staticSign(int i) {
         def gteMill = yesTday - i * DAY_MILLON
         def date = new Date(gteMill).format('yyyyMMdd')
-        def coll = mongo.getDB('xy_admin').getCollection('stat_sign')
+//        def coll = mongo.getDB('xy_admin').getCollection('stat_sign')
         def sign_log = mongo.getDB('xylog').getCollection('sign_logs')
         def map = new HashMap()
         def total_count = 0
@@ -661,7 +661,7 @@ class StaticsEveryDay {
                 map.put(qd.toString(),tmp)
         }
         def id = date + '_check_in'
-        def row = ['_id':id,'timestamp':gteMill,'qd':map,'total_count':total_count,'total_coin':total_coin]
+        def row = ['_id':id,'timestamp':gteMill,'qd':map,'total_count':total_count,'total_coin':total_coin,'type':'check_in']
         coll.save($$(row))
     }
 
