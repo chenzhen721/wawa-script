@@ -24,9 +24,6 @@ import redis.clients.jedis.Jedis
 
 /**
  * 定时更新房间的在线人数
- *
- * date: 13-2-28 下午2:46
- * @author: yangyang.cong@ttpod.com
  */
 class UpdateUserAndLive {
 
