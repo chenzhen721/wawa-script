@@ -105,6 +105,7 @@ class UpdateUserAndLive {
                 room_cost    : room_cost_coll,
                 finance_log  : M.getDB('xy_admin').getCollection('finance_log'),
                 exchange_log : M.getDB('xylog').getCollection('exchange_log'),
+                mission_logs : M.getDB('xylog').getCollection('mission_logs'),
                 withdrawl_log: M.getDB('xy_admin').getCollection('withdrawl_log')
         ]
         trans.each { k, v ->
