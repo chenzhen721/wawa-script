@@ -80,11 +80,7 @@ class UpdateUserAndLive {
         final UpdateUserAndLive task = new UpdateUserAndLive()
 
         long l = System.currentTimeMillis()
-        //直播间直播状态检测
-        l = System.currentTimeMillis()
-        task.liveCheck()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  liveCheck---> cost: ${System.currentTimeMillis() - l} ms"
-        /**
+
          //直播间人数统计
          long begin = l
          Integer i = task.roomUserCount()
@@ -132,7 +128,7 @@ class UpdateUserAndLive {
          println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  save timer_logs , cost  ${System.currentTimeMillis() - l} ms"
 
          println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  ${UpdateUserAndLive.class.getSimpleName()}:costTotal:  ${System.currentTimeMillis() - begin} ms"
-         **/
+
     }
 
     //落地定时执行的日志
