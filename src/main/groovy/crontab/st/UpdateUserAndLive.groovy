@@ -39,15 +39,15 @@ class UpdateUserAndLive {
     }
 
 
-    static final String jedis_host = getProperties("main_jedis_host", "192.168.31.246")
-    static final String chat_jedis_host = getProperties("chat_jedis_host", "192.168.31.246")
-    static final String live_jedis_host = getProperties("live_jedis_host", "192.168.31.246")
-    static final String user_jedis_host = getProperties("user_jedis_host", "192.168.31.246")
+    static final String jedis_host = getProperties("main_jedis_host", "192.168.31.236")
+    static final String chat_jedis_host = getProperties("chat_jedis_host", "192.168.31.236")
+    static final String live_jedis_host = getProperties("live_jedis_host", "192.168.31.236")
+    static final String user_jedis_host = getProperties("user_jedis_host", "192.168.31.236")
 
     static final Integer main_jedis_port = getProperties("main_jedis_port", 6379) as Integer
     static final Integer chat_jedis_port = getProperties("chat_jedis_port", 6379) as Integer
     static final Integer live_jedis_port = getProperties("live_jedis_port", 6379) as Integer
-    static final Integer user_jedis_port = getProperties("user_jedis_port", 6379) as Integer
+    static final Integer user_jedis_port = getProperties("user_jedis_port", 6380) as Integer
 
     static redis = new Jedis(jedis_host, main_jedis_port)
     static chatRedis = new Jedis(chat_jedis_host, chat_jedis_port)
@@ -138,8 +138,6 @@ class UpdateUserAndLive {
         def id = timerName + "_" + new Date().format("yyyyMMdd")
         def update = new BasicDBObject(timer_name: timerName, cost_total: totalCost, cat: 'minute', unit: 'ms', timestamp: tmp)
         timerLogsDB.findAndModify(new BasicDBObject('_id', id), null, null, false, new BasicDBObject('$set', update), true, true)
-
-
     }
 
     static final String vistor_key = "web:ttxiuvistor:counts"
