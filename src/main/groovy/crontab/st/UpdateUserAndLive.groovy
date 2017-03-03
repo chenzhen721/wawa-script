@@ -54,7 +54,7 @@ class UpdateUserAndLive {
     static userRedis = new Jedis(user_jedis_host, user_jedis_port)
     static liveRedis = new Jedis(live_jedis_host, live_jedis_port)
 
-    static M = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:10000,192.168.31.236:10000,192.168.31.231:10001/?w=1&slaveok=true') as String))
+    static M = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
 
     static mongo = M.getDB("xy")
     static logRoomEdit = M.getDB("xylog").getCollection("room_edit")
@@ -80,57 +80,59 @@ class UpdateUserAndLive {
         final UpdateUserAndLive task = new UpdateUserAndLive()
 
         long l = System.currentTimeMillis()
-
-        //直播间人数统计
-        long begin = l
-        Integer i = task.roomUserCount()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  roomUserCount---> update ${i} rows , cost  ${System.currentTimeMillis() - l} ms"
-
         //直播间直播状态检测
         l = System.currentTimeMillis()
         task.liveCheck()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  liveCheck---> cost: ${System.currentTimeMillis() - l} ms"
+        /**
+         //直播间人数统计
+         long begin = l
+         Integer i = task.roomUserCount()
+         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  roomUserCount---> update ${i} rows , cost  ${System.currentTimeMillis() - l} ms"
 
-        //异常交易检测
-        l = System.currentTimeMillis()
-        def trans = [
-                room_cost    : room_cost_coll,
-                finance_log  : M.getDB('xy_admin').getCollection('finance_log'),
-                exchange_log : M.getDB('xylog').getCollection('exchange_log'),
-                mission_logs : M.getDB('xylog').getCollection('mission_logs'),
-                withdrawl_log: M.getDB('xy_admin').getCollection('withdrawl_log')
-        ]
-        trans.each { k, v ->
-            long lc = System.currentTimeMillis()
-            task.userTranCheck(k, v)
-            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  users.${k} , cost  ${System.currentTimeMillis() - lc} ms"
-        }
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  userTransCheck---->cost:  ${System.currentTimeMillis() - l} ms"
+         //直播间直播状态检测
+         l = System.currentTimeMillis()
+         task.liveCheck()
+         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  liveCheck---> cost: ${System.currentTimeMillis() - l} ms"
 
-        //自动解封用户
-        l = System.currentTimeMillis()
-        task.auto_unfreeze()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  auto_unfreeze---->cost:  ${System.currentTimeMillis() - l} ms"
+         //异常交易检测
+         l = System.currentTimeMillis()
+         def trans = [
+         room_cost    : room_cost_coll,
+         finance_log  : M.getDB('xy_admin').getCollection('finance_log'),
+         exchange_log : M.getDB('xylog').getCollection('exchange_log'),
+         mission_logs : M.getDB('xylog').getCollection('mission_logs'),
+         withdrawl_log: M.getDB('xy_admin').getCollection('withdrawl_log')
+         ]
+         trans.each { k, v ->
+         long lc = System.currentTimeMillis()
+         task.userTranCheck(k, v)
+         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  users.${k} , cost  ${System.currentTimeMillis() - lc} ms"}println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  userTransCheck---->cost:  ${System.currentTimeMillis() - l} ms"
 
-        //主播推荐有效期检测
-        l = System.currentTimeMillis()
-        task.recommendCheck()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  recommendCheck---->cost:  ${System.currentTimeMillis() - l} ms"
+         //自动解封用户
+         l = System.currentTimeMillis()
+         task.auto_unfreeze()
+         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  auto_unfreeze---->cost:  ${System.currentTimeMillis() - l} ms"
 
-        //延时支付订单检查
-        l = System.currentTimeMillis()
-        task.delayOrderCheck()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  delayOrderCheck---->cost:  ${System.currentTimeMillis() - l} ms"
+         //主播推荐有效期检测
+         l = System.currentTimeMillis()
+         task.recommendCheck()
+         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  recommendCheck---->cost:  ${System.currentTimeMillis() - l} ms"
 
-        Long totalCost = System.currentTimeMillis() - begin
-        //落地定时执行的日志
-        l = System.currentTimeMillis()
-        def timerName = 'UpdateUserAndLive'
-        saveTimerLogs(timerName, totalCost)
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  save timer_logs , cost  ${System.currentTimeMillis() - l} ms"
+         //延时支付订单检查
+         l = System.currentTimeMillis()
+         task.delayOrderCheck()
+         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  delayOrderCheck---->cost:  ${System.currentTimeMillis() - l} ms"
 
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  ${UpdateUserAndLive.class.getSimpleName()}:costTotal:  ${System.currentTimeMillis() - begin} ms"
+         Long totalCost = System.currentTimeMillis() - begin
+         //落地定时执行的日志
+         l = System.currentTimeMillis()
+         def timerName = 'UpdateUserAndLive'
+         saveTimerLogs(timerName, totalCost)
+         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  save timer_logs , cost  ${System.currentTimeMillis() - l} ms"
 
+         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  ${UpdateUserAndLive.class.getSimpleName()}:costTotal:  ${System.currentTimeMillis() - begin} ms"
+         **/
     }
 
     //落地定时执行的日志
@@ -216,21 +218,17 @@ class UpdateUserAndLive {
                         delLiveRedis(roomId)
                         // 关闭时通知游戏服务端关闭
                         notifyGameServerClose(game_id, roomId.toString(), live_id)
-
                         logRoomEdit.save(new BasicDBObject(type: 'live_off', room: roomId, data: live_id, live_type: live_type, status: 'LiveStatusCheck', timestamp: l))
                     }
                     finally {
-                        def set = new BasicDBObject(live: false, live_id: '', timestamp: l, live_end_time: l, game_id: '', position: null, pull_urls: null)
+                        def set = new BasicDBObject(live: false, live_id: '', timestamp: l, live_end_time: l, game_id: '', position: null, pull_urls: null, push_urls: null)
                         //家族房间
-                        if (type.equals(2)) {
+                        if (type == 2) {
                             set.append('xy_star_id', null)
                         }
-                        rooms.update(new BasicDBObject(_id: roomId, live: Boolean.TRUE),
-                                new BasicDBObject('$set', set))
-                        // todo 推送测试
+                        rooms.update(new BasicDBObject(_id: roomId, live: Boolean.TRUE), new BasicDBObject('$set', set))
                         def data = '{"action": "room.live","data_d":{"live":false}}'
-                        publish(data,roomId.toString())
-//                        chatRedis.publish("ROOMchannel:${roomId}", '{"action": "room.live","data_d":{"live":false}}')
+                        publish(data, roomId.toString())
                     }
                 }
             }
@@ -328,8 +326,8 @@ class UpdateUserAndLive {
             conn.setReadTimeout(5000);
             conn.setDoOutput(true);
             conn.setDoInput(true);
-            out = new PrintWriter(conn.getOutputStream());
-            pw.print(param);
+            pw = new PrintWriter(conn.getOutputStream());
+            pw.print(params);
             pw.flush();
             br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
             String line;
@@ -383,7 +381,7 @@ class UpdateUserAndLive {
         return httpClient
     }
 
-    private static void publish(String content,String roomId) {
+    private static void publish(String content, String roomId) {
         String url = getRoomPublishUrl(roomId);
         println("url is ${url},content is ${content}")
         request_post(url, content)
