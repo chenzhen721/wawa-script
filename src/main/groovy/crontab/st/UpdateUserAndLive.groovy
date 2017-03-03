@@ -12,6 +12,8 @@ import com.mongodb.DBObject
 ])
 import com.mongodb.Mongo
 import com.mongodb.MongoURI
+import com.mongodb.util.Hash
+import groovy.json.JsonOutput
 import org.apache.http.client.HttpClient
 import org.apache.http.impl.client.DefaultHttpClient
 import org.apache.http.params.HttpConnectionParams
@@ -221,8 +223,12 @@ class UpdateUserAndLive {
                             set.append('xy_star_id', null)
                         }
                         rooms.update(new BasicDBObject(_id: roomId, live: Boolean.TRUE), new BasicDBObject('$set', set))
-                        def data = '{"action": "room.live","data_d":{"live":false}}'
-                        publish(data, roomId.toString())
+                        def params = new HashMap()
+                        def body = ['live': false, room_id: roomId]
+                        params.put('action','room.live.rc')
+                        params.put('data',body)
+                        params.put('template_id','live_on')
+                        publish(params, roomId.toString())
                     }
                 }
             }
@@ -375,8 +381,9 @@ class UpdateUserAndLive {
         return httpClient
     }
 
-    private static void publish(String content, String roomId) {
+    private static void publish(Map params, String roomId) {
         String url = getRoomPublishUrl(roomId);
+        String content = JsonOutput.toJson(params)
         println("url is ${url},content is ${content}")
         request_post(url, content)
     }
