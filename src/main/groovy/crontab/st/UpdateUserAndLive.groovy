@@ -64,7 +64,6 @@ class UpdateUserAndLive {
     static logRoomEdit = M.getDB("xylog").getCollection("room_edit")
     static rooms = mongo.getCollection("rooms")
     static users = mongo.getCollection("users")
-    static boxes = mongo.getCollection("boxes")
     static room_cost_coll = M.getDB('xylog').getCollection('room_cost')
     static star_recommends = M.getDB('xy_admin').getCollection('star_recommends')
 
