@@ -45,6 +45,61 @@ class TongjiActive {
     static Long yesTday = zeroMill - DAY_MILLON
     static String YMD = new Date(yesTday).format("yyyyMMdd")
 
+    // 友盟账号
+    static final String UMENG_ACCOUNT = 'aiwanzhibo@qq.com'
+
+    // 友盟密码
+    static final String UMENG_PASSWARD = 'eC9CBNPz4LUWrL2'
+
+    //友盟token
+    static String AUTH_TOKEN = 'yudDFxUp8ZmLlyP9gfnv'
+
+    //友盟秘钥
+    static final String APP_KEY = '58ac09dd717c195234000979'
+
+    static String request(String url) {
+        HttpURLConnection conn = null;
+        def jsonText = "";
+        try {
+            conn = (HttpURLConnection) new URL(url).openConnection()
+            conn.setRequestMethod("POST")
+            conn.setDoOutput(true)
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+            conn.connect()
+            jsonText = conn.getInputStream().getText("UTF-8")
+
+        } catch (Exception e) {
+            println "request Exception : " + e;
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+                conn = null;
+            }
+        }
+        return jsonText;
+    }
+
+
+    /**
+     * 获取友盟的token
+     * curl "http://api.umeng.com/authorize" --data "email=aiwanzhibo@qq.com&password=eC9CBNPz4LUWrL2" post请求
+     */
+    private static void umeng_token() {
+        String url = "http://api.umeng.com/authorize?email=${UMENG_ACCOUNT}&password=${UMENG_PASSWARD}"
+        String resp = request(url)
+        if (StringUtils.isNotBlank(resp)) {
+            JsonSlurper jsonSlurper = new JsonSlurper()
+            Map map = jsonSlurper.parseText(resp) as Map
+            if (map != null && map.containsKey('code')) {
+                def code = map['code'] as Integer
+                if (code == 200 && map.containsKey('auth_token')) {
+                    AUTH_TOKEN = map['auth_token']
+                }
+            }
+        }
+        println("auth_token is ${AUTH_TOKEN}")
+    }
 
     /**
      * 友盟接口请求有限制（15分钟300条）
@@ -59,13 +114,14 @@ class TongjiActive {
         def coll = mongo.getDB('xy_admin').getCollection('stat_channels')
         def channelDB = mongo.getDB('xy_admin').getCollection('channels')
         def qdlist = channelDB.find(new BasicDBObject(is_close: false), new BasicDBObject(_id: 1))*._id
-        ['58ac09dd717c195234000979'].each { String appkey ->
+
+        [APP_KEY].each { String appkey ->
             def page = 1, per_page = 100
             def hasMore = true
             while (hasMore) {
                 def data = null, result = "[]"
                 for (int j = 0; j < 10; j++) {
-                    try{
+                    try {
                         result = getChannels(appkey, per_page, page, date)
                         if (result != null) {
                             data = new JsonSlurper().parseText(result)
@@ -75,7 +131,7 @@ class TongjiActive {
                             //若接口第一时间无法同步则等待一定时间再重新查询
                             Thread.sleep(2 * 60 * 1000L)
                         }
-                    }catch (Exception e){
+                    } catch (Exception e) {
                         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}"
                         println e.getStackTrace()
                         //若接口第一时间无法同步则等待一定时间再重新查询
@@ -90,11 +146,9 @@ class TongjiActive {
                             //查询umeng自定义事件三日发言
                             def update = new BasicDBObject([active     : row['install'] as Integer,//新增用户
                                                             active_user: row['active_user'] as Integer,//日活
-                                                            duration   : row['duration'] as String//平均使用时长
+                                                            duration   : row['duration'] as String//使用时长
                             ])
-                            def channel = channelDB.findOne(
-                                    new BasicDBObject("_id", row['channel'] as String), new BasicDBObject("active_discount", 1)
-                            )
+                            def channel = channelDB.findOne(new BasicDBObject("_id", row['channel'] as String), new BasicDBObject("active_discount", 1))
                             def active = row['install'] as Integer
                             if (channel != null && active != null) {
                                 //设置激活扣量cpa1
@@ -167,11 +221,21 @@ class TongjiActive {
         }
     }
 
+    /**
+     * 调用友盟渠道列表
+     *
+     * @param appkey
+     * @param pageSize
+     * @param page
+     * @param date
+     * @return
+     */
     private static String getChannels(String appkey, Integer pageSize, Integer page, Date date) {
         def content = null
         InputStream is = null
         try {
-            def url = new URL("http://api.umeng.com/channels?appkey=${appkey}&auth_token=wLL2nMK8Lcn0NhmJxxlU" +
+            def token = umeng_token()
+            def url = new URL("http://api.umeng.com/channels?appkey=${appkey}&auth_token=${AUTH_TOKEN}" +
                     "&per_page=${pageSize}&page=${page}&date=${date.format('yyyy-MM-dd')}")
             def conn = (HttpURLConnection) url.openConnection()
             def responseCode = conn.getResponseCode()
@@ -197,7 +261,7 @@ class TongjiActive {
         InputStream is = null
         try {
             String url_str = "http://api.umeng.com/events/parameter_list?appkey=${appkey}" +
-                    "&auth_token=wLL2nMK8Lcn0NhmJxxlU&period_type=daily&event_id=543ce217e8af9ceaa72f3847" +
+                    "&auth_token=${AUTH_TOKEN}&period_type=daily&event_id=543ce217e8af9ceaa72f3847" +
                     "&start_date=${date.format('yyyy-MM-dd')}&end_date=${date.format('yyyy-MM-dd')}" +
                     "&channels=${channelId}"
             def url = new URL(url_str)
@@ -237,7 +301,7 @@ class TongjiActive {
         def rate = "0"
         InputStream is = null
         try {
-            def url = new URL("http://api.umeng.com/retentions?appkey=${appkey}&auth_token=wLL2nMK8Lcn0NhmJxxlU" +
+            def url = new URL("http://api.umeng.com/retentions?appkey=${appkey}&auth_token=${AUTH_TOKEN}" +
                     "&start_date=${date.format('yyyy-MM-dd')}&end_date=${date.format('yyyy-MM-dd')}&period_type=daily" +
                     "&channels=${channelId}")
             def conn = (HttpURLConnection) url.openConnection()
@@ -324,7 +388,7 @@ class TongjiActive {
                     if (allUids && allUids.size() > 0) {
                         Long gt = gteMill + d * DAY_MILLON
                         Integer count = 0;
-                        if(gt <= yesTday){
+                        if (gt <= yesTday) {
                             count = day_login.count(new BasicDBObject(user_id: [$in: allUids], timestamp:
                                     [$gte: gt, $lt: gt + DAY_MILLON]))
                         }
@@ -419,7 +483,6 @@ class TongjiActive {
         }
         return null
     }
-
 
     // 渠道激活信息
     static fetchTalkingData(int i) {
@@ -617,7 +680,7 @@ class TongjiActive {
         //新增激活，激活用户
         def new_active = 0, active = 0
         try {
-            def content = new URL("http://api.umeng.com/base_data?appkey=53ab9ff256240b97cf0164a5&auth_token=wLL2nMK8Lcn0NhmJxxlU" +
+            def content = new URL("http://api.umeng.com/base_data?appkey=53ab9ff256240b97cf0164a5&auth_token=${AUTH_TOKEN}" +
                     "&date=${date.format('yyyy-MM-dd')}").getText("UTF-8")
             def obj = new JsonSlurper().parseText(content) as Map
             new_active = obj.get('new_users') as Integer
@@ -671,7 +734,7 @@ class TongjiActive {
         def beforeStr = date.format('yyyy-MM-dd')
         def rate = 0 as Double
         try {
-            def content = new URL("http://api.umeng.com/retentions?appkey=53ab9ff256240b97cf0164a5&auth_token=wLL2nMK8Lcn0NhmJxxlU" +
+            def content = new URL("http://api.umeng.com/retentions?appkey=53ab9ff256240b97cf0164a5&auth_token=${AUTH_TOKEN}" +
                     "&start_date=${beforeStr}&end_date=${beforeStr}&period_type=daily").getText("UTF-8")
             if (StringUtils.isNotBlank(content)) {
                 def listObj = new JsonSlurper().parse(new StringReader(content)) as List
@@ -696,6 +759,10 @@ class TongjiActive {
     static void main(String[] args) {
         long l = System.currentTimeMillis()
         long begin = l
+
+//        /**
+//         *
+
         //更新渠道的日、周、月活跃度
         l = System.currentTimeMillis()
         activeStatics(day)
@@ -737,7 +804,7 @@ class TongjiActive {
         staticRetention(day + 1)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd staticRetention cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
-
+//         */
         //落地定时执行的日志
         jobFinish(begin)
     }
@@ -746,7 +813,7 @@ class TongjiActive {
      * 标记任务完成  用于运维监控
      * @return
      */
-    private static jobFinish(Long begin){
+    private static jobFinish(Long begin) {
         def timerName = 'TongjiActive'
         Long totalCost = System.currentTimeMillis() - begin
         saveTimerLogs(timerName, totalCost)
@@ -762,5 +829,3 @@ class TongjiActive {
         timerLogsDB.findAndModify(new BasicDBObject('_id', id), null, null, false, new BasicDBObject('$set', update), true, true)
     }
 }
-
-
