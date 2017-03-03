@@ -11,15 +11,11 @@ import com.mongodb.DBObject
         @Grab('org.apache.httpcomponents:httpclient:4.2.5')
 ])
 import com.mongodb.Mongo
-import groovy.json.JsonSlurper
-import org.apache.http.HttpEntity
-import org.apache.http.HttpResponse
+import com.mongodb.MongoURI
 import org.apache.http.client.HttpClient
-import org.apache.http.client.methods.HttpGet
 import org.apache.http.impl.client.DefaultHttpClient
 import org.apache.http.params.HttpConnectionParams
 import org.apache.http.params.HttpParams
-import org.apache.http.util.EntityUtils
 import redis.clients.jedis.Jedis
 
 /**
@@ -58,7 +54,7 @@ class UpdateUserAndLive {
     static userRedis = new Jedis(user_jedis_host, user_jedis_port)
     static liveRedis = new Jedis(live_jedis_host, live_jedis_port)
 
-    static M  = new Mongo(new com.mongodb.MongoURI(getProperties('mongo.uri','mongodb://192.168.31.246:27000/?w=1') as String))
+    static M = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:10000,192.168.31.236:10000,192.168.31.231:10001/?w=1&slaveok=true') as String))
 
     static mongo = M.getDB("xy")
     static logRoomEdit = M.getDB("xylog").getCollection("room_edit")
@@ -69,7 +65,6 @@ class UpdateUserAndLive {
 
     static final String api_domain = getProperties("api.domain", "http://localhost:8080/")
 
-
     private static final Integer TIME_OUT = 10 * 60 * 1000;
 
     //static final long delay = 45 * 1000L
@@ -79,6 +74,7 @@ class UpdateUserAndLive {
     static WEEK_MILLON = 7 * DAY_MILLON
 
     static final String CLOSE_GAME_SERVER_URL = getProperties('aigd.domain', 'http://test-aigd.memeyule.com:6050/api/room/close?room_id=ROOM_ID&game_id=GAME_ID&live_id=LIVE_ID')
+    static final String WS_DOMAIN = getProperties('ws.domain', 'http://test-aiws.memeyule.com:6010')
 
     static main(arg) {
         final UpdateUserAndLive task = new UpdateUserAndLive()
@@ -231,7 +227,10 @@ class UpdateUserAndLive {
                         }
                         rooms.update(new BasicDBObject(_id: roomId, live: Boolean.TRUE),
                                 new BasicDBObject('$set', set))
-                        chatRedis.publish("ROOMchannel:${roomId}", '{"action": "room.live","data_d":{"live":false}}')
+                        // todo 推送测试
+                        def data = '{"action": "room.live","data_d":{"live":false}}'
+                        publish(data,roomId.toString())
+//                        chatRedis.publish("ROOMchannel:${roomId}", '{"action": "room.live","data_d":{"live":false}}')
                     }
                 }
             }
@@ -293,11 +292,11 @@ class UpdateUserAndLive {
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')} result : ${request(api_url)}"
     }
 
-    static String request(String url){
+    static String request(String url) {
         HttpURLConnection conn = null;
         def jsonText = "";
-        try{
-            conn = (HttpURLConnection)new URL(url).openConnection()
+        try {
+            conn = (HttpURLConnection) new URL(url).openConnection()
             conn.setRequestMethod("GET")
             conn.setDoOutput(true)
             conn.setConnectTimeout(5000);
@@ -305,12 +304,52 @@ class UpdateUserAndLive {
             conn.connect()
             jsonText = conn.getInputStream().getText("UTF-8")
 
-        }catch (Exception e){
+        } catch (Exception e) {
             println "request Exception : " + e;
-        }finally{
+        } finally {
             if (conn != null) {
                 conn.disconnect();
                 conn = null;
+            }
+        }
+        return jsonText;
+    }
+
+    static String request_post(String url, String params) {
+        HttpURLConnection conn = null;
+        PrintWriter pw = null;
+        BufferedReader br = null;
+        def jsonText = "";
+        try {
+            conn = (HttpURLConnection) new URL(url).openConnection()
+            conn.setRequestMethod("POST")
+            conn.setDoOutput(true)
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+            conn.setDoOutput(true);
+            conn.setDoInput(true);
+            out = new PrintWriter(conn.getOutputStream());
+            pw.print(param);
+            pw.flush();
+            br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            String line;
+            while ((line = br.readLine()) != null) {
+                jsonText += line;
+            }
+            println("jsonText is ${jsonText}")
+
+        } catch (Exception e) {
+            println("发送 POST 请求出现异常！" + e);
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+                conn = null;
+            }
+            if (pw != null) {
+                pw.close()
+            }
+            if (br != null) {
+                br.close()
             }
         }
         return jsonText;
@@ -344,5 +383,14 @@ class UpdateUserAndLive {
         return httpClient
     }
 
+    private static void publish(String content,String roomId) {
+        String url = getRoomPublishUrl(roomId);
+        println("url is ${url},content is ${content}")
+        request_post(url, content)
+    }
 
+
+    private static String getRoomPublishUrl(String roomId) {
+        return String.format("%s%s", WS_DOMAIN, "/api/publish/room/${roomId}");
+    }
 }
