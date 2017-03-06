@@ -14,6 +14,8 @@ import com.mongodb.Mongo
 import com.mongodb.MongoURI
 import com.mongodb.util.Hash
 import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+import org.apache.commons.lang.StringUtils
 import org.apache.http.client.HttpClient
 import org.apache.http.impl.client.DefaultHttpClient
 import org.apache.http.params.HttpConnectionParams
@@ -65,9 +67,10 @@ class UpdateUserAndLive {
     static room_cost_coll = M.getDB('xylog').getCollection('room_cost')
     static star_recommends = M.getDB('xy_admin').getCollection('star_recommends')
 
-    static final String api_domain = getProperties("api.domain", "http://localhost:8080/")
+    static final String api_domain = getProperties("api.domain", "http://test-aiapi.memeyule.com/")
 
     private static final Integer TIME_OUT = 10 * 60 * 1000;
+    private static final Integer FIVE_MINUTE_SECONDS = 5 * 60;
 
     //static final long delay = 45 * 1000L
     static long zeroMill = new Date().clearTime().getTime()
@@ -83,53 +86,54 @@ class UpdateUserAndLive {
 
         long l = System.currentTimeMillis()
 
-         //直播间人数统计
-         long begin = l
-         Integer i = task.roomUserCount()
-         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  roomUserCount---> update ${i} rows , cost  ${System.currentTimeMillis() - l} ms"
+        //直播间人数统计
+        long begin = l
+        Integer i = task.roomUserCount()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  roomUserCount---> update ${i} rows , cost  ${System.currentTimeMillis() - l} ms"
 
-         //直播间直播状态检测
-         l = System.currentTimeMillis()
-         task.liveCheck()
-         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  liveCheck---> cost: ${System.currentTimeMillis() - l} ms"
+        //直播间直播状态检测
+        l = System.currentTimeMillis()
+        task.liveCheck()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  liveCheck---> cost: ${System.currentTimeMillis() - l} ms"
 
-         //异常交易检测
-         l = System.currentTimeMillis()
-         def trans = [
-         room_cost    : room_cost_coll,
-         finance_log  : M.getDB('xy_admin').getCollection('finance_log'),
-         exchange_log : M.getDB('xylog').getCollection('exchange_log'),
-         mission_logs : M.getDB('xylog').getCollection('mission_logs'),
-         withdrawl_log: M.getDB('xy_admin').getCollection('withdrawl_log')
-         ]
-         trans.each { k, v ->
-         long lc = System.currentTimeMillis()
-         task.userTranCheck(k, v)
-         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  users.${k} , cost  ${System.currentTimeMillis() - lc} ms"}println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  userTransCheck---->cost:  ${System.currentTimeMillis() - l} ms"
+        //异常交易检测
+        l = System.currentTimeMillis()
+        def trans = [
+                room_cost    : room_cost_coll,
+                finance_log  : M.getDB('xy_admin').getCollection('finance_log'),
+                exchange_log : M.getDB('xylog').getCollection('exchange_log'),
+                mission_logs : M.getDB('xylog').getCollection('mission_logs'),
+                withdrawl_log: M.getDB('xy_admin').getCollection('withdrawl_log')
+        ]
+        trans.each { k, v ->
+            long lc = System.currentTimeMillis()
+            task.userTranCheck(k, v)
+            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  users.${k} , cost  ${System.currentTimeMillis() - lc} ms"
+        } println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  userTransCheck---->cost:  ${System.currentTimeMillis() - l} ms"
 
-         //自动解封用户
-         l = System.currentTimeMillis()
-         task.auto_unfreeze()
-         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  auto_unfreeze---->cost:  ${System.currentTimeMillis() - l} ms"
+        //自动解封用户
+        l = System.currentTimeMillis()
+        task.auto_unfreeze()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  auto_unfreeze---->cost:  ${System.currentTimeMillis() - l} ms"
 
-         //主播推荐有效期检测
-         l = System.currentTimeMillis()
-         task.recommendCheck()
-         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  recommendCheck---->cost:  ${System.currentTimeMillis() - l} ms"
+        //主播推荐有效期检测
+        l = System.currentTimeMillis()
+        task.recommendCheck()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  recommendCheck---->cost:  ${System.currentTimeMillis() - l} ms"
 
-         //延时支付订单检查
-         l = System.currentTimeMillis()
-         task.delayOrderCheck()
-         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  delayOrderCheck---->cost:  ${System.currentTimeMillis() - l} ms"
+        //延时支付订单检查
+        l = System.currentTimeMillis()
+        task.delayOrderCheck()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  delayOrderCheck---->cost:  ${System.currentTimeMillis() - l} ms"
 
-         Long totalCost = System.currentTimeMillis() - begin
-         //落地定时执行的日志
-         l = System.currentTimeMillis()
-         def timerName = 'UpdateUserAndLive'
-         saveTimerLogs(timerName, totalCost)
-         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  save timer_logs , cost  ${System.currentTimeMillis() - l} ms"
+        Long totalCost = System.currentTimeMillis() - begin
+        //落地定时执行的日志
+        l = System.currentTimeMillis()
+        def timerName = 'UpdateUserAndLive'
+        saveTimerLogs(timerName, totalCost)
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  save timer_logs , cost  ${System.currentTimeMillis() - l} ms"
 
-         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  ${UpdateUserAndLive.class.getSimpleName()}:costTotal:  ${System.currentTimeMillis() - begin} ms"
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  ${UpdateUserAndLive.class.getSimpleName()}:costTotal:  ${System.currentTimeMillis() - begin} ms"
 
     }
 
@@ -205,7 +209,7 @@ class UpdateUserAndLive {
             String game_id = room.get("game_id")
             Integer live_type = room?.get("live_type") as Integer
             Integer type = (room.get("type") ?: 0) as Integer
-            if (!userRedis.exists("room:${roomId}:live")) { //断线啦 减一分钟
+            if (!isLive(roomId.toString())) {
                 Long l = Math.max(System.currentTimeMillis() - 60000, (room['timestamp'] ?: 0) as Long) + 1
                 if (logRoomEdit.update(
                         new BasicDBObject(type: "live_on", data: live_id, room: roomId),
@@ -224,15 +228,61 @@ class UpdateUserAndLive {
                         }
                         rooms.update(new BasicDBObject(_id: roomId, live: Boolean.TRUE), new BasicDBObject('$set', set))
                         def params = new HashMap()
-                        def body = ['live': false, room_id: roomId]
-                        params.put('action','room.live.rc')
-                        params.put('data',body)
-                        params.put('template_id','live_on')
+                        def body = ['live': false, room_id: roomId, 'template_id': 'live_on']
+                        params.put('action', 'room.live.rc')
+                        params.put('data', body)
                         publish(params, roomId.toString())
                     }
                 }
             }
         }
+    }
+
+    /**
+     * 检查是否流断了
+     * @return
+     */
+    private Boolean isLive(String roomId) {
+        def error = null
+        def now = new Date().getTime() / 1000
+        JsonSlurper jsonSlurper = new JsonSlurper()
+        println("roomId is ${roomId}")
+        if (!userRedis.exists("room:${roomId}:live")) {
+            println("hearth is broken ..")
+            return false
+        }
+
+        String url = "${api_domain}/monitor/live_status?room_id=${roomId}"
+        String result = request(url)
+        if (StringUtils.isNotBlank(result)) {
+            Map map = jsonSlurper.parseText(result) as Map
+// 假设bad_stream这个集合节点下有值，可能是没开播，也可能是效果不好的流信息，都把他关掉
+// map = ['bad_stream': [['bps': 134888, 'clientIP': '210.22.151.242:43719', 'fps': ['audio': 6, 'data': 0, 'video': 3], 'room_id': 1207992, 'startAt': 1488807193]], normal_stream: []]
+            println("map is ${map}")
+            def badStreamList = map['bad_stream'] as List
+            if (!badStreamList.isEmpty() && badStreamList.size() > 0) {
+                def currentStream = badStreamList.get(0)
+                println("currentStream stream is ${currentStream}")
+                url = "${api_domain}/monitor/live_history?room_id=${roomId}"
+                result = request(url)
+                if (StringUtils.isNotBlank(result)) {
+                    def tmp = jsonSlurper.parseText(result) as Map
+                    def items = tmp['data'] as List
+                    if (!items.isEmpty() && items.size() > 0) {
+                        println("items is ${items}")
+                        def last = items.get(0)
+                        def end = last['end'] as Long
+                        println("end is ${end}")
+                        // 测试end 小于当前时间5分钟
+//                    end = 1488806391
+                        if ((end + FIVE_MINUTE_SECONDS) <= now) {
+                            return false
+                        }
+                    }
+                }
+            }
+        }
+        return true
     }
 
 
@@ -307,7 +357,6 @@ class UpdateUserAndLive {
         } finally {
             if (conn != null) {
                 conn.disconnect();
-                conn = null;
             }
         }
         return jsonText;
@@ -341,7 +390,6 @@ class UpdateUserAndLive {
         } finally {
             if (conn != null) {
                 conn.disconnect();
-                conn = null;
             }
             if (pw != null) {
                 pw.close()
@@ -367,18 +415,6 @@ class UpdateUserAndLive {
 
     public static BasicDBObject $$(Map map) {
         return new BasicDBObject(map)
-    }
-
-    /**
-     * 获取httpClient
-     * @return
-     */
-    def static HttpClient getHttpClient() {
-        HttpClient httpClient = new DefaultHttpClient();
-        HttpParams httpParams = httpClient.getParams();
-        HttpConnectionParams.setSoTimeout(httpParams, 10 * 1000);
-        HttpConnectionParams.setConnectionTimeout(httpParams, 10 * 1000);
-        return httpClient
     }
 
     private static void publish(Map params, String roomId) {
