@@ -163,7 +163,8 @@ class UpdateUserAndLive {
             Integer room_id = dbo.get("_id") as Integer
             Boolean live = dbo.get("live") as Boolean
             Long room_count = (userRedis.scard("room:${room_id}:users".toString()) ?: 0)
-            Long visiter_count = room_count * VISITOR_RATIO
+            Long robots_count = (userRedis.scard("room:${room_id}:robots".toString()) ?: 0)
+            Long visiter_count = (robots_count+room_count) * VISITOR_RATIO
             rooms.update(new BasicDBObject("_id", room_id),
                     new BasicDBObject('$set', new BasicDBObject("visiter_count", visiter_count))
             )
