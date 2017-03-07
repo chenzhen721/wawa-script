@@ -244,12 +244,11 @@ class UpdateUserAndLive {
      * @return
      */
     private Boolean isLive(String roomId) {
-        def error = null
-        def now = new Date().getTime() / 1000
+         def now = new Date().getTime() / 1000
         JsonSlurper jsonSlurper = new JsonSlurper()
         println("roomId is ${roomId}")
         if (!userRedis.exists("room:${roomId}:live")) {
-            println("hearth is broken ..")
+            println("stream ${roomId}:hearth was broken ,it will be close ..")
             return false
         }
 
@@ -257,8 +256,6 @@ class UpdateUserAndLive {
         String result = request(url)
         if (StringUtils.isNotBlank(result)) {
             Map map = jsonSlurper.parseText(result) as Map
-// 假设bad_stream这个集合节点下有值，可能是没开播，也可能是效果不好的流信息，都把他关掉
-// map = ['bad_stream': [['bps': 134888, 'clientIP': '210.22.151.242:43719', 'fps': ['audio': 6, 'data': 0, 'video': 3], 'room_id': 1207992, 'startAt': 1488807193]], normal_stream: []]
             println("map is ${map}")
             def badStreamList = map['bad_stream'] as List
             if (!badStreamList.isEmpty() && badStreamList.size() > 0) {
@@ -272,8 +269,6 @@ class UpdateUserAndLive {
                     if (!items.isEmpty() && items.size() > 0) {
                         def last = items.get(0)
                         def end = last['end'] as Long
-                        // 测试end 小于当前时间5分钟
-//                    end = 1488806391
                         if ((end + THREE_MINUTE_SECONDS) <= now) {
                             println("stream ${roomId} last end in qiniu is ${end},it will be close")
                             return false
