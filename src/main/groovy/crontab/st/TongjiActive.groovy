@@ -34,7 +34,7 @@ class TongjiActive {
         return props.get(key, defaultValue)
     }
 
-    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.246:27017/?w=1') as String))
+    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
     static historyMongo = new Mongo(new MongoURI(getProperties('mongo_history.uri', 'mongodb://192.168.31.246:27017/?w=1') as String))
     static day_login = mongo.getDB("xylog").getCollection("day_login")
     //static day_login = historyMongo.getDB("xylog_history").getCollection("day_login_history")
@@ -79,7 +79,6 @@ class TongjiActive {
         }
         return jsonText;
     }
-
 
     /**
      * 获取友盟的token
@@ -234,7 +233,6 @@ class TongjiActive {
         def content = null
         InputStream is = null
         try {
-            def token = umeng_token()
             def url = new URL("http://api.umeng.com/channels?appkey=${appkey}&auth_token=${AUTH_TOKEN}" +
                     "&per_page=${pageSize}&page=${page}&date=${date.format('yyyy-MM-dd')}")
             def conn = (HttpURLConnection) url.openConnection()
