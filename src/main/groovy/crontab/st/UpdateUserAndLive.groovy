@@ -70,7 +70,7 @@ class UpdateUserAndLive {
     static final String api_domain = getProperties("api.domain", "http://test-aiapi.memeyule.com/")
 
     private static final Integer TIME_OUT = 10 * 60 * 1000;
-    private static final Integer FIVE_MINUTE_SECONDS = 5 * 60;
+    private static final Integer THREE_MINUTE_SECONDS = 3 * 60;
 
     //static final long delay = 45 * 1000L
     static long zeroMill = new Date().clearTime().getTime()
@@ -263,20 +263,19 @@ class UpdateUserAndLive {
             def badStreamList = map['bad_stream'] as List
             if (!badStreamList.isEmpty() && badStreamList.size() > 0) {
                 def currentStream = badStreamList.get(0)
-                println("currentStream stream is ${currentStream}")
+                println("currentStream stream is ${currentStream},it will be shutdown when it was live off at qiniu !!")
                 url = "${api_domain}/monitor/live_history?room_id=${roomId}"
                 result = request(url)
                 if (StringUtils.isNotBlank(result)) {
                     def tmp = jsonSlurper.parseText(result) as Map
                     def items = tmp['data'] as List
                     if (!items.isEmpty() && items.size() > 0) {
-                        println("items is ${items}")
                         def last = items.get(0)
                         def end = last['end'] as Long
-                        println("end is ${end}")
                         // 测试end 小于当前时间5分钟
 //                    end = 1488806391
-                        if ((end + FIVE_MINUTE_SECONDS) <= now) {
+                        if ((end + THREE_MINUTE_SECONDS) <= now) {
+                            println("this stream last end in qiniu is ${end}")
                             return false
                         }
                     }
