@@ -244,42 +244,22 @@ class UpdateUserAndLive {
      * @return
      */
     private Boolean isLive(String roomId) {
-        def now = new Date().getTime() / 1000
         JsonSlurper jsonSlurper = new JsonSlurper()
         println("roomId is ${roomId}")
         if (!userRedis.exists("room:${roomId}:live")) {
             println("stream ${roomId}:hearth was broken ,it will be close ..")
             return false
         }
-
-        String url = "${api_domain}/monitor/live_status?room_id=${roomId}"
+        // 查询未开播的流列表
+        String url = "${api_domain}/monitor/live_list?live=false"
         String result = request(url)
-        String v = 'live'
-        if (StringUtils.isNotBlank(result)) {
-            Map map = jsonSlurper.parseText(result) as Map
-            def badStreamList = map['bad_stream'] as List
-            if (!badStreamList.isEmpty() && badStreamList.size() > 0) {
-                def currentStream = badStreamList.get(0) as Map
-                if (currentStream.containsKey('error')) {
-                    v = currentStream['error'] as String
-                }
-                if (v == 'no live') {
-                    url = "${api_domain}/monitor/live_history?room_id=${roomId}"
-                    result = request(url)
-                    if (StringUtils.isNotBlank(result)) {
-                        def tmp = jsonSlurper.parseText(result) as Map
-                        def items = tmp['data'] as List
-                        if (!items.isEmpty() && items.size() > 0) {
-                            def last = items.get(0)
-                            def end = last['end'] as Long
-                            if ((end + THREE_MINUTE_SECONDS) <= now) {
-                                println("stream ${roomId} info: ${currentStream},last end in qiniu is ${end},then will shutdown because it was live off at qiniu !!")
-                                return false
-                            }
-                        }
-                        println("stream ${roomId} has hearth ,but was colsed status in qinniu")
-                    }
-                }
+        println("result is ${result}")
+        Map map = jsonSlurper.parseText(result) as Map
+        def live_on_list = map['data'] as List
+        live_on_list.find {
+            if(it == roomId){
+                println("stream ${roomId}  will shutdown because it was live off at qiniu !")
+                return false
             }
         }
         return true
