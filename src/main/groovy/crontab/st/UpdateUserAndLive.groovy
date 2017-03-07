@@ -263,7 +263,7 @@ class UpdateUserAndLive {
             def badStreamList = map['bad_stream'] as List
             if (!badStreamList.isEmpty() && badStreamList.size() > 0) {
                 def currentStream = badStreamList.get(0)
-                println("currentStream stream is ${currentStream},it will be shutdown when it was live off at qiniu !!")
+                println("stream ${roomId} info: ${currentStream},it will be shutdown when it was live off at qiniu !!")
                 url = "${api_domain}/monitor/live_history?room_id=${roomId}"
                 result = request(url)
                 if (StringUtils.isNotBlank(result)) {
@@ -275,7 +275,7 @@ class UpdateUserAndLive {
                         // 测试end 小于当前时间5分钟
 //                    end = 1488806391
                         if ((end + THREE_MINUTE_SECONDS) <= now) {
-                            println("this stream last end in qiniu is ${end}")
+                            println("stream ${roomId} last end in qiniu is ${end},it will be close")
                             return false
                         }
                     }
