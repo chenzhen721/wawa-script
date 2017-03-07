@@ -35,15 +35,13 @@ class RegisterRobot {
 
     static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.246:27017/?w=1') as String))
 
-    static final long[] userLevels = [0,0,0,0,0,0,0,
-                                      1000,1000,1000,
-                                      5000,5000,
+    static final long[] userLevels = [0,0,0,0,
+                                      1000,1000,1000,1000,1000,
+                                      5000,5000,5000,
                                         15000,
                                         30000,
                                         50000,
-                                        80000,
-                                        150000,
-                                        300000]
+                                        80000]
 
     static register = new HTTPBuilder( 'http://test-aiuser.memeyule.com/register/robot' ,JSON)
     static xingYuanUser = new HTTPBuilder( 'http://localhost:8080/user/info',JSON)
@@ -64,12 +62,12 @@ class RegisterRobot {
             register.post(query:[ username :username ,pwd:'memeqwert2wsx',via:'robot']){resp, json ->
                 String  access_token = json.data.access_token
                 String  tuid = json.data._id
-                Boolean isUseDefault =RandomUtils.nextInt(5) < 4
+                Boolean isUseDefault = RandomUtils.nextInt(10) < 6
                 String  nick_name = isUseDefault ? json.data.nick_name : row[0] as String
                 String pic =  isUseDefault ? json.data.pic : row[1] as String
                 Integer uid = robot_id--
                 Integer sex = row[2] as Integer
-                Long coin_spend_total = userLevels[RandomUtils.nextInt(userLevels.length)]
+                Long coin_spend_total = RandomUtils.nextInt(10) < 8 ? 0 : userLevels[RandomUtils.nextInt(userLevels.length)]
                 def info = [tuid:tuid as Integer, priv:3, mm_no:uid, user_name: username, via:'robot', pic:pic, sex:sex,
                             nick_name: nick_name, "finance.coin_spend_total":coin_spend_total,timestamp:System.currentTimeMillis()];
                 println uid + " : " + info
