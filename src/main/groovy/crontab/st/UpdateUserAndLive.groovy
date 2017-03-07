@@ -164,7 +164,7 @@ class UpdateUserAndLive {
             Boolean live = dbo.get("live") as Boolean
             Long room_count = (userRedis.scard("room:${room_id}:users".toString()) ?: 0)
             Long robots_count = (userRedis.scard("room:${room_id}:robots".toString()) ?: 0)
-            Long visiter_count = (robots_count+room_count) * VISITOR_RATIO
+            Long visiter_count = (robots_count + room_count) * VISITOR_RATIO
             rooms.update(new BasicDBObject("_id", room_id),
                     new BasicDBObject('$set', new BasicDBObject("visiter_count", visiter_count))
             )
@@ -244,7 +244,7 @@ class UpdateUserAndLive {
      * @return
      */
     private Boolean isLive(String roomId) {
-         def now = new Date().getTime() / 1000
+        def now = new Date().getTime() / 1000
         JsonSlurper jsonSlurper = new JsonSlurper()
         println("roomId is ${roomId}")
         if (!userRedis.exists("room:${roomId}:live")) {
@@ -254,25 +254,30 @@ class UpdateUserAndLive {
 
         String url = "${api_domain}/monitor/live_status?room_id=${roomId}"
         String result = request(url)
+        String v = 'live'
         if (StringUtils.isNotBlank(result)) {
             Map map = jsonSlurper.parseText(result) as Map
-            println("map is ${map}")
             def badStreamList = map['bad_stream'] as List
             if (!badStreamList.isEmpty() && badStreamList.size() > 0) {
-                def currentStream = badStreamList.get(0)
-                println("stream ${roomId} info: ${currentStream},it will be shutdown when it was live off at qiniu !!")
-                url = "${api_domain}/monitor/live_history?room_id=${roomId}"
-                result = request(url)
-                if (StringUtils.isNotBlank(result)) {
-                    def tmp = jsonSlurper.parseText(result) as Map
-                    def items = tmp['data'] as List
-                    if (!items.isEmpty() && items.size() > 0) {
-                        def last = items.get(0)
-                        def end = last['end'] as Long
-                        if ((end + THREE_MINUTE_SECONDS) <= now) {
-                            println("stream ${roomId} last end in qiniu is ${end},it will be close")
-                            return false
+                def currentStream = badStreamList.get(0) as Map
+                if (currentStream.containsKey('error')) {
+                    v = currentStream['error'] as String
+                }
+                if (v == 'no live') {
+                    url = "${api_domain}/monitor/live_history?room_id=${roomId}"
+                    result = request(url)
+                    if (StringUtils.isNotBlank(result)) {
+                        def tmp = jsonSlurper.parseText(result) as Map
+                        def items = tmp['data'] as List
+                        if (!items.isEmpty() && items.size() > 0) {
+                            def last = items.get(0)
+                            def end = last['end'] as Long
+                            if ((end + THREE_MINUTE_SECONDS) <= now) {
+                                println("stream ${roomId} info: ${currentStream},last end in qiniu is ${end},then will shutdown because it was live off at qiniu !!")
+                                return false
+                            }
                         }
+                        println("stream ${roomId} has hearth ,but was colsed status in qinniu")
                     }
                 }
             }
