@@ -36,16 +36,16 @@ class RegisterRobot {
     static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.246:27017/?w=1') as String))
 
     static final long[] userLevels = [0,0,0,0,
-                                      1000,1000,1000,1000,1000,
-                                      5000,5000,5000,
-                                        15000,
-                                        30000,
-                                        50000,
-                                        80000]
+                                      1000,1000,
+                                      3000,
+                                      9000,
+                                      21000,
+                                      45000,45000,45000,45000,
+                                      58000,
+                                      88000,
+                                      126000,]
 
-    static register = new HTTPBuilder( 'http://test-aiuser.memeyule.com/register/robot' ,JSON)
-    static xingYuanUser = new HTTPBuilder( 'http://localhost:8080/user/info',JSON)
-    static flushUser = new HTTPBuilder( 'http://localhost:8080/java/flushuser',JSON)
+    static register = new HTTPBuilder( 'http://aiuser.memeyule.com/register/robot' ,JSON)
     static users = mongo.getDB("xy").getCollection("users")
     static xy_user = mongo.getDB("xy_user").getCollection("users")
 
