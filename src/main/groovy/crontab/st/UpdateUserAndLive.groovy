@@ -205,15 +205,21 @@ class UpdateUserAndLive {
     }
 
     def liveCheck() {
-        //小于当前时间2分钟开播的列表
-        rooms.find(new BasicDBObject('live': true, timestamp: [$lte: System.currentTimeMillis() - (2 * MIN_MILLON)]),
-                new BasicDBObject(live_id: 1, timestamp: 1, type: 1, game_id: 1, live_type: 1)).toArray().each { room ->
+        //获取小于当前时间2分钟前得开播的房间列表
+        def roomList = rooms.find(new BasicDBObject('live': true, timestamp: [$lte: System.currentTimeMillis() - (2 * MIN_MILLON)]),
+                new BasicDBObject(live_id: 1, timestamp: 1, type: 1, game_id: 1, live_type: 1)).toArray()
+
+        //获取七牛推流直播间列表
+        List<String> liveStreamList = getLiveStreamIds()
+
+        roomList.each { room ->
             def roomId = room.get("_id")
             String live_id = room.get("live_id")
             String game_id = room.get("game_id")
             Integer live_type = room?.get("live_type") as Integer
             Integer type = (room.get("type") ?: 0) as Integer
-            if (!isLive(roomId.toString())) {
+            //检查是否心跳存在和推流状态
+            if (!isLive(roomId.toString(), liveStreamList)) {
                 Long l = Math.max(System.currentTimeMillis() - 60000, (room['timestamp'] ?: 0) as Long) + 1
                 if (logRoomEdit.update(
                         new BasicDBObject(type: "live_on", data: live_id, room: roomId),
@@ -239,45 +245,42 @@ class UpdateUserAndLive {
                     }
                 }
             }
+
         }
     }
 
     /**
+     * 获取七牛推流直播间列表
+     * @return
+     */
+    private static List<String> getLiveStreamIds(){
+        JsonSlurper jsonSlurper = new JsonSlurper()
+        // 查询当前七牛开播的流列表
+        String url = "${api_domain}/monitor/live_list"
+        String result = request(url)
+        Map map = jsonSlurper.parseText(result) as Map
+        List<String> liveStreamList = (map['data'] ?: Collections.emptyList() ) as List
+        return liveStreamList
+    }
+    /**
      * 检查是否流断了
      * @return
      */
-    private Boolean isLive(String roomId) {
-        JsonSlurper jsonSlurper = new JsonSlurper()
+    private static Boolean isLive(String roomId, List<String> liveStreamList) {
+
         println("roomId is ${roomId}")
         if (!userRedis.exists("room:${roomId}:live")) {
-            println("stream ${roomId}:hearth was broken ,it will be close ..")
-            return false
+            println("${new Date().format('yyyy-MM-dd HH:mm:ss')}  ${roomId}:hearth was broken ,it will be close ..")
+            return Boolean.FALSE
         }
-        // 查询开播的流列表
-        String url = "${api_domain}/monitor/live_list"
-        String result = request(url)
-         Map map = jsonSlurper.parseText(result) as Map
-        def live_on_list = map['data'] as List
-        def isLiveOn = live_on_list.find {
-            it == roomId
-        }
-        String key = "live:${roomId}:bad:stream"
-        if (isLiveOn == null) {
-            def success = liveRedis.setnx(key, "1") as Integer
-            if (success == 0) {
-                 liveRedis.incr(key)
-            }
+        if (!liveStreamList.contains(roomId)) {//如果流不存在列表中  记录当前失败次数
+            String key = "live:${roomId}:bad:stream"
+            Long errorTimes = liveRedis.incr(key)
+            liveRedis.expire(key, 90)
+            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  stream check ${roomId}: recordTimes : ${errorTimes}"
+            return errorTimes < 3 //三次检测流未正常推送则关闭直播间
          }
-
-        def v = liveRedis.get(key)
-        if (v != null) {
-             if(Integer.valueOf(v.toString()) == 3){
-                 println("scan stream ${roomId}:it have three times in bad stream list,so we will close the stream !")
-                 return false
-            }
-        }
-
-        return true
+        return Boolean.TRUE
     }
 
 
@@ -342,8 +345,8 @@ class UpdateUserAndLive {
             conn = (HttpURLConnection) new URL(url).openConnection()
             conn.setRequestMethod("GET")
             conn.setDoOutput(true)
-            conn.setConnectTimeout(5000);
-            conn.setReadTimeout(5000);
+            conn.setConnectTimeout(3000);
+            conn.setReadTimeout(3000);
             conn.connect()
             jsonText = conn.getInputStream().getText("UTF-8")
 
