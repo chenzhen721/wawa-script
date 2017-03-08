@@ -267,8 +267,6 @@ class UpdateUserAndLive {
      * @return
      */
     private static Boolean isLive(String roomId, List<String> liveStreamList) {
-
-        println("roomId is ${roomId}")
         if (!userRedis.exists("room:${roomId}:live")) {
             println("${new Date().format('yyyy-MM-dd HH:mm:ss')}  ${roomId}:hearth was broken ,it will be close ..")
             return Boolean.FALSE
