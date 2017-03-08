@@ -76,7 +76,7 @@ class UpdateUserAndLive {
     static long zeroMill = new Date().clearTime().getTime()
     static Integer DAY_SEC = 24 * 3600
     static DAY_MILLON = DAY_SEC * 1000L
-    static MIN_MILLON = 60* 1000L
+    static MIN_MILLON = 60 * 1000L
     static WEEK_MILLON = 7 * DAY_MILLON
 
     static final String CLOSE_GAME_SERVER_URL = getProperties('aigd.domain', 'http://test-aigd.memeyule.com:6050/api/room/close?room_id=ROOM_ID&game_id=GAME_ID&live_id=LIVE_ID')
@@ -205,9 +205,9 @@ class UpdateUserAndLive {
     }
 
     def liveCheck() {
-        //2分钟前开播的主播
-        rooms.find(new BasicDBObject('live' : true, timestamp:[$gte: System.currentTimeMillis() - (2 * MIN_MILLON)]),
-                            new BasicDBObject(live_id: 1, timestamp: 1, type: 1, game_id: 1, live_type: 1)).toArray().each { room ->
+        //小于当前时间2分钟开播的列表
+        rooms.find(new BasicDBObject('live': true, timestamp: [$lte: System.currentTimeMillis() - (2 * MIN_MILLON)]),
+                new BasicDBObject(live_id: 1, timestamp: 1, type: 1, game_id: 1, live_type: 1)).toArray().each { room ->
             def roomId = room.get("_id")
             String live_id = room.get("live_id")
             String game_id = room.get("game_id")
@@ -253,18 +253,32 @@ class UpdateUserAndLive {
             println("stream ${roomId}:hearth was broken ,it will be close ..")
             return false
         }
-        // 查询未开播的流列表
-        String url = "${api_domain}/monitor/live_list?live=false"
+        // 查询开播的流列表
+        String url = "${api_domain}/monitor/live_list"
         String result = request(url)
-        println("result is ${result}")
-        Map map = jsonSlurper.parseText(result) as Map
+         Map map = jsonSlurper.parseText(result) as Map
         def live_on_list = map['data'] as List
-        live_on_list.find {
-            if(it == roomId){
-                println("stream ${roomId}  will shutdown because it was live off at qiniu !")
-                return false
+        def isLiveOn = live_on_list.find {
+            it == roomId
+        }
+        println("isLiveOn is ${isLiveOn}")
+        String key = "live:${roomId}:bad:stream"
+
+        if (isLiveOn == null) {
+            def success = liveRedis.setnx(key, "1") as Integer
+            if (success == 0) {
+                 liveRedis.incr(key)
+            }
+         }
+
+        def v = liveRedis.get(key)
+        if (v != null) {
+             if(Integer.valueOf(v.toString()) == 3){
+                 println("scan stream ${roomId}:it have three times in bad stream list,so we will close it")
+                 return false
             }
         }
+
         return true
     }
 
