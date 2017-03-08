@@ -261,9 +261,7 @@ class UpdateUserAndLive {
         def isLiveOn = live_on_list.find {
             it == roomId
         }
-        println("isLiveOn is ${isLiveOn}")
         String key = "live:${roomId}:bad:stream"
-
         if (isLiveOn == null) {
             def success = liveRedis.setnx(key, "1") as Integer
             if (success == 0) {
@@ -274,7 +272,7 @@ class UpdateUserAndLive {
         def v = liveRedis.get(key)
         if (v != null) {
              if(Integer.valueOf(v.toString()) == 3){
-                 println("scan stream ${roomId}:it have three times in bad stream list,so we will close it")
+                 println("scan stream ${roomId}:it have three times in bad stream list,so we will close the stream !")
                  return false
             }
         }
