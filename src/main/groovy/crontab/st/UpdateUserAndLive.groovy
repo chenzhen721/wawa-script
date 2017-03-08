@@ -76,6 +76,7 @@ class UpdateUserAndLive {
     static long zeroMill = new Date().clearTime().getTime()
     static Integer DAY_SEC = 24 * 3600
     static DAY_MILLON = DAY_SEC * 1000L
+    static MIN_MILLON = 60* 1000L
     static WEEK_MILLON = 7 * DAY_MILLON
 
     static final String CLOSE_GAME_SERVER_URL = getProperties('aigd.domain', 'http://test-aigd.memeyule.com:6050/api/room/close?room_id=ROOM_ID&game_id=GAME_ID&live_id=LIVE_ID')
@@ -204,7 +205,9 @@ class UpdateUserAndLive {
     }
 
     def liveCheck() {
-        rooms.find(new BasicDBObject('live', true), new BasicDBObject(live_id: 1, timestamp: 1, type: 1, game_id: 1, live_type: 1)).toArray().each { room ->
+        //2分钟前开播的主播
+        rooms.find(new BasicDBObject('live' : true, timestamp:[$gte: System.currentTimeMillis() - (2 * MIN_MILLON)]),
+                            new BasicDBObject(live_id: 1, timestamp: 1, type: 1, game_id: 1, live_type: 1)).toArray().each { room ->
             def roomId = room.get("_id")
             String live_id = room.get("live_id")
             String game_id = room.get("game_id")
