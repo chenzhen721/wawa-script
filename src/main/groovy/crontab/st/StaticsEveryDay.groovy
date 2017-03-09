@@ -37,7 +37,7 @@ class StaticsEveryDay {
         return props.get(key, defaultValue)
     }
 
-    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:10000,192.168.31.236:10000,192.168.31.231:10001/?w=1&slaveok=true') as String))
+    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
 
     static final String api_domain = getProperties("api.domain", "http://localhost:8080/")
 

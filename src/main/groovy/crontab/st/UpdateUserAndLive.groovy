@@ -11,15 +11,15 @@ import com.mongodb.DBObject
         @Grab('org.apache.httpcomponents:httpclient:4.2.5')
 ])
 import com.mongodb.Mongo
+import com.mongodb.MongoURI
+import com.mongodb.util.Hash
+import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
-import org.apache.http.HttpEntity
-import org.apache.http.HttpResponse
+import org.apache.commons.lang.StringUtils
 import org.apache.http.client.HttpClient
-import org.apache.http.client.methods.HttpGet
 import org.apache.http.impl.client.DefaultHttpClient
 import org.apache.http.params.HttpConnectionParams
 import org.apache.http.params.HttpParams
-import org.apache.http.util.EntityUtils
 import redis.clients.jedis.Jedis
 
 /**
@@ -43,22 +43,22 @@ class UpdateUserAndLive {
     }
 
 
-    static final String jedis_host = getProperties("main_jedis_host", "192.168.31.246")
-    static final String chat_jedis_host = getProperties("chat_jedis_host", "192.168.31.246")
-    static final String live_jedis_host = getProperties("live_jedis_host", "192.168.31.246")
-    static final String user_jedis_host = getProperties("user_jedis_host", "192.168.31.246")
+    static final String jedis_host = getProperties("main_jedis_host", "192.168.31.236")
+    static final String chat_jedis_host = getProperties("chat_jedis_host", "192.168.31.236")
+    static final String live_jedis_host = getProperties("live_jedis_host", "192.168.31.236")
+    static final String user_jedis_host = getProperties("user_jedis_host", "192.168.31.236")
 
     static final Integer main_jedis_port = getProperties("main_jedis_port", 6379) as Integer
     static final Integer chat_jedis_port = getProperties("chat_jedis_port", 6379) as Integer
     static final Integer live_jedis_port = getProperties("live_jedis_port", 6379) as Integer
-    static final Integer user_jedis_port = getProperties("user_jedis_port", 6379) as Integer
+    static final Integer user_jedis_port = getProperties("user_jedis_port", 6380) as Integer
 
     static redis = new Jedis(jedis_host, main_jedis_port)
     static chatRedis = new Jedis(chat_jedis_host, chat_jedis_port)
     static userRedis = new Jedis(user_jedis_host, user_jedis_port)
     static liveRedis = new Jedis(live_jedis_host, live_jedis_port)
 
-    static M  = new Mongo(new com.mongodb.MongoURI(getProperties('mongo.uri','mongodb://192.168.31.246:27000/?w=1') as String))
+    static M = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
 
     static mongo = M.getDB("xy")
     static logRoomEdit = M.getDB("xylog").getCollection("room_edit")
@@ -67,18 +67,20 @@ class UpdateUserAndLive {
     static room_cost_coll = M.getDB('xylog').getCollection('room_cost')
     static star_recommends = M.getDB('xy_admin').getCollection('star_recommends')
 
-    static final String api_domain = getProperties("api.domain", "http://localhost:8080/")
-
+    static final String api_domain = getProperties("api.domain", "http://test-aiapi.memeyule.com/")
 
     private static final Integer TIME_OUT = 10 * 60 * 1000;
+    private static final Integer THREE_MINUTE_SECONDS = 3 * 60;
 
     //static final long delay = 45 * 1000L
     static long zeroMill = new Date().clearTime().getTime()
     static Integer DAY_SEC = 24 * 3600
     static DAY_MILLON = DAY_SEC * 1000L
+    static MIN_MILLON = 60 * 1000L
     static WEEK_MILLON = 7 * DAY_MILLON
 
     static final String CLOSE_GAME_SERVER_URL = getProperties('aigd.domain', 'http://test-aigd.memeyule.com:6050/api/room/close?room_id=ROOM_ID&game_id=GAME_ID&live_id=LIVE_ID')
+    static final String WS_DOMAIN = getProperties('ws.domain', 'http://test-aiws.memeyule.com:6010')
 
     static main(arg) {
         final UpdateUserAndLive task = new UpdateUserAndLive()
@@ -108,8 +110,7 @@ class UpdateUserAndLive {
             long lc = System.currentTimeMillis()
             task.userTranCheck(k, v)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  users.${k} , cost  ${System.currentTimeMillis() - lc} ms"
-        }
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  userTransCheck---->cost:  ${System.currentTimeMillis() - l} ms"
+        } println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  userTransCheck---->cost:  ${System.currentTimeMillis() - l} ms"
 
         //自动解封用户
         l = System.currentTimeMillis()
@@ -144,8 +145,6 @@ class UpdateUserAndLive {
         def id = timerName + "_" + new Date().format("yyyyMMdd")
         def update = new BasicDBObject(timer_name: timerName, cost_total: totalCost, cat: 'minute', unit: 'ms', timestamp: tmp)
         timerLogsDB.findAndModify(new BasicDBObject('_id', id), null, null, false, new BasicDBObject('$set', update), true, true)
-
-
     }
 
     static final String vistor_key = "web:ttxiuvistor:counts"
@@ -165,7 +164,8 @@ class UpdateUserAndLive {
             Integer room_id = dbo.get("_id") as Integer
             Boolean live = dbo.get("live") as Boolean
             Long room_count = (userRedis.scard("room:${room_id}:users".toString()) ?: 0)
-            Long visiter_count = room_count * VISITOR_RATIO
+            Long robots_count = (userRedis.scard("room:${room_id}:robots".toString()) ?: 0)
+            Long visiter_count = (robots_count + room_count) * VISITOR_RATIO
             rooms.update(new BasicDBObject("_id", room_id),
                     new BasicDBObject('$set', new BasicDBObject("visiter_count", visiter_count))
             )
@@ -205,13 +205,21 @@ class UpdateUserAndLive {
     }
 
     def liveCheck() {
-        rooms.find(new BasicDBObject('live', true), new BasicDBObject(live_id: 1, timestamp: 1, type: 1, game_id: 1, live_type: 1)).toArray().each { room ->
+        //获取小于当前时间2分钟前得开播的房间列表
+        def roomList = rooms.find(new BasicDBObject('live': true, timestamp: [$lte: System.currentTimeMillis() - (2 * MIN_MILLON)]),
+                new BasicDBObject(live_id: 1, timestamp: 1, type: 1, game_id: 1, live_type: 1)).toArray()
+
+        //获取七牛推流直播间列表
+        List<String> liveStreamList = getLiveStreamIds()
+
+        roomList.each { room ->
             def roomId = room.get("_id")
             String live_id = room.get("live_id")
             String game_id = room.get("game_id")
             Integer live_type = room?.get("live_type") as Integer
             Integer type = (room.get("type") ?: 0) as Integer
-            if (!userRedis.exists("room:${roomId}:live")) { //断线啦 减一分钟
+            //检查是否心跳存在和推流状态
+            if (!isLive(roomId.toString(), liveStreamList)) {
                 Long l = Math.max(System.currentTimeMillis() - 60000, (room['timestamp'] ?: 0) as Long) + 1
                 if (logRoomEdit.update(
                         new BasicDBObject(type: "live_on", data: live_id, room: roomId),
@@ -220,22 +228,53 @@ class UpdateUserAndLive {
                         delLiveRedis(roomId)
                         // 关闭时通知游戏服务端关闭
                         notifyGameServerClose(game_id, roomId.toString(), live_id)
-
                         logRoomEdit.save(new BasicDBObject(type: 'live_off', room: roomId, data: live_id, live_type: live_type, status: 'LiveStatusCheck', timestamp: l))
                     }
                     finally {
-                        def set = new BasicDBObject(live: false, live_id: '', timestamp: l, live_end_time: l, game_id: '', position: null, pull_urls: null)
-                        //家族房间
-                        if (type.equals(2)) {
-                            set.append('xy_star_id', null)
-                        }
-                        rooms.update(new BasicDBObject(_id: roomId, live: Boolean.TRUE),
-                                new BasicDBObject('$set', set))
-                        chatRedis.publish("ROOMchannel:${roomId}", '{"action": "room.live","data_d":{"live":false}}')
+                        def set = new BasicDBObject(live: false, live_id: '', timestamp: l, live_end_time: l, game_id: '', position: null, pull_urls: null, push_urls: null)
+                        rooms.update(new BasicDBObject(_id: roomId, live: Boolean.TRUE), new BasicDBObject('$set', set))
+                        def params = new HashMap()
+                        def body = ['live': false, room_id: roomId, 'template_id': 'live_on']
+                        params.put('action', 'room.live.rc')
+                        params.put('data', body)
+                        publish(params, roomId.toString())
                     }
                 }
             }
+
         }
+    }
+
+    /**
+     * 获取七牛推流直播间列表
+     * @return
+     */
+    private static List<String> getLiveStreamIds(){
+        JsonSlurper jsonSlurper = new JsonSlurper()
+        // 查询当前七牛开播的流列表
+        String url = "${api_domain}/monitor/live_list"
+        String result = request(url)
+        Map map = jsonSlurper.parseText(result) as Map
+        List<String> liveStreamList = (map['data'] ?: Collections.emptyList() ) as List
+        return liveStreamList
+    }
+    /**
+     * 检查是否流断了
+     * @return
+     */
+    private static Boolean isLive(String roomId, List<String> liveStreamList) {
+        if (!userRedis.exists("room:${roomId}:live")) {
+            println("${new Date().format('yyyy-MM-dd HH:mm:ss')}  ${roomId}:hearth was broken ,it will be close ..")
+            return Boolean.FALSE
+        }
+        if (!liveStreamList.contains(roomId)) {//如果流不存在列表中  记录当前失败次数
+            String key = "live:${roomId}:bad:stream"
+            Long errorTimes = liveRedis.incr(key)
+            liveRedis.expire(key, 90)
+            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  stream check ${roomId}: recordTimes : ${errorTimes}"
+            return errorTimes < 3 //三次检测流未正常推送则关闭直播间
+         }
+        return Boolean.TRUE
     }
 
 
@@ -293,24 +332,60 @@ class UpdateUserAndLive {
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')} result : ${request(api_url)}"
     }
 
-    static String request(String url){
+    static String request(String url) {
         HttpURLConnection conn = null;
         def jsonText = "";
-        try{
-            conn = (HttpURLConnection)new URL(url).openConnection()
+        try {
+            conn = (HttpURLConnection) new URL(url).openConnection()
             conn.setRequestMethod("GET")
             conn.setDoOutput(true)
-            conn.setConnectTimeout(5000);
-            conn.setReadTimeout(5000);
+            conn.setConnectTimeout(3000);
+            conn.setReadTimeout(3000);
             conn.connect()
             jsonText = conn.getInputStream().getText("UTF-8")
 
-        }catch (Exception e){
+        } catch (Exception e) {
             println "request Exception : " + e;
-        }finally{
+        } finally {
             if (conn != null) {
                 conn.disconnect();
-                conn = null;
+            }
+        }
+        return jsonText;
+    }
+
+    static String request_post(String url, String params) {
+        HttpURLConnection conn = null;
+        PrintWriter pw = null;
+        BufferedReader br = null;
+        def jsonText = "";
+        try {
+            conn = (HttpURLConnection) new URL(url).openConnection()
+            conn.setRequestMethod("POST")
+            conn.setDoOutput(true)
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+            conn.setDoOutput(true);
+            conn.setDoInput(true);
+            pw = new PrintWriter(conn.getOutputStream());
+            pw.print(params);
+            pw.flush();
+            br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            String line;
+            while ((line = br.readLine()) != null) {
+                jsonText += line;
+            }
+        } catch (Exception e) {
+            println("发送 POST 请求出现异常！" + e);
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
+            if (pw != null) {
+                pw.close()
+            }
+            if (br != null) {
+                br.close()
             }
         }
         return jsonText;
@@ -332,17 +407,14 @@ class UpdateUserAndLive {
         return new BasicDBObject(map)
     }
 
-    /**
-     * 获取httpClient
-     * @return
-     */
-    def static HttpClient getHttpClient() {
-        HttpClient httpClient = new DefaultHttpClient();
-        HttpParams httpParams = httpClient.getParams();
-        HttpConnectionParams.setSoTimeout(httpParams, 10 * 1000);
-        HttpConnectionParams.setConnectionTimeout(httpParams, 10 * 1000);
-        return httpClient
+    private static void publish(Map params, String roomId) {
+        String url = getRoomPublishUrl(roomId);
+        String content = JsonOutput.toJson(params)
+        request_post(url, content)
     }
 
 
+    private static String getRoomPublishUrl(String roomId) {
+        return String.format("%s%s", WS_DOMAIN, "/api/publish/room/${roomId}");
+    }
 }
