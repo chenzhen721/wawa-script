@@ -54,6 +54,7 @@ class LiveStat {
     static stat_lives = mongo.getDB('xy_admin').getCollection('stat_lives')
     static rooms_rank = mongo.getDB('xyrank').getCollection('rooms')
     static rooms = mongo.getDB('xy').getCollection('rooms')
+    static Long VALID_DAY = 7200
 
     static statics(int i) {
         Long tmp = zeroMill - i * DAY_MILLON
@@ -136,7 +137,7 @@ class LiveStat {
             earndObj.second = mills.intdiv(1000)
             earndObj.timestamp = tmp
             earndObj.user_id = user_id
-            earndObj.value = mills >= 3600 * 1000L ? 1 : 0
+            earndObj.value = mills >= VALID_DAY * 1000L ? 1 : 0
             earndObj.lives = liveSet
             earndObj.users = userSet.size()
             stat_lives.update(new BasicDBObject("_id", "${day}_${user_id}".toString()), earndObj, true, false)
@@ -241,7 +242,7 @@ class LiveStat {
                     liveObj.timestamp = yesterday
                     liveObj.user_id = star_id
                     liveObj.lives = liveSet
-                    liveObj.value = mills >= 3600 * 1000L ? 1 : 0
+                    liveObj.value = mills >= VALID_DAY * 1000L ? 1 : 0
                     stat_lives.update(new BasicDBObject("_id", live_log_id), new BasicDBObject('$set', liveObj), true, false)
                 }
 
@@ -458,7 +459,7 @@ class LiveStat {
             def mills = millLong.intValue()
             def second = mills.intdiv(1000) + (liveMap.get('second') as Integer ?: 0)
             liveMap.put('second', second)
-            liveMap.put('value', second >= 3600 ? 1 : 0)
+            liveMap.put('value', second >= VALID_DAY ? 1 : 0)
             stat_lives.update(new BasicDBObject("_id", "${day}_${user_id}".toString()),
                     new BasicDBObject($set: liveMap), true, false)
         }
