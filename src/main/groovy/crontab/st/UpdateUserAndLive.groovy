@@ -232,10 +232,6 @@ class UpdateUserAndLive {
                     }
                     finally {
                         def set = new BasicDBObject(live: false, live_id: '', timestamp: l, live_end_time: l, game_id: '', position: null, pull_urls: null, push_urls: null)
-                        //家族房间
-                        if (type == 2) {
-                            set.append('xy_star_id', null)
-                        }
                         rooms.update(new BasicDBObject(_id: roomId, live: Boolean.TRUE), new BasicDBObject('$set', set))
                         def params = new HashMap()
                         def body = ['live': false, room_id: roomId, 'template_id': 'live_on']
@@ -379,8 +375,6 @@ class UpdateUserAndLive {
             while ((line = br.readLine()) != null) {
                 jsonText += line;
             }
-            println("jsonText is ${jsonText}")
-
         } catch (Exception e) {
             println("发送 POST 请求出现异常！" + e);
         } finally {
@@ -416,7 +410,6 @@ class UpdateUserAndLive {
     private static void publish(Map params, String roomId) {
         String url = getRoomPublishUrl(roomId);
         String content = JsonOutput.toJson(params)
-        println("url is ${url},content is ${content}")
         request_post(url, content)
     }
 
