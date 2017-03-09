@@ -148,7 +148,7 @@ class UpdateUserAndLive {
     }
 
     static final String vistor_key = "web:ttxiuvistor:counts"
-    static final Integer VISITOR_RATIO = 2
+    static final Integer VISITOR_RATIO = 1
 
     Integer roomUserCount() {
 
