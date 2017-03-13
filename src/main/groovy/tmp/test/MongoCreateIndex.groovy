@@ -69,9 +69,12 @@ class MongoCreateIndex{
 
         mongo.getDB("xy_user").getCollection("users")
                 .ensureIndex(new BasicDBObject(weixin_unionid: 1), new BasicDBObject(unique:true,dropDups: true,sparse: true))
-        */
+
         mongo.getDB("xy_user").getCollection("users")
                 .createIndex(new BasicDBObject(qq_unionid: 1), new BasicDBObject(unique:true,dropDups:false,sparse: true))
+        */
+        mongo.getDB("xy_admin").getCollection("finance_log")
+                .createIndex(new BasicDBObject(transactionId: 1), new BasicDBObject(unique:true,dropDups:false,sparse: true))
     }
 }
 
