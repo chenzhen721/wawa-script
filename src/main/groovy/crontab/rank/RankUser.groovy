@@ -173,22 +173,19 @@ class RankUser {
         int index = 0;
         def rank_total_list = new ArrayList()
         def result = roomUserDB.aggregate(
-//                $$('$match', ['type': 'send_gift']),
-                $$('$project', ['_id': '$user_id', 'num': '$num']),
-                $$('$group', [_id: '$_id', num: [$sum: '$num']]),
-                $$('$sort', ['num': -1])
+                $$('$project', [_id: '$user_id', cost: '$num']),
+                $$('$group', [_id: '$_id', num: [$sum: '$cost']]),
+                $$('$sort', [num: -1])
         ).results()
-        result.each {
-            BasicDBObject obj ->
-                def userId = obj['_id'] as Integer
-                println("userId is ${userId}")
-                println("user cost is ${obj['num']}")
-                if (userId) {
-                    rank_total_list.add($$(_id: "${cat}_${userId}".toString(), cat: cat, rank: ++index,
-                            user_id: userId, num: obj['num'] as Long, sj: new Date()))
-                }
 
-        }
+        result.each {
+            row ->
+                def user_id = row._id
+                if (user_id) {
+                    user_id = user_id as Integer
+                    rank_total_list.add($$(_id: "${cat}_${user_id}".toString(), cat: cat, user_id: user_id, num: row.num, rank: ++index, sj: new Date()))
+                }
+        } 
 
         coll.remove(new BasicDBObject("cat", cat))
         if (rank_total_list.size() > 0)
