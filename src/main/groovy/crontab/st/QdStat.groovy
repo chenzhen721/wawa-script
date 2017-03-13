@@ -61,7 +61,6 @@ class QdStat {
         mongo.getDB('xy_admin').getCollection('channels').find(
                 $$("_id", [$ne: null]), $$("reg_discount", 1).append("child_qd", 1).append("sence_id", 1)
         ).toArray().each { BasicDBObject channnel ->
-            println("channel is ${channnel}")
             def cId = channnel.removeField("_id")
             //String sence_id = channnel.removeField("sence_id") as String
             def user_query = $$(qd: cId, timestamp: timeBetween)
