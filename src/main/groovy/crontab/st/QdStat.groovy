@@ -35,7 +35,7 @@ class QdStat {
         return props.get(key, defaultValue)
     }
 
-    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.246:27017/?w=1') as String))
+    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
 
     static DAY_MILLON = 24 * 3600 * 1000L
     static long zeroMill = new Date().clearTime().getTime()
@@ -45,34 +45,54 @@ class QdStat {
         def coll = mongo.getDB('xy_admin').getCollection('stat_channels')
         def users = mongo.getDB('xy').getCollection('users')
         def finance_log = mongo.getDB('xy_admin').getCollection('finance_log')
-        def trade_logs = mongo.getDB('xylog').getCollection('trade_logs')
-        def room_cost = mongo.getDB('xylog').getCollection('room_cost')
         def stat_daily = mongo.getDB('xy_admin').getCollection('stat_daily')
         def day_login = mongo.getDB("xylog").getCollection("day_login")
-        def weixin_event_logs = mongo.getDB("xy_union").getCollection("weixin_event_logs")
-        def ria_event_logs = mongo.getDB("xylog").getCollection("ria_event_logs")
 
         Long begin = yesTday - i * DAY_MILLON
         def timeBetween = [$gte: begin, $lt: begin + DAY_MILLON]
         // 查询30天新充值用户
         def new_payed_user = new ArrayList(2000)
-        stat_daily.find(new BasicDBObject(type: "allpay", timestamp: [$gte: begin - 30 * DAY_MILLON, $lt: begin + DAY_MILLON]), new BasicDBObject(first_pay: 1))
+        stat_daily.find($$(type: "allpay", timestamp: [$gte: begin - 30 * DAY_MILLON, $lt: begin + DAY_MILLON]), $$(first_pay: 1))
                 .toArray().each { BasicDBObject obj ->
             def uids = (obj.get('first_pay') as List) ?: []
             new_payed_user.addAll(uids)
         }
 
         mongo.getDB('xy_admin').getCollection('channels').find(
-                new BasicDBObject("_id", [$ne: null]), new BasicDBObject("reg_discount", 1).append("child_qd", 1).append("sence_id",1)
+                $$("_id", [$ne: null]), $$("reg_discount", 1).append("child_qd", 1).append("sence_id", 1)
         ).toArray().each { BasicDBObject channnel ->
+            println("channel is ${channnel}")
             def cId = channnel.removeField("_id")
             //String sence_id = channnel.removeField("sence_id") as String
-            def user_query = new BasicDBObject(qd: cId, timestamp: timeBetween)
+            def user_query = $$(qd: cId, timestamp: timeBetween)
             def YMD = new Date(begin).format("yyyyMMdd")
-            def st = new BasicDBObject(_id: "${YMD}_${cId}" as String, qd: cId, timestamp: begin)
-            def regUsers = users.find(user_query, new BasicDBObject('status', 1))*.get('_id')
+            def st = $$(_id: "${YMD}_${cId}" as String, qd: cId, timestamp: begin)
+            def regUsers = users.find(user_query, $$('status', 1))*.get('_id')
             def regNum = regUsers.size()
             st.append("regs", regUsers).append("reg", regNum)
+
+            // 统计该渠道下的发言率
+            def speechDB = mongo.getDB('').getCollection('')
+            def speeches = speechDB.find().toArray()*.get('_id')
+            st.append('speechs', speeches.size())
+            // 新增的发言率
+            st.append('first_speechs', speeches.intersect(regUsers).size())
+
+            //统计该渠道下的新增的消费率
+            def costList = new HashSet()
+            def betDB = mongo.getDB('game_log').getCollection('user_bet')
+            def betList = betDB.find($$('timestamp': timeBetween, 'user_id': ['$in': regUsers])).toArray()*.get('user_id')
+            def room_cost_db = mongo.getDB('xylog').getCollection('room_cost')
+            def sendGiftList = new ArrayList()
+            room_cost_db.find($$('timestamp': timeBetween, 'session._id': ['$in': regUsers])).toArray().each {
+                BasicDBObject obj ->
+                    def session = obj['session'] as Map
+                    sendGiftList.add(session['_id'] as Integer)
+            }
+            costList.addAll(betList)
+            costList.addAll(sendGiftList)
+            st.append('first_cost', costList.size())
+
             //设置注册扣量cpa2
             def discountMap = channnel.removeField("reg_discount") as Map
             if (discountMap != null && discountMap.size() > 0) {
@@ -92,9 +112,9 @@ class QdStat {
 
             //优化后
             def iter = finance_log.aggregate(
-                    new BasicDBObject('$match', [via: [$ne: 'Admin'], qd: cId, timestamp: timeBetween]),
-                    new BasicDBObject('$project', [cny: '$cny', user_id: '$user_id']),
-                    new BasicDBObject('$group', [_id: null, cny: [$sum: '$cny'], count: [$sum: 1], pays: [$addToSet: '$user_id']])
+                    $$('$match', [via: [$ne: 'Admin'], qd: cId, timestamp: timeBetween]),
+                    $$('$project', [cny: '$cny', user_id: '$user_id']),
+                    $$('$group', [_id: null, cny: [$sum: '$cny'], count: [$sum: 1], pays: [$addToSet: '$user_id']])
             ).results().iterator()
 
             if (iter.hasNext()) {
@@ -109,8 +129,8 @@ class QdStat {
 
             //查询该渠道下30天的新充值用户
             def payed_user = new HashSet(), reg_user = new HashSet()
-            coll.find(new BasicDBObject(qd: cId, timestamp: [$gte: begin - 30 * DAY_MILLON, $lt: begin + DAY_MILLON]),
-                    new BasicDBObject(pays: 1, regs: 1)).toArray().each { BasicDBObject obj ->
+            coll.find($$(qd: cId, timestamp: [$gte: begin - 30 * DAY_MILLON, $lt: begin + DAY_MILLON]),
+                    $$(pays: 1, regs: 1)).toArray().each { BasicDBObject obj ->
                 def pays = (obj.get('pays') as List) ?: []
                 def regs = (obj.get('regs') as List) ?: []
                 payed_user.addAll(pays)
@@ -121,9 +141,9 @@ class QdStat {
             //每个用户30天内的充值金额
             def total = 0, reg_total = 0, pay_user = new HashSet(), pay_reg = new HashSet()
             finance_log.aggregate(
-                    new BasicDBObject('$match', [user_id: [$in: payed_user], timestamp: [$gte: begin - 30 * DAY_MILLON, $lt: begin + DAY_MILLON]]),
-                    new BasicDBObject('$project', [_id: '$user_id', cny: '$cny']),
-                    new BasicDBObject('$group', [_id: '$_id', cny: [$sum: '$cny']])
+                    $$('$match', [user_id: [$in: payed_user], timestamp: [$gte: begin - 30 * DAY_MILLON, $lt: begin + DAY_MILLON]]),
+                    $$('$project', [_id: '$user_id', cny: '$cny']),
+                    $$('$group', [_id: '$_id', cny: [$sum: '$cny']])
             ).results().each { BasicDBObject obj ->
                 def uid = obj.get('_id') as Integer
                 def cny = obj.get('cny') as Double
@@ -140,17 +160,16 @@ class QdStat {
             st.put('first_pay_cny', total)
             st.put('first_pay_user', pay_user.size())
 
-
-            coll.update(new BasicDBObject(_id: st.remove('_id') as String), new BasicDBObject($set: st), true, false)
+            coll.update($$(_id: st.remove('_id') as String), $$($set: st), true, false)
             //注册次日留存
             Long before = begin - DAY_MILLON
             def before_day = new Date(before)
             def before_ymd = before_day.format('yyyyMMdd')
             //查询前一天的注册用户
-            def beforeObj = coll.findOne(new BasicDBObject(_id: "${before_ymd}_${cId}".toString()), new BasicDBObject(regs: 1))
+            def beforeObj = coll.findOne($$(_id: "${before_ymd}_${cId}".toString()), $$(regs: 1))
             def regs = (beforeObj?.get('regs') as List) ?: []
-            def reg_retention = day_login.count(new BasicDBObject(user_id: [$in: regs], timestamp: [$gte: begin, $lt: begin + DAY_MILLON]))
-            coll.update(new BasicDBObject(_id: "${before_ymd}_${cId}".toString()), new BasicDBObject($set: [reg_retention: reg_retention]))
+            def reg_retention = day_login.count($$(user_id: [$in: regs], timestamp: [$gte: begin, $lt: begin + DAY_MILLON]))
+            coll.update($$(_id: "${before_ymd}_${cId}".toString()), $$($set: [reg_retention: reg_retention]))
 
             //查询当月注册用户截止到当前日期的充值信息
             def cal = Calendar.getInstance()
@@ -161,15 +180,15 @@ class QdStat {
             cal.set(Calendar.SECOND, 0)
             cal.set(Calendar.MILLISECOND, 0)
             def month_begin = cal.getTimeInMillis()
-            def month_reg = users.find(new BasicDBObject(qd: cId, timestamp: [$gte: month_begin, $lt: begin + DAY_MILLON])).toArray()*._id
+            def month_reg = users.find($$(qd: cId, timestamp: [$gte: month_begin, $lt: begin + DAY_MILLON])).toArray()*._id
             def cny = 0, uset = new HashSet()
             finance_log.aggregate(
-                    new BasicDBObject('$match', [
+                    $$('$match', [
                             $or      : [[user_id: [$in: month_reg]], [to_id: [$in: month_reg]]],
                             via      : [$ne: 'Admin'],
                             timestamp: [$gte: month_begin, $lt: begin + DAY_MILLON]]),
-                    new BasicDBObject('$project', [cny: '$cny', user_id: '$user_id', to_id: '$to_id']),
-                    new BasicDBObject('$group', [_id: [fid: '$user_id', tid: '$to_id'], cny: [$sum: '$cny'], uids: [$addToSet: '$to_id']])
+                    $$('$project', [cny: '$cny', user_id: '$user_id', to_id: '$to_id']),
+                    $$('$group', [_id: [fid: '$user_id', tid: '$to_id'], cny: [$sum: '$cny'], uids: [$addToSet: '$to_id']])
             ).results().each { BasicDBObject obj ->
                 cny += obj.get('cny') as Double
                 def id = obj.remove('_id') as Map
@@ -183,18 +202,17 @@ class QdStat {
                     }
                 }
             }
-            coll.update(new BasicDBObject(_id: "${YMD}_${cId}".toString()),
-                    new BasicDBObject($set: [month_cny: cny, month_pay: uset.size()]))
+            coll.update($$(_id: "${YMD}_${cId}".toString()),
+                    $$($set: [month_cny: cny, month_pay: uset.size()]))
         }
 
     }
-
 
     //父渠道信息汇总
     static parentQdstatic(int i) {
         def channel_db = mongo.getDB('xy_admin').getCollection('channels')
         def stat_channels = mongo.getDB('xy_admin').getCollection('stat_channels')
-        def channels = channel_db.find(new BasicDBObject(parent_qd: [$ne: null]), new BasicDBObject(parent_qd: 1)).toArray()
+        def channels = channel_db.find($$(parent_qd: [$ne: null]), $$(parent_qd: 1)).toArray()
         Map<String, DBObject> parentMap = new HashMap<String, DBObject>()
         for (DBObject obj : channels) {
             String parent_id = obj.get("parent_qd") as String
@@ -205,8 +223,8 @@ class QdStat {
             DBObject obj = parentMap.get(key)
             Long begin = yesTday - i * DAY_MILLON
             def parent_id = obj.get("parent_qd") as String
-            def childqds = channel_db.find(new BasicDBObject(parent_qd: parent_id), new BasicDBObject(_id: 1)).toArray()
-            DBObject query = new BasicDBObject('qd', [$in: childqds.collect {
+            def childqds = channel_db.find($$(parent_qd: parent_id), $$(_id: 1)).toArray()
+            DBObject query = $$('qd', [$in: childqds.collect {
                 ((Map) it).get('_id').toString()
             }]).append("timestamp", begin)
             def stat_child_channels = stat_channels.find(query).toArray()
@@ -248,8 +266,8 @@ class QdStat {
 
             }
             def YMD = new Date(begin).format("yyyyMMdd")
-            def st = new BasicDBObject(_id: "${YMD}_${parent_id}" as String, qd: parent_id, timestamp: begin)
-            def setObject = new BasicDBObject(
+            def st = $$(_id: "${YMD}_${parent_id}" as String, qd: parent_id, timestamp: begin)
+            def setObject = $$(
                     pay: payNum,
                     reg: regNum,
                     cny: cny,
@@ -267,9 +285,9 @@ class QdStat {
                     qd: parent_id,
                     timestamp: begin
             )
-//            def setObject = new BasicDBObject(qd: parent_id, timestamp: begin)
+//            def setObject = $$(qd: parent_id, timestamp: begin)
             stat_channels.findAndModify(st, null, null, false,
-                    new BasicDBObject($set: setObject), true, true)
+                    $$($set: setObject), true, true)
         }
 
     }
@@ -285,18 +303,18 @@ class QdStat {
         Long begin = yesTday - i * DAY_MILLON
         def timeBetween = [$gte: begin, $lt: begin + DAY_MILLON]
         def iter = ad_logs.aggregate(
-                new BasicDBObject('$match', [timestamp: timeBetween, status:1]),
-                new BasicDBObject('$project', [from: '$from']),
-                new BasicDBObject('$group', [_id: '$from', count: [$sum: 1]])
+                $$('$match', [timestamp: timeBetween, status: 1]),
+                $$('$project', [from: '$from']),
+                $$('$group', [_id: '$from', count: [$sum: 1]])
         ).results().iterator()
         def _id = new Date(begin).format("yyyyMMdd")
-        def aso = new BasicDBObject(_id:_id, timestamp:begin);
+        def aso = $$(_id: _id, timestamp: begin);
         def data = new ArrayList();
         if (iter.hasNext()) {
             def obj = iter.next()
-            data.add([(obj.get('_id') as String) : obj.get('count') as Integer] as Map)
+            data.add([(obj.get('_id') as String): obj.get('count') as Integer] as Map)
         }
-        aso.append('data',data)
+        aso.append('data', data)
         stat_aso.save(aso)
     }
 
@@ -308,6 +326,14 @@ class QdStat {
         cal.set(Calendar.SECOND, 0)
         cal.set(Calendar.MILLISECOND, 0)
         return cal
+    }
+
+    public static BasicDBObject $$(String key, Object value) {
+        return new BasicDBObject(key, value);
+    }
+
+    public static BasicDBObject $$(Map map) {
+        return new BasicDBObject(map)
     }
 
     static Integer begin_day = 0;
@@ -343,7 +369,7 @@ class QdStat {
      * 标记任务完成  用于运维监控
      * @return
      */
-    private static jobFinish(Long begin){
+    private static jobFinish(Long begin) {
         def timerName = 'QdStat'
         Long totalCost = System.currentTimeMillis() - begin
         saveTimerLogs(timerName, totalCost)
@@ -355,8 +381,8 @@ class QdStat {
         def timerLogsDB = mongo.getDB("xyrank").getCollection("timer_logs")
         def tmp = System.currentTimeMillis()
         def id = timerName + "_" + new Date().format("yyyyMMdd")
-        def update = new BasicDBObject(timer_name: timerName, cost_total: totalCost, cat: 'day', unit: 'ms', timestamp: tmp)
-        timerLogsDB.findAndModify(new BasicDBObject('_id', id), null, null, false, new BasicDBObject('$set', update), true, true)
+        def update = $$(timer_name: timerName, cost_total: totalCost, cat: 'day', unit: 'ms', timestamp: tmp)
+        timerLogsDB.findAndModify($$('_id', id), null, null, false, $$('$set', update), true, true)
     }
 
 }
