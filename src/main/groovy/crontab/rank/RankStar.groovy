@@ -276,8 +276,6 @@ class RankStar {
         long l = System.currentTimeMillis()
         long begin = l
 
-
-        /**
         //更新房间
         updateRooms()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   staticRoom, cost  ${System.currentTimeMillis() - l} ms"
@@ -313,7 +311,6 @@ class RankStar {
          println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   staticFamilyTotal, cost  ${System.currentTimeMillis() - l} ms"
          Thread.sleep(1000L)
 
-        **/
 
         //明星总排名
         l = System.currentTimeMillis()

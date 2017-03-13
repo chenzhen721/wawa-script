@@ -71,27 +71,26 @@ class QdStat {
             def regNum = regUsers.size()
             st.append("regs", regUsers).append("reg", regNum)
 
-            // 统计该渠道下的发言率
-            def speechDB = mongo.getDB('').getCollection('')
-            def speeches = speechDB.find().toArray()*.get('_id')
-            st.append('speechs', speeches.size())
-            // 新增的发言率
-            st.append('first_speechs', speeches.intersect(regUsers).size())
+            /**
+                 // 统计该渠道下的发言率
+                 def speechDB = mongo.getDB('').getCollection('')
+                 def speeches = speechDB.find().toArray()*.get('_id')
+                 st.append('speechs', speeches.size())
+                 // 新增的发言率
+                 st.append('first_speechs', speeches.intersect(regUsers).size())
 
-            //统计该渠道下的新增的消费率
-            def costList = new HashSet()
-            def betDB = mongo.getDB('game_log').getCollection('user_bet')
-            def betList = betDB.find($$('timestamp': timeBetween, 'user_id': ['$in': regUsers])).toArray()*.get('user_id')
-            def room_cost_db = mongo.getDB('xylog').getCollection('room_cost')
-            def sendGiftList = new ArrayList()
-            room_cost_db.find($$('timestamp': timeBetween, 'session._id': ['$in': regUsers])).toArray().each {
-                BasicDBObject obj ->
-                    def session = obj['session'] as Map
-                    sendGiftList.add(session['_id'] as Integer)
-            }
-            costList.addAll(betList)
-            costList.addAll(sendGiftList)
-            st.append('first_cost', costList.size())
+                 //统计该渠道下的新增的消费率
+                 def costList = new HashSet()
+                 def betDB = mongo.getDB('game_log').getCollection('user_bet')
+                 def betList = betDB.find($$('timestamp': timeBetween, 'user_id': ['$in': regUsers])).toArray()*.get('user_id')
+                 def room_cost_db = mongo.getDB('xylog').getCollection('room_cost')
+                 def sendGiftList = new ArrayList()
+                 room_cost_db.find($$('timestamp': timeBetween, 'session._id': ['$in': regUsers])).toArray().each {BasicDBObject obj ->
+                 def session = obj['session'] as Map
+                 sendGiftList.add(session['_id'] as Integer)}costList.addAll(betList)
+                 costList.addAll(sendGiftList)
+                 st.append('first_cost', costList.size())
+             **/
 
             //设置注册扣量cpa2
             def discountMap = channnel.removeField("reg_discount") as Map
