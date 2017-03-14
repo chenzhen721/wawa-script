@@ -2,6 +2,7 @@
 package crontab.st
 
 import com.mongodb.BasicDBObject
+import com.mongodb.DBCollection
 import com.mongodb.DBObject
 @Grapes([
         @Grab('org.mongodb:mongo-java-driver:2.14.2'),
@@ -39,6 +40,24 @@ class QdStat {
     static long zeroMill = new Date().clearTime().getTime()
     static Long yesTday = zeroMill - DAY_MILLON
 
+    static create_chat_index(String currentMonth) {
+        def index_name = '_user_id_timestamp_index_'
+        DBCollection chat_collection = chatLog.getCollection(currentMonth)
+        def isExists = Boolean.TRUE
+        chat_collection.getIndexInfo().each {
+            BasicDBObject obj ->
+                def name = obj['name'] as String
+                if(name == index_name){
+                    isExists = Boolean.FALSE
+                }
+        }
+        if(isExists){
+            def user_id_timestamp_index = $$('user_id': 1, 'timestamp': -1)
+            chat_collection.createIndex(user_id_timestamp_index,index_name)
+            println  "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${QdStat.class.getSimpleName()},create index success"
+        }
+    }
+
     static statics(int i) {
         def coll = mongo.getDB('xy_admin').getCollection('stat_channels')
         def users = mongo.getDB('xy').getCollection('users')
@@ -59,8 +78,8 @@ class QdStat {
         def chat_query = $$('timestamp': timeBetween)
         def chat_field = $$('user_id': 1)
         def currentMonth = new Date(begin).format('yyyy/M')
+        create_chat_index(currentMonth)
         def chatList = chatLog.getCollection(currentMonth).find(chat_query, chat_field).toArray()
-
         mongo.getDB('xy_admin').getCollection('channels').find(
                 $$("_id", [$ne: null]), $$("reg_discount", 1).append("child_qd", 1).append("sence_id", 1)
         ).toArray().each { BasicDBObject channnel ->
@@ -74,7 +93,7 @@ class QdStat {
             st.append("regs", regUsers).append("reg", regNum)
 
             // 统计该渠道下的发言人数,这个渠道登陆的人数
-            def login_count = day_login.count($$('timestamp':timeBetween,'qd':cId))
+            def login_count = day_login.count($$('timestamp': timeBetween, 'qd': cId))
             def current_speechs = 0
             def first_speechs = 0
             chatList.each {
