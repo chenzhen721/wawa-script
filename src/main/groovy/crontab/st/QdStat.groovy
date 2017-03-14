@@ -65,7 +65,6 @@ class QdStat {
                 $$("_id", [$ne: null]), $$("reg_discount", 1).append("child_qd", 1).append("sence_id", 1)
         ).toArray().each { BasicDBObject channnel ->
             def cId = channnel.removeField("_id")
-            //String sence_id = channnel.removeField("sence_id") as String
             def user_query = $$(qd: cId, timestamp: timeBetween)
             def YMD = new Date(begin).format("yyyyMMdd")
             def st = $$(_id: "${YMD}_${cId}" as String, qd: cId, timestamp: begin)
@@ -74,7 +73,8 @@ class QdStat {
             def regNum = regUsers.size()
             st.append("regs", regUsers).append("reg", regNum)
 
-            // 统计该渠道下的发言率
+            // 统计该渠道下的发言人数,这个渠道登陆的人数
+            def login_count = day_login.count($$('timestamp':timeBetween,'qd':cId))
             def current_speechs = 0
             def first_speechs = 0
             chatList.each {
@@ -90,10 +90,11 @@ class QdStat {
                     }
             }
             st.append('speechs', current_speechs)
-            // 新增的发言率
+            st.append('login_count', login_count)
+            // 新增的发言人数
             st.append('first_speechs', first_speechs)
 
-            // 统计该渠道下的新增的消费率
+            // 统计该渠道下的新增的消费人数
             def betDB = mongo.getDB('game_log').getCollection('user_bet')
             def gameBetList = betDB.distinct('user_id', $$('timestamp': timeBetween, 'user_id': ['$in': regUsers])) as String[]
             def room_cost_db = mongo.getDB('xylog').getCollection('room_cost')
