@@ -2,16 +2,14 @@
 package crontab.st
 
 import com.mongodb.BasicDBObject
+import com.mongodb.DBObject
 @Grapes([
         @Grab('org.mongodb:mongo-java-driver:2.14.2'),
         @Grab('commons-lang:commons-lang:2.6'),
         @Grab('redis.clients:jedis:2.1.0'),
 ])
 import com.mongodb.Mongo
-import com.mongodb.DBObject
 import com.mongodb.MongoURI
-import groovy.json.JsonSlurper
-import org.apache.commons.lang.StringUtils
 
 /**
  * 每天统计一份数据
@@ -36,7 +34,7 @@ class QdStat {
     }
 
     static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
-
+    static chatLog = mongo.getDB('chat_log')
     static DAY_MILLON = 24 * 3600 * 1000L
     static long zeroMill = new Date().clearTime().getTime()
     static Long yesTday = zeroMill - DAY_MILLON
@@ -58,6 +56,11 @@ class QdStat {
             new_payed_user.addAll(uids)
         }
 
+        def chat_query = $$('timestamp': timeBetween)
+        def chat_field = $$('user_id': 1)
+        def currentMonth = new Date(begin).format('yyyy/M')
+        def chatList = chatLog.getCollection(currentMonth).find(chat_query, chat_field).toArray()
+
         mongo.getDB('xy_admin').getCollection('channels').find(
                 $$("_id", [$ne: null]), $$("reg_discount", 1).append("child_qd", 1).append("sence_id", 1)
         ).toArray().each { BasicDBObject channnel ->
@@ -67,29 +70,40 @@ class QdStat {
             def YMD = new Date(begin).format("yyyyMMdd")
             def st = $$(_id: "${YMD}_${cId}" as String, qd: cId, timestamp: begin)
             def regUsers = users.find(user_query, $$('status', 1))*.get('_id')
+
             def regNum = regUsers.size()
             st.append("regs", regUsers).append("reg", regNum)
 
-            /**
-                 // 统计该渠道下的发言率
-                 def speechDB = mongo.getDB('').getCollection('')
-                 def speeches = speechDB.find().toArray()*.get('_id')
-                 st.append('speechs', speeches.size())
-                 // 新增的发言率
-                 st.append('first_speechs', speeches.intersect(regUsers).size())
+            // 统计该渠道下的发言率
+            def current_speechs = 0
+            def first_speechs = 0
+            chatList.each {
+                BasicDBObject obj ->
+                    def userId = obj['user_id'] as Integer
+                    def user = users.findOne($$('_id': userId, 'qd': cId), $$('_id': 1))
+                    if (user != null) {
+                        current_speechs += 1
+                        regUsers.find {
+                            if (it == userId)
+                                first_speechs += 1
+                        }
+                    }
+            }
+            st.append('speechs', current_speechs)
+            // 新增的发言率
+            st.append('first_speechs', first_speechs)
 
-                 //统计该渠道下的新增的消费率
-                 def costList = new HashSet()
-                 def betDB = mongo.getDB('game_log').getCollection('user_bet')
-                 def betList = betDB.find($$('timestamp': timeBetween, 'user_id': ['$in': regUsers])).toArray()*.get('user_id')
-                 def room_cost_db = mongo.getDB('xylog').getCollection('room_cost')
-                 def sendGiftList = new ArrayList()
-                 room_cost_db.find($$('timestamp': timeBetween, 'session._id': ['$in': regUsers])).toArray().each {BasicDBObject obj ->
-                 def session = obj['session'] as Map
-                 sendGiftList.add(session['_id'] as Integer)}costList.addAll(betList)
-                 costList.addAll(sendGiftList)
-                 st.append('first_cost', costList.size())
-             **/
+            // 统计该渠道下的新增的消费率
+            def betDB = mongo.getDB('game_log').getCollection('user_bet')
+            def gameBetList = betDB.distinct('user_id', $$('timestamp': timeBetween, 'user_id': ['$in': regUsers])) as String[]
+            def room_cost_db = mongo.getDB('xylog').getCollection('room_cost')
+            def roomCostList = room_cost_db.distinct('session._id', $$('timestamp': timeBetween, 'session._id': ['$in': regUsers as String[]]))
+
+            def first_cost_list = new HashSet()
+            first_cost_list.addAll(gameBetList)
+            first_cost_list.addAll(roomCostList)
+
+            st.append('first_cost', first_cost_list.size())
 
             //设置注册扣量cpa2
             def discountMap = channnel.removeField("reg_discount") as Map
@@ -360,7 +374,6 @@ class QdStat {
 
         //落地定时执行的日志
         jobFinish(begin)
-
     }
 
     /**

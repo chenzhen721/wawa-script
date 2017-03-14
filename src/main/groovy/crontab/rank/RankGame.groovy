@@ -84,7 +84,7 @@ class RankGame {
                 new BasicDBObject('$group', [_id: '$_id', num: [$sum: '$cost']]),
                 new BasicDBObject('$sort', [num: -1])
         )
-        int threshold = 0;
+//        int threshold = 0;
         Iterable objs = res.results()
         def list = new ArrayList(size)
         int i = 0
