@@ -8,6 +8,8 @@
 
 11 * * * * root source /etc/profile && /empty/crontab/RankUser.groovy >> /empty/crontab/logs/RankUser.log
 
+*/30 * * * * root source /etc/profile && /empty/crontab/RankGame.groovy >> /empty/crontab/logs/RankGame.log
+
 */1 * * * * root source /etc/profile && /empty/crontab/UpdateUserAndLive.groovy >> /empty/crontab/logs/star_UpdateUserAndLive.log
 
 44 */1 * * * root source /etc/profile && /empty/crontab/RankUserRoom.groovy >> /empty/crontab/logs/RankUserRoom.log &

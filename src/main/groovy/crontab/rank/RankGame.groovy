@@ -17,7 +17,7 @@ import com.mongodb.BasicDBObject
  * date: 13-2-28 下午2:46
  * @author: yangyang.cong@ttpod.com
  */
-class RankUser {
+class RankGame {
 
     static Properties props = null;
     static String profilepath = "/empty/crontab/db.properties";
@@ -39,9 +39,8 @@ class RankUser {
     static HOUR_MILLON = 3600 * 1000L
     static DAY_MILLON = 24 * HOUR_MILLON
     static long zeroMill = new Date().clearTime().getTime()
-    static roomUserDB = mongo.getDB("xylog").getCollection("room_cost_usr")
-    static userDB = mongo.getDB("xy").getCollection("users")
-    static coll = mongo.getDB("xyrank").getCollection("user")
+    static lotteryWinDb = mongo.getDB("game_log").getCollection("user_lottery")
+    static coll = mongo.getDB("xyrank").getCollection("game")
     static final Integer size = 100
 
 
@@ -52,12 +51,11 @@ class RankUser {
     static void staticHour() {
         String cat = "hour"
         long now = System.currentTimeMillis()
-        def roomCostDb = mongo.getDB("xylog").getCollection("room_cost")
-        def res = roomCostDb.aggregate(
-                new BasicDBObject('$match', [timestamp: [$gt: now - HOUR_MILLON, $lte: now]]),
-                new BasicDBObject('$project', [_id: '$session._id', cost: '$star_cost']),
-                new BasicDBObject('$group', [_id: '$_id', num: [$sum: '$cost']]),
-                new BasicDBObject('$sort', [num: -1])
+        def res = lotteryWinDb.aggregate(
+                $$('$match', [timestamp: [$gt: now - HOUR_MILLON, $lte: now], 'coin': ['$gte': 0]]),
+                $$('$project', [_id: '$user_id', cost: '$coin']),
+                $$('$group', [_id: '$_id', num: [$sum: '$cost']]),
+                $$('$sort', [num: -1])
         )
         Iterable objs = res.results()
         def list = new ArrayList(size)
@@ -80,14 +78,13 @@ class RankUser {
     static void staticDay() {
         String cat = "day"
         long now = System.currentTimeMillis()
-        def roomCostDb = mongo.getDB("xylog").getCollection("room_cost")
-        def res = roomCostDb.aggregate(
-                new BasicDBObject('$match', [timestamp: [$gt: zeroMill, $lte: now]]),
-                new BasicDBObject('$project', [_id: '$session._id', cost: '$star_cost']),
+        def res = lotteryWinDb.aggregate(
+                new BasicDBObject('$match', [timestamp: [$gt: zeroMill, $lte: now], 'coin': ['$gte': 0]]),
+                new BasicDBObject('$project', [_id: '$user_id', cost: '$coin']),
                 new BasicDBObject('$group', [_id: '$_id', num: [$sum: '$cost']]),
                 new BasicDBObject('$sort', [num: -1])
         )
-        int threshold = 0;
+//        int threshold = 0;
         Iterable objs = res.results()
         def list = new ArrayList(size)
         int i = 0
@@ -98,15 +95,15 @@ class RankUser {
                 if (i++ < size) {
                     list.add(new BasicDBObject(_id: "${cat}_${user_id}".toString(), cat: cat, user_id: user_id as Integer, num: row.num, sj: today))
                 }
-                def id = user_id + "_" + today.format("yyyyMMdd")
-                def update = new BasicDBObject(user_id: user_id as Integer, num: row.num, timestamp: now)
-                roomUserDB.update(new BasicDBObject('_id', id), new BasicDBObject('$set', update), true, false)
+//                def id = user_id + "_" + today.format("yyyyMMdd")
+//                def update = new BasicDBObject(user_id: user_id as Integer, num: row.num, timestamp: now)
+//                roomUserDB.update(new BasicDBObject('_id', id), new BasicDBObject('$set', update), true, false)
                 //roomUserDB.findAndModify(new BasicDBObject('_id',id), null, null, false,new BasicDBObject('$set',update),true, true)
             }
-            if (threshold++ >= MAX_THRESHOLD) {
-                Thread.sleep(SLEEP_TIME)
-                threshold = 0;
-            }
+//            if (threshold++ >= MAX_THRESHOLD) {
+//                Thread.sleep(SLEEP_TIME)
+//                threshold = 0;
+//            }
         }
         coll.remove(new BasicDBObject("cat", cat))
         if (list.size() > 0)
@@ -126,14 +123,12 @@ class RankUser {
         saveRank(cat, iDay, limit)
     }
 
-    static final Integer WEEK_SPEND_COST = 20000 //财星周消费200元人民币
     static void saveWeekRank(String cat, Integer day) {
         long now = System.currentTimeMillis()
-        def res = roomUserDB.aggregate(
+        def res = lotteryWinDb.aggregate(
                 new BasicDBObject('$match', [timestamp: [$gt: zeroMill - day * DAY_MILLON, $lte: now]]),
                 new BasicDBObject('$project', [_id: '$user_id', cost: '$num']),
                 new BasicDBObject('$group', [_id: '$_id', num: [$sum: '$cost']]),
-                new BasicDBObject('$match', [num: [$gte: WEEK_SPEND_COST]]),
                 new BasicDBObject('$sort', [num: -1])
         )
 
@@ -150,29 +145,15 @@ class RankUser {
     }
 
     /**
-     static void staticTotal(){String cat = "total"
-     def spendQ = new BasicDBObject('finance.coin_spend_total':[$gt:0])
-     def lst = userDB.find(spendQ, new BasicDBObject(["_id":1,"finance.coin_spend_total":1]))
-     .sort(new BasicDBObject("finance.coin_spend_total",-1)).limit(10000).toArray()
-     def list = new ArrayList(10000)
-     int index = 0;
-     lst.each {row ->
-     def user_id =  row._id
-     def finance = row['finance'] as Map
-     list.add(new BasicDBObject(_id:"${cat}_${user_id}".toString(),cat:cat,rank:++index,
-     user_id:row._id as Integer,num:finance['coin_spend_total'] as Long,sj:new Date()))}coll.remove(new BasicDBObject("cat",cat))
-     if(list.size() > 0)
-     coll.insert(list)}**/
-
-    /**
      * 统计总榜
      */
     static void staticTotal() {
         String cat = "total"
         int index = 0;
         def rank_total_list = new ArrayList()
-        def result = roomUserDB.aggregate(
-                $$('$project', [_id: '$user_id', cost: '$num']),
+        def result = lotteryWinDb.aggregate(
+                $$('$match', ['coin': ['$gte': 0]]),
+                $$('$project', [_id: '$user_id', cost: '$coin']),
                 $$('$group', [_id: '$_id', num: [$sum: '$cost']]),
                 $$('$sort', [num: -1])
         ).results()
@@ -184,7 +165,7 @@ class RankUser {
                     user_id = user_id as Integer
                     rank_total_list.add($$(_id: "${cat}_${user_id}".toString(), cat: cat, user_id: user_id, num: row.num, rank: ++index, sj: new Date()))
                 }
-        } 
+        }
 
         coll.remove(new BasicDBObject("cat", cat))
         if (rank_total_list.size() > 0)
@@ -201,7 +182,7 @@ class RankUser {
 
     static void saveRank(String cat, Integer day, Integer limit) {
         long now = System.currentTimeMillis()
-        def res = roomUserDB.aggregate(
+        def res = lotteryWinDb.aggregate(
                 new BasicDBObject('$match', [timestamp: [$gt: zeroMill - day * DAY_MILLON, $lte: now]]),
                 new BasicDBObject('$project', [_id: '$user_id', cost: '$num']),
                 new BasicDBObject('$group', [_id: '$_id', num: [$sum: '$cost']]),
@@ -225,20 +206,20 @@ class RankUser {
     static void main(String[] args) {
         long l = System.currentTimeMillis()
         long begin = l
-        //富豪时榜
+        // 游戏时榜
         staticHour()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   staticHour , cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
-        //富豪日榜
+        //游戏日榜
         staticDay()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   staticDay , cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
-        //富豪周榜
+        //游戏周榜
         l = System.currentTimeMillis()
         staticWeek()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   staticWeek , cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
-        //富豪月榜
+        //游戏月榜
         l = System.currentTimeMillis()
         staticMonth()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   staticMonth , cost  ${System.currentTimeMillis() - l} ms"
@@ -251,12 +232,12 @@ class RankUser {
 
         //落地定时执行的日志
         l = System.currentTimeMillis()
-        def timerName = 'RankUser'
+        def timerName = 'RankGame'
         Long totalCost = System.currentTimeMillis() - begin
         saveTimerLogs(timerName, totalCost)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  save timer_logs , cost  ${System.currentTimeMillis() - l} ms"
 
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}    ${RankUser.class.getSimpleName()} , cost  ${System.currentTimeMillis() - begin} ms"
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}    ${RankGame.class.getSimpleName()} , cost  ${System.currentTimeMillis() - begin} ms"
     }
 
     //落地定时执行的日志
