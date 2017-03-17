@@ -191,28 +191,17 @@ class TongjiActive {
                 page++
             }
         }
-        /*list.each { Map row ->
-            def appkey = row['appkey'] as String
-            def update = row['update'] as BasicDBObject
-            try {
-                if (row['id'] != null) {
-                    def count = getSpeechs(appkey, row['id'] as String, date)
-                    update.put("speechs", count)
-                }
-            } catch (Exception e) {
-                println "${new Date().format('yyyy-MM-dd HH:mm:ss')} ${row['channel']} :${row['id']} speechs error".toString()
-            }
-            coll.update(new BasicDBObject('_id', "${day}${row['channel']}".toString()), new BasicDBObject('$set', update))
-        }*/
-
         def before = new Date(gteMill - DAY_MILLON)
         list.each { Map row ->
+            def update = row['update'] as BasicDBObject
             def appkey = row['appkey'] as String
+
+            coll.update(new BasicDBObject('_id', "${day}${row['channel']}".toString()), new BasicDBObject('$set', update))
             try {
                 if (row['id'] != null) {
                     def rateStr = getRetention(appkey, row['id'] as String, before)
                     def rate = new BigDecimal(rateStr).toDouble()
-                    coll.update(new BasicDBObject('_id', "${before.format("yyyyMMdd_")}${row['channel']}".toString()), new BasicDBObject('$set', ["retention": rate]))
+                    coll.update(new BasicDBObject('_id', "${day}${row['channel']}".toString()), new BasicDBObject('$set', ["retention": rate]))
                 }
             } catch (Exception e) {
                 println "${new Date().format('yyyy-MM-dd HH:mm:ss')} ${row['channel']}:${row['id']} retention error".toString()
