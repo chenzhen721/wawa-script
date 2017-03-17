@@ -93,14 +93,26 @@ class QdStat {
             st.append("regs", regUsers).append("reg", regNum)
 
             // 统计该渠道下的发言人数,这个渠道登陆的人数
-            def login_count = day_login.count($$('timestamp': timeBetween, 'qd': cId))
+            def login_count = 0
+
+            def res = day_login.aggregate(
+                    $$('$match', ['qd':cId,timestamp: timeBetween]),
+                    $$('$project', [_id: '$user_id']),
+                    $$('$group', [_id: null,'ids':[$addToSet:'$_id']])
+            ).results().iterator()
+            if(res.hasNext()){
+                def loginList = res.next().ids as List
+                login_count = loginList.size()
+            }
+
             def current_speechs = 0
             def first_speechs = 0
+            def user_set = new HashSet()
             chatList.each {
                 BasicDBObject obj ->
                     def userId = obj['user_id'] as Integer
                     def user = users.findOne($$('_id': userId, 'qd': cId), $$('_id': 1))
-                    if (user != null) {
+                    if (user != null && user_set.add(userId)) {
                         current_speechs += 1
                         regUsers.find {
                             if (it == userId)
