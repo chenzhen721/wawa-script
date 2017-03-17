@@ -678,7 +678,7 @@ class TongjiActive {
         //新增激活，激活用户
         def new_active = 0, active = 0
         try {
-            def content = new URL("http://api.umeng.com/base_data?appkey=53ab9ff256240b97cf0164a5&auth_token=${AUTH_TOKEN}" +
+            def content = new URL("http://api.umeng.com/base_data?appkey=${APP_KEY}&auth_token=${AUTH_TOKEN}" +
                     "&date=${date.format('yyyy-MM-dd')}").getText("UTF-8")
             def obj = new JsonSlurper().parseText(content) as Map
             new_active = obj.get('new_users') as Integer
@@ -732,7 +732,7 @@ class TongjiActive {
         def beforeStr = date.format('yyyy-MM-dd')
         def rate = 0 as Double
         try {
-            def content = new URL("http://api.umeng.com/retentions?appkey=53ab9ff256240b97cf0164a5&auth_token=${AUTH_TOKEN}" +
+            def content = new URL("http://api.umeng.com/retentions?appkey=${APP_KEY}&auth_token=${AUTH_TOKEN}" +
                     "&start_date=${beforeStr}&end_date=${beforeStr}&period_type=daily").getText("UTF-8")
             if (StringUtils.isNotBlank(content)) {
                 def listObj = new JsonSlurper().parse(new StringReader(content)) as List
