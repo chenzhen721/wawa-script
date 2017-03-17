@@ -76,10 +76,9 @@ class QdStat {
         }
 
         def chat_query = $$('timestamp': timeBetween)
-        def chat_field = $$('user_id': 1)
         def currentMonth = new Date(begin).format('yyyy/M')
         create_chat_index(currentMonth)
-        def chatList = chatLog.getCollection(currentMonth).find(chat_query, chat_field).toArray()
+        def chatList = chatLog.getCollection(currentMonth).distinct('user_id',chat_query)
         mongo.getDB('xy_admin').getCollection('channels').find(
                 $$("_id", [$ne: null]), $$("reg_discount", 1).append("child_qd", 1).append("sence_id", 1)
         ).toArray().each { BasicDBObject channnel ->
@@ -92,34 +91,36 @@ class QdStat {
             def regNum = regUsers.size()
             st.append("regs", regUsers).append("reg", regNum)
 
-            // 统计该渠道下的发言人数,这个渠道登陆的人数
+            // 统计该渠道下的发言人数,去重
             def login_count = 0
-
+            println("timestamp is ${timeBetween}")
             def res = day_login.aggregate(
                     $$('$match', ['qd':cId,timestamp: timeBetween]),
                     $$('$project', [_id: '$user_id']),
                     $$('$group', [_id: null,'ids':[$addToSet:'$_id']])
             ).results().iterator()
+
+            // 获取该渠道登陆总人数，并且初始化用户列表user_set
+            def user_set = new HashSet()
             if(res.hasNext()){
                 def loginList = res.next().ids as List
                 login_count = loginList.size()
+                user_set.addAll(loginList)
             }
 
+            // 通过user_set与聊天列表，注册列表对比，统计聊天人数和新增聊天人数 聊天率 = 聊天人数/登陆人数 新增聊天率 = 新注册用户聊天/新注册用户总数
             def current_speechs = 0
             def first_speechs = 0
-            def user_set = new HashSet()
             chatList.each {
-                BasicDBObject obj ->
-                    def userId = obj['user_id'] as Integer
-                    def user = users.findOne($$('_id': userId, 'qd': cId), $$('_id': 1))
-                    if (user != null && user_set.add(userId)) {
+                Integer userId ->
+                    if(user_set.contains(userId)){
                         current_speechs += 1
-                        regUsers.find {
-                            if (it == userId)
-                                first_speechs += 1
-                        }
+                    }
+                    if(regUsers.contains(userId)){
+                        first_speechs += 1
                     }
             }
+
             st.append('speechs', current_speechs)
             st.append('login_count', login_count)
             // 新增的发言人数
