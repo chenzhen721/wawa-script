@@ -191,7 +191,7 @@ class TongjiActive {
                 page++
             }
         }
-        list.each { Map row ->
+        /*list.each { Map row ->
             def appkey = row['appkey'] as String
             def update = row['update'] as BasicDBObject
             try {
@@ -203,7 +203,7 @@ class TongjiActive {
                 println "${new Date().format('yyyy-MM-dd HH:mm:ss')} ${row['channel']} :${row['id']} speechs error".toString()
             }
             coll.update(new BasicDBObject('_id', "${day}${row['channel']}".toString()), new BasicDBObject('$set', update))
-        }
+        }*/
 
         def before = new Date(gteMill - DAY_MILLON)
         list.each { Map row ->
