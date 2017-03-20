@@ -93,7 +93,6 @@ class QdStat {
 
             // 统计该渠道下的发言人数,去重
             def login_count = 0
-            println("timestamp is ${timeBetween}")
             def res = day_login.aggregate(
                     $$('$match', ['qd':cId,timestamp: timeBetween]),
                     $$('$project', [_id: '$user_id']),
