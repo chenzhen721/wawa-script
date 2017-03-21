@@ -109,24 +109,12 @@ class UpdateUserAndLive {
                 withdrawl_log  : M.getDB('xy_admin').getCollection('withdrawl_log'),
                 star_award_logs: M.getDB('game_log').getCollection('star_award_logs'),
                 diamond_logs   : M.getDB('shop').getCollection('diamond_logs'),
-                orders         : M.getDB('shop').getCollection('orders'),
         ]
         trans.each { k, v ->
             long lc = System.currentTimeMillis()
             task.userTranCheck(k, v)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  users.${k} , cost  ${System.currentTimeMillis() - lc} ms"
         } println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  userTransCheck---->cost:  ${System.currentTimeMillis() - l} ms"
-
-        // 订单交易与钻石流水的异常检测
-        l = System.currentTimeMillis()
-        def order_trans = [
-                diamond_logs: M.getDB('shop').getCollection('diamond_logs')
-        ]
-        order_trans.each { k, v ->
-            long lc = System.currentTimeMillis()
-            task.orderTranCheck(k, v)
-            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  order.${k} , cost  ${System.currentTimeMillis() - lc} ms"
-        } println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  orderTranCheck---->cost:  ${System.currentTimeMillis() - l} ms"
 
         //自动解封用户
         l = System.currentTimeMillis()
