@@ -52,14 +52,17 @@ class ShopStat {
     private static void statics_products() {
         def res = orders.aggregate(
                 $$('$match', ['status': ['$in': [4, 5]], timestamp: getTimeBetween()]),
-                $$('$project', [_id: '$product_id', 'count': '$item_count', 'item_name': '$item_name', 'user_id': '$user_id', 'price': '$price']),
-                $$('$group', ['product_id': '$_id', 'count': [$sum: '$count'], 'name': '$name', 'user_id': ['$addToSet': '$user_id'], 'price': ['$sum': '$price']])
+                $$('$project', ['_id': '$product_id', 'count': '$item_count', 'item_name': '$item_name', 'user_id': '$user_id', 'price': '$price']),
+                $$('$group', ['_id':'$_id', 'count': [$sum: '$count'], 'name': ['$first': '$item_name'], 'user_id': [$addToSet: '$user_id'], 'price': ['$sum': '$price']])
         ).results().iterator()
         res.each {
             DBObject obj ->
                 def curr_date = new Date(yesTday - day * DAY_MILLON)
-                def myId = "product_stat_" + curr_date.format("yyyyMMdd")
+                def productId = obj.removeField('_id')
+                def myId = "product_stat_" + curr_date.format("yyyyMMdd") + '_' + productId
+
                 obj.put('_id', myId)
+                obj.put('product_id', productId)
                 obj.put('timestamp', curr_date.getTime())
                 product_stats.save(obj)
         }
