@@ -39,7 +39,6 @@ class StaticsEveryDay {
 
     static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
 
-    static final String api_domain = getProperties("api.domain", "http://localhost:8080/")
 
     static DAY_MILLON = 24 * 3600 * 1000L
 
@@ -49,11 +48,10 @@ class StaticsEveryDay {
 
     static DBCollection coll = mongo.getDB('xy_admin').getCollection('stat_daily')
     static DBCollection room_cost_DB = mongo.getDB("xylog").getCollection("room_cost")
-    static DBCollection medal_award_logs = mongo.getDB("xylog").getCollection("medal_award_logs")
     static DBCollection finance_log_DB = mongo.getDB('xy_admin').getCollection('finance_log')
     static DBCollection users = mongo.getDB('xy').getCollection('users')
     static DBCollection channel_pay_DB = mongo.getDB('xy_admin').getCollection('channel_pay')
-    static DBCollection active_award_logs = mongo.getDB('xyactive').getCollection('active_award_logs')
+    static DBCollection channels = mongo.getDB('xy_admin').getCollection('channels')
     static DBCollection games_DB = mongo.getDB('xy_admin').getCollection('games')
     static DBCollection user_bet_DB = mongo.getDB('game_log').getCollection('user_bet')
     static DBCollection user_lottery_DB = mongo.getDB('game_log').getCollection('user_lottery')
@@ -147,6 +145,10 @@ class StaticsEveryDay {
         def toMap() { [user: user.size(), count: count.get(), coin: coin.get(), cny: cny.doubleValue()] }
     }
 
+    /**
+     * 充值统计
+     * @return
+     */
     static financeStatics() {
         def list = mongo.getDB('xy_admin').getCollection('finance_log').find(new BasicDBObject(timestamp: [$gte: yesTday, $lt: zeroMill]))
                 .toArray()
@@ -158,18 +160,32 @@ class StaticsEveryDay {
         def totalCoin = new AtomicLong()
 
         def pays = MapWithDefault.<String, PayType> newInstance(new HashMap()) { new PayType() }
-
+        Double android_recharge = 0d
+        Double ios_recharge = 0d
+        Double other_recharge = 0d
         list.each { obj ->
             def cny = obj.get('cny') as Double
-//            def cat = getCat(obj)
             def payType = pays[obj.via]
             payType.count.incrementAndGet()
             payType.user.add(obj.user_id)
             if (cny != null) {
                 cny = new BigDecimal(cny)
                 total = total.add(cny)
-//                cats[cat] = cats[cat].add(cny)
                 payType.cny = payType.cny.add(cny)
+                // 新增统计android和ios充值情况
+                def userId = obj['user_id'] as Integer
+                def user = users.findOne($$('_id': userId), $$('qd': 1))
+                def qd = user.containsField('qd') ? user['qd'] : 'aiwan_default'
+                def channel = channels.findOne($$('_id': qd), $$('client': 1))
+                def client = channel.containsField('client') ? channel['client'] as Integer : 2
+                // client = 2 android 4 ios
+                if (client == 2) {
+                    android_recharge += cny
+                } else if (client == 4) {
+                    ios_recharge += cny
+                } else {
+                    other_recharge += cny
+                }
             }
             def coin = obj.get('coin') as Long
             if (coin) {
@@ -183,12 +199,13 @@ class StaticsEveryDay {
                 total: total.doubleValue(),
                 total_coin: totalCoin,
                 type: 'finance',
+                android_recharge: android_recharge,
+                ios_recharge: ios_recharge,
+                other_recharge: other_recharge,
                 timestamp: yesTday
         )
         pays.each { String key, PayType type -> obj.put(StringUtils.isBlank(key) ? '' : key.toLowerCase(), type.toMap()) }
-//        cats.each { k, v ->
-//            obj.put(k, v.doubleValue())
-//        }
+
         coll.save(obj)
 
     }
@@ -637,7 +654,7 @@ class StaticsEveryDay {
                 def tmp = new HashMap()
                 def qd = obj['_id'] as String
                 // 如果渠道是null就算在aiwan_default上
-                if(StringUtils.isBlank(qd)){
+                if (StringUtils.isBlank(qd)) {
                     qd = DEFAULT_QD
                 }
                 def users = obj['users'] as HashSet
@@ -649,7 +666,7 @@ class StaticsEveryDay {
                 tmp.put('user_count', user_count)
                 tmp.put('coin', coin)
                 // 将null的渠道归并到aiwan_default
-                if(map.containsKey(qd.toString())){
+                if (map.containsKey(qd.toString())) {
                     def v = map.get(qd.toString()) as Map
                     def current_coin = v['coin'] as Long
                     def current_count = v['user_count'] as Integer
@@ -658,10 +675,10 @@ class StaticsEveryDay {
                     tmp.put('user_count', user_count)
                     tmp.put('coin', coin)
                 }
-                map.put(qd.toString(),tmp)
+                map.put(qd.toString(), tmp)
         }
         def id = date + '_check_in'
-        def row = ['_id':id,'timestamp':gteMill,'qd':map,'total_count':total_count,'total_coin':total_coin,'type':'check_in']
+        def row = ['_id': id, 'timestamp': gteMill, 'qd': map, 'total_count': total_count, 'total_coin': total_coin, 'type': 'check_in']
         coll.save($$(row))
     }
 
