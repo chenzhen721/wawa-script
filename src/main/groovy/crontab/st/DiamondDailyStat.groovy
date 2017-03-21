@@ -67,7 +67,6 @@ class DiamondDailyStat {
             def current_type_add_diamond = inc_detail.containsKey(type) ? inc_detail[type] : 0L
             current_type_add_diamond += diamond_count
             inc_detail.put(type, current_type_add_diamond)
-            println("add_diamond_total is   ${current_type_add_diamond}")
         }
 
         // 消费统计
@@ -79,12 +78,11 @@ class DiamondDailyStat {
             def current_type_minus_total = desc_detail.containsKey(type) ? desc_detail[type] : 0L
             current_type_minus_total += diamond_count
             desc_detail.put(type, current_type_minus_total)
-            println("current_type_minus_total is   ${current_type_minus_total}")
         }
 
         def total = inc_total - desc_total
         def curr_date = new Date(yesTday - day * DAY_MILLON)
-        def myId = curr_date.format("yyyyMMdd") + "_diamond_daily_stat"
+        def myId = curr_date.format("yyyyMMdd") + "_diamond_dailyReport_stat"
 
         def row = $$('_id': myId, 'inc_total': inc_total, 'desc_total': desc_total, 'total': total, 'timestamp': curr_date.getTime(),
                 'inc_detail': inc_detail, 'desc_detail': desc_detail, 'begin_surplus': begin_surplus, 'end_surplus': total)
