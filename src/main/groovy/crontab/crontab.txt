@@ -41,6 +41,6 @@
 * 02 * * * root source /etc/profile && /empty/crontab/ShopStat.groovy >> /empty/crontab/logs/ShopStat.log
 
 ### 钻石流水统计脚本
-30 02 * * * root source /etc/profile && /empty/crontab/DiamondStat.groovy >> /empty/crontab/logs/DiamondStat.log
+30 02 * * * root source /etc/profile && /empty/crontab/DiamondDailyStat.groovy >> /empty/crontab/logs/DiamondDailyStat.log
 
 
