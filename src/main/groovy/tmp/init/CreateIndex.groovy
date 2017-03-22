@@ -33,7 +33,7 @@ class CreateIndex {
         return props.get(key, defaultValue)
     }
 
-    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:10000,192.168.31.236:10000,192.168.31.231:10001/?w=1&slaveok=true') as String))
+    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
     static DBCollection users = mongo.getDB('xy').getCollection('users')
 
     /**
@@ -43,7 +43,12 @@ class CreateIndex {
     static void main(String[] args) {
         buildGameRoundsIndex()
         buildUserBetIndex()
-        buildUserLottery()
+        buildUserLotteryIndex()
+        //shop 订单表，加钻石，减钻石,主播分成表
+        buildOrderIndex()
+        buildDiamondLogIndex()
+        buildDiamondCostLogIndex()
+        buildStarAwardLogIndex()
     }
 
     /**
@@ -55,7 +60,6 @@ class CreateIndex {
         /** 组合索引 **/
         def round_room_live_timestamp_index = $$('round_id': 1, 'room_id': 1, 'live_id': 1, 'timestamp': -1)
         rounds.createIndex(round_room_live_timestamp_index, 'round_room_live_timestamp_')
-
     }
 
     /**
@@ -67,19 +71,57 @@ class CreateIndex {
 
         def user_round_room_live_timestamp_index = $$('user_id': 1, 'round_id': 1, 'room_id': 1, 'live_id': 1, 'timestamp': -1)
         user_bet.createIndex(user_round_room_live_timestamp_index, 'user_round_room_live_timestamp_')
-
     }
 
     /**
      * 用户奖励
      */
-    private static void buildUserLottery() {
+    private static void buildUserLotteryIndex() {
         DBCollection user_lottery = mongo.getDB('game_log').getCollection('user_lottery')
         /** 组合索引 **/
 
         def user_round_room_live_timestamp_index = $$('user_id': 1, 'round_id': 1, 'room_id': 1, 'live_id': 1, 'timestamp': -1)
         user_lottery.createIndex(user_round_room_live_timestamp_index, 'user_round_room_live_timestamp_')
+    }
 
+    /**
+     * 订单表
+     */
+    private static void buildOrderIndex(){
+        DBCollection orders = mongo.getDB('shop').getCollection('orders')
+
+        def orders_index = $$('user_id': 1, 'status': 1, 'product_id': 1, 'mobile':1,'last_modify': -1, 'timestamp': -1)
+        orders.createIndex(orders_index, '_user_status_product_mobile_last_timestamp_')
+    }
+
+    /**
+     * 获得钻石表
+     */
+    private static void buildDiamondLogIndex(){
+        DBCollection diamondLog = mongo.getDB('xy_admin').getCollection('diamond_logs')
+
+        def diamond_log_index = $$('user_id': 1, 'diamond_count': 1, 'type':1, 'timestamp': -1)
+        diamondLog.createIndex(diamond_log_index, '_user_room_diamond_type_')
+    }
+
+    /**
+     * 钻石消费表
+     */
+    private static void buildDiamondCostLogIndex(){
+        DBCollection diamondCostLog = mongo.getDB('xy_admin').getCollection('diamond_cost_logs')
+
+        def diamond_cost_log_index = $$('user_id': 1, 'diamond_count': 1, 'type':1, 'timestamp': -1)
+        diamondCostLog.createIndex(diamond_cost_log_index, '_user_room_diamond_type_')
+    }
+
+    /**
+     * 钻石消费表
+     */
+    private static void buildStarAwardLogIndex(){
+        DBCollection starAwardLog = mongo.getDB('game_log').getCollection('star_award_logs')
+
+        def star_award_index = $$('room_id': 1,  'timestamp': -1)
+        starAwardLog.createIndex(star_award_index, '_room_timestamp_')
     }
 
     public static BasicDBObject $$(String key, Object value) {
