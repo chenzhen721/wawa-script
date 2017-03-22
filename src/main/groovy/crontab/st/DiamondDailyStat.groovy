@@ -34,7 +34,7 @@ class DiamondDailyStat {
     static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
     static DBCollection diamond_logs = mongo.getDB('xy_admin').getCollection('diamond_logs')
     static DBCollection diamond_cost_logs = mongo.getDB('xy_admin').getCollection('diamond_cost_logs')
-    static DBCollection diamond_stat = mongo.getDB('xy_admin').getCollection('diamond_daily_stat')
+    static DBCollection diamond_dailyReport_stat = mongo.getDB('xy_admin').getCollection('diamond_dailyReport_stat')
     static DAY_MILLON = 24 * 3600 * 1000L
     static long zeroMill = new Date().clearTime().getTime()
     static Long yesTday = zeroMill - DAY_MILLON
@@ -86,7 +86,7 @@ class DiamondDailyStat {
 
         def row = $$('_id': myId, 'inc_total': inc_total, 'desc_total': desc_total, 'total': total, 'timestamp': curr_date.getTime(),
                 'inc_detail': inc_detail, 'desc_detail': desc_detail, 'begin_surplus': begin_surplus, 'end_surplus': total)
-        diamond_stat.save($$(row))
+        diamond_dailyReport_stat.save($$(row))
     }
 
     /**
@@ -97,7 +97,7 @@ class DiamondDailyStat {
     static Long lastDaySurplus(Long begin) {
         long yesterDay = begin - DAY_MILLON
         String ymd = new Date(yesterDay).format("yyyyMMdd")
-        def last_day = diamond_stat.findOne($$(_id: "${ymd}_diamond_daily_stat".toString()))
+        def last_day = diamond_dailyReport_stat.findOne($$(_id: "${ymd}_diamond_daily_stat".toString()))
         return (last_day?.get('end_surplus') ?: 0) as Long;
     }
 
