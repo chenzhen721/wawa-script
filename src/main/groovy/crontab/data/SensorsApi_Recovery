@@ -21,7 +21,7 @@ import com.sensorsdata.analytics.javasdk.SensorsAnalytics
 
 import java.text.SimpleDateFormat
 
-class SensorsApi {
+class SensorsApi_Recovery {
 
     static Properties props = null;
     static String profilepath = "/empty/crontab/db.properties";
