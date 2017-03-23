@@ -65,12 +65,16 @@ class tmp {
     def final Long DAY_MILL = 24*3600*1000L
     static DAY_MILLON = 24 * 3600 * 1000L
     static finance_log = mongo.getDB('xy_admin').getCollection('finance_log')
+    static DBCollection room_cost =  mongo.getDB("xylog").getCollection("room_cost")
+    static DBCollection user_bet =  mongo.getDB("game_log").getCollection("user_bet")
+
     static users = mongo.getDB('xy').getCollection('users')
+    static xy_users = mongo.getDB('xy_user').getCollection('users')
     static rooms = mongo.getDB('xy').getCollection('rooms')
     static day_login = mongo.getDB('xylog').getCollection('day_login')
     static lottery_logs = mongo.getDB('xylog').getCollection('lottery_logs')
 
-    static DBCollection room_cost_DB =  mongo.getDB("xylog").getCollection("room_cost")
+
     static DBCollection order_logs =  mongo.getDB("xylog").getCollection("order_logs")
     static DBCollection room_feather =  mongo.getDB("xylog").getCollection("room_feather")
     static DBCollection week_stars =  mongo.getDB("xyrank").getCollection("week_stars")
@@ -101,11 +105,71 @@ class tmp {
         }
     }
 
+    //获取核心用户手机号
+    static void getKeyUserMobile(){
+        //充值用户
+        Set users1 = aggregateUsers(finance_log, [via:[$ne:'Admin']], [user_id: '$to_id'])
+        //送礼用户
+        Set users2 = aggregateUsers(room_cost, ['session.data.xy_star_id': [$ne: null]], [user_id: '$session._id'])
+        // 且在玩游戏用户
+        Set users3 = aggregateUsers(user_bet, [user_id:[$ne:null]], [user_id: '$user_id'])
+
+        println "充值:"
+        List<String> m1 = getMobile(users1.toList())
+        println m1
+
+        println "送礼:"
+        List<String> m2 = getMobile(users2.toList())
+        println m2
+
+        println "玩游戏:"
+        List<String> m3 = getMobile(users3.toList())
+        println m3
+
+        Set<String> userMobile = new HashSet()
+        userMobile.addAll(m1)
+        userMobile.addAll(m2)
+        userMobile.addAll(m3)
+        println "所有手机号:"
+        println userMobile
+        println userMobile.size()
+
+        Set<Integer> userSet = new HashSet()
+        userSet.addAll(users1)
+        userSet.addAll(users2)
+        userSet.addAll(users3)
+
+        println "所有用户id:"
+        println userSet
+        println userSet.size()
+
+        //TODO 最近连续超过三天登录
+    }
+
+    static Set<Integer> aggregateUsers(DBCollection coll, Map match, Map project){
+        Set<Integer> userSet = new HashSet()
+        def results = coll.aggregate(
+                new BasicDBObject('$match', match),
+                new BasicDBObject('$project', project),
+                new BasicDBObject('$group', [_id: null, users: [$addToSet: '$user_id']])
+        ).results()
+        results.each { BasicDBObject data ->
+            userSet = new HashSet(data.users)
+        }
+        return userSet.collect{it as Integer}
+    }
+
+    static List<String> getMobile(List<Integer> userIds){
+        //普通用户
+        def tuids = users.find($$(_id: [$in: userIds] , priv:3), $$(tuid:1)).toArray()*.tuid as List<Integer>
+        def mobiles = xy_users.find($$(_id:[$in: tuids], mobile:[$ne:null]), $$(mobile:1)).toArray()*.mobile as List<String>
+        return mobiles
+    }
+
     static void main(String[] args){
         def l = System.currentTimeMillis()
-
-        recoverFinanceLogToId();
-
+        //recoverFinanceLogToId();
+        getKeyUserMobile();
         println " cost  ${System.currentTimeMillis() -l} ms".toString()
     }
 
