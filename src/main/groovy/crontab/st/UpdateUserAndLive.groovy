@@ -64,6 +64,7 @@ class UpdateUserAndLive {
     static logRoomEdit = M.getDB("xylog").getCollection("room_edit")
     static rooms = mongo.getCollection("rooms")
     static users = mongo.getCollection("users")
+    static orders = M.getDB("shop").getCollection('orders')
     static room_cost_coll = M.getDB('xylog').getCollection('room_cost')
     static star_recommends = M.getDB('xy_admin').getCollection('star_recommends')
 
@@ -79,7 +80,8 @@ class UpdateUserAndLive {
     static MIN_MILLON = 60 * 1000L
     static WEEK_MILLON = 7 * DAY_MILLON
 
-    static final String CLOSE_GAME_SERVER_URL = getProperties('aigd.domain', 'http://test-aigd.memeyule.com:6050/api/room/close?room_id=ROOM_ID&game_id=GAME_ID&live_id=LIVE_ID')
+    static
+    final String CLOSE_GAME_SERVER_URL = getProperties('aigd.domain', 'http://test-aigd.memeyule.com:6050/api/room/close?room_id=ROOM_ID&game_id=GAME_ID&live_id=LIVE_ID')
     static final String WS_DOMAIN = getProperties('ws.domain', 'http://test-aiws.memeyule.com:6010')
 
     static main(arg) {
@@ -100,11 +102,14 @@ class UpdateUserAndLive {
         //异常交易检测
         l = System.currentTimeMillis()
         def trans = [
-                room_cost    : room_cost_coll,
-                finance_log  : M.getDB('xy_admin').getCollection('finance_log'),
-                exchange_log : M.getDB('xylog').getCollection('exchange_log'),
-                mission_logs : M.getDB('xylog').getCollection('mission_logs'),
-                withdrawl_log: M.getDB('xy_admin').getCollection('withdrawl_log')
+                room_cost      : room_cost_coll,
+                finance_log    : M.getDB('xy_admin').getCollection('finance_log'),
+                exchange_log   : M.getDB('xylog').getCollection('exchange_log'),
+                mission_logs   : M.getDB('xylog').getCollection('mission_logs'),
+                withdrawl_log  : M.getDB('xy_admin').getCollection('withdrawl_log'),
+                star_award_logs: M.getDB('game_log').getCollection('star_award_logs'),
+                diamond_logs   : M.getDB('xy_admin').getCollection('diamond_logs'),
+                diamond_cost_logs   : M.getDB('xy_admin').getCollection('diamond_cost_logs'),
         ]
         trans.each { k, v ->
             long lc = System.currentTimeMillis()
@@ -249,13 +254,13 @@ class UpdateUserAndLive {
      * 获取七牛推流直播间列表
      * @return
      */
-    private static List<String> getLiveStreamIds(){
+    private static List<String> getLiveStreamIds() {
         JsonSlurper jsonSlurper = new JsonSlurper()
         // 查询当前七牛开播的流列表
         String url = "${api_domain}/monitor/live_list"
         String result = request(url)
         Map map = jsonSlurper.parseText(result) as Map
-        List<String> liveStreamList = (map['data'] ?: Collections.emptyList() ) as List
+        List<String> liveStreamList = (map['data'] ?: Collections.emptyList()) as List
         return liveStreamList
     }
     /**
@@ -273,7 +278,7 @@ class UpdateUserAndLive {
             liveRedis.expire(key, 90)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  stream check ${roomId}: recordTimes : ${errorTimes}"
             return errorTimes < 3 //三次检测流未正常推送则关闭直播间
-         }
+        }
         return Boolean.TRUE
     }
 
@@ -311,6 +316,23 @@ class UpdateUserAndLive {
                     def _id = log.get('_id')
                     collection.save(log)
                     users.update(uid, new BasicDBObject('$pull', new BasicDBObject(field, [_id: _id])))
+                    println "clean ${field} : ${log}"
+                }
+            }
+        }
+    }
+
+    //失败事务处理 30 秒
+    def orderTranCheck(String field, DBCollection collection) {
+        orders.find(new BasicDBObject(field + '.timestamp', [$lt: System.currentTimeMillis() - WAIT]), new BasicDBObject(field, 1))
+                .limit(50).toArray().each { order ->
+            List logs = order.get(field) as List
+            def oid = new BasicDBObject('_id', order.get('_id'))
+            if (logs) {
+                logs.each { DBObject log ->
+                    def _id = log.get('_id')
+                    collection.save(log)
+                    orders.update(oid, new BasicDBObject('$pull', new BasicDBObject(field, [_id: _id])))
                     println "clean ${field} : ${log}"
                 }
             }

@@ -37,4 +37,10 @@
 
 01 02 * * * root source /etc/profile && /empty/crontab/FinanceDaily.groovy >> /empty/crontab/logs/FinanceDaily.log &
 
+### 商城统计脚本
+* 02 * * * root source /etc/profile && /empty/crontab/ShopStat.groovy >> /empty/crontab/logs/ShopStat.log
+
+### 钻石流水统计脚本
+30 02 * * * root source /etc/profile && /empty/crontab/DiamondDailyStat.groovy >> /empty/crontab/logs/DiamondDailyStat.log
+
 
