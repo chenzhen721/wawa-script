@@ -120,6 +120,7 @@ class LiveStat {
                     def liveObj = result.get(user_id) as BasicDBObject
                     liveObj.put('earned', earned + ((liveObj?.get('earned') ?: 0) as Long))
                     liveObj.put('award_count', earned + ((liveObj?.get('award_count') ?: 0) as Long))
+                    liveObj.put('app_earned', earned + ((liveObj?.get('app_earned') ?: 0) as Long))
                 }else{
                     result.put(user_id,$$('_id':user_id,'earned':earned))
                     result.put('app_earned',earned)
