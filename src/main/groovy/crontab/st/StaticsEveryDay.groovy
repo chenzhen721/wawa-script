@@ -360,7 +360,7 @@ class StaticsEveryDay {
         def typeMap = new HashMap<String, PayStat>()
         PayStat total = new PayStat()
         def pc = channel_pay_DB.find(new BasicDBObject([client: "1", _id: [$ne: 'Admin']])).toArray()*._id
-        def mobile = channel_pay_DB.find(new BasicDBObject([client: "2", _id: [$ne: 'Admin']])).toArray()*._id
+        def mobile = channel_pay_DB.find(new BasicDBObject([client: ['$ne':"1"], _id: [$ne: 'Admin']])).toArray()*._id
         [pc    : pc,//PayType
          mobile: mobile,
         ].each { String k, List<String> v ->
