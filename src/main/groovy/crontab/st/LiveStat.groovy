@@ -40,7 +40,7 @@ class LiveStat {
     static final Integer live_jedis_port = getProperties("live_jedis_port",6379) as Integer
     static liveRedis = new Jedis(live_jedis_host, live_jedis_port)
 
-    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.249:27017/?w=1') as String))
+    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
 
     static DAY_MILLON = 24 * 3600 * 1000L
 
@@ -48,6 +48,7 @@ class LiveStat {
     static users = mongo.getDB('xy').getCollection('users')
     static lives = mongo.getDB('xylog').getCollection('room_edit')
     static room_cost = mongo.getDB('xylog').getCollection('room_cost')
+    static star_award_logs = mongo.getDB('game_log').getCollection('star_award_logs')
     static room_follower_day = mongo.getDB('xylog').getCollection('room_follower_day')
     static share_logs = mongo.getDB('xylog').getCollection('share_logs')
     static room_meme_day = mongo.getDB('xylog').getCollection('room_meme_day')
@@ -55,94 +56,6 @@ class LiveStat {
     static rooms_rank = mongo.getDB('xyrank').getCollection('rooms')
     static rooms = mongo.getDB('xy').getCollection('rooms')
     static Long VALID_DAY = 7200
-
-    static statics(int i) {
-        Long tmp = zeroMill - i * DAY_MILLON
-        def day = new Date(tmp).format('yyyyMMdd')
-
-        def timeBetween = Collections.unmodifiableMap([$gte: tmp, $lt: tmp + DAY_MILLON])
-        //1392144
-        //截止：20151026,包括（send_gift, grab_sofa, send_bell, song, buy_guard, send_treasure, level_up等）
-        def earnIter = room_cost.aggregate(
-                //new BasicDBObject('$match', ['session.data.xy_star_id':1384037,timestamp:timeBetween]),
-                new BasicDBObject('$match', ['session.data.xy_star_id': [$ne: null], timestamp: timeBetween]),
-                new BasicDBObject('$project', [_id: '$session.data.xy_star_id', user_id: '$session._id',earned: '$session.data.earned', live: '$live']),
-                new BasicDBObject('$group', [_id: '$_id', earned: [$sum: '$earned'], lives: [$addToSet: '$live'], users: [$addToSet: '$user_id']])
-        ).results()
-
-        //统计主播在其它房间收到的礼物
-        def result = new HashMap()
-        earnIter.each { BasicDBObject obj ->
-            def user_id = obj.get('_id') as Integer
-            result.put(user_id, obj)
-        }
-        def list = []
-        room_cost.aggregate(
-                new BasicDBObject($match: ['session.data.xy_user_id': [$in: result.keySet()], timestamp: timeBetween]),
-                new BasicDBObject($project: [_id: '$session.data.xy_user_id', earned: '$session.data.earned']),
-                new BasicDBObject($group: [_id: '$_id', earned: [$sum: '$earned']])
-        ).results().each { BasicDBObject obj ->
-            def user_id = obj.get('_id') as Integer
-            def earned = obj.get('earned') as Long
-            def liveObj = result.get(user_id) as BasicDBObject
-            liveObj.put('earned', earned + ((liveObj?.get('earned') ?: 0) as Long))
-        }
-        list.addAll(result.values())
-        earnIter = list
-        //统计主播在其它房间收到的礼物 结束
-
-        def fmt = new SimpleDateFormat('yyyyMMddHHmmss')//20130403221054
-        earnIter.each { BasicDBObject earndObj ->
-
-            def user_id = earndObj.get('_id') as Integer
-            def liveSet = new HashSet(earndObj.lives)
-            def userSet = new HashSet(earndObj.users)
-
-            def millLong = new AtomicLong()
-            Long lastOffTime = tmp
-            def query = new BasicDBObject(type: "live_off", 'room': user_id, timestamp: timeBetween)
-            lives.find(query).toArray().each { BasicDBObject live_off ->
-                Long endTime = live_off['timestamp'] as Long
-                if (endTime > lastOffTime) {
-                    lastOffTime = endTime
-                }
-                String live_id = live_off.data
-                liveSet.add(live_id)
-                Long starTime = fmt.parse(live_id.substring(live_id.indexOf('_') + 1)).getTime()
-                if (starTime < tmp) {
-                    starTime = tmp
-                }
-                def live_time = endTime - starTime
-                if (live_time > 0) {
-                    millLong.addAndGet(live_time)
-                }
-            }
-            //检查正在直播
-            query.type = 'live_on'
-            query.timestamp = new HashMap(query.timestamp)
-            query.timestamp['$gte'] = lastOffTime
-            def live_on = lives.findOne(query, null, new BasicDBObject('timestamp', -1))
-            if (live_on) {
-                Long zeroTime = timeBetween['$lt']
-                Long mayOffTime = live_on.get('etime') ?: zeroTime
-                Long live_time = Math.min(zeroTime, mayOffTime) - live_on.get('timestamp')
-                liveSet.add(live_on.get('data'))
-                if (live_time > 0) {
-                    millLong.addAndGet(live_time)
-                }
-            }
-
-            def mills = millLong.intValue()
-            earndObj._id = "${day}_${user_id}".toString()
-            earndObj.second = mills.intdiv(1000)
-            earndObj.timestamp = tmp
-            earndObj.user_id = user_id
-            earndObj.value = mills >= VALID_DAY * 1000L ? 1 : 0
-            earndObj.lives = liveSet
-            earndObj.users = userSet.size()
-            stat_lives.update(new BasicDBObject("_id", "${day}_${user_id}".toString()), earndObj, true, false)
-        }
-    }
 
     //统计主播赚取的柠檬
     static staticsEarned(int i){
@@ -194,7 +107,29 @@ class LiveStat {
         }
         //统计主播直播收益 结束
 
+        //游戏分成得到的能量计入总收入
+        star_award_logs.aggregate(
+                new BasicDBObject($match: ['room_id': [$in: result.keySet()], timestamp: timeBetween]),
+                new BasicDBObject($project: [_id: '$room_id', earned: '$award_earned']),
+                new BasicDBObject($group: [_id: '$_id', earned: [$sum: '$earned']])
+        ).results().each {
+            BasicDBObject obj ->
+                def user_id = obj.get('_id') as Integer
+                def earned = obj.get('earned') as Long
+                if(result.containsKey(user_id)){
+                    def liveObj = result.get(user_id) as BasicDBObject
+                    liveObj.put('earned', earned + ((liveObj?.get('earned') ?: 0) as Long))
+                    liveObj.put('award_count', earned + ((liveObj?.get('award_count') ?: 0) as Long))
+                }else{
+                    result.put(user_id,$$('_id':user_id,'earned':earned))
+                    result.put('app_earned',earned)
+                    result.put('pc_earned',0)
+                    result.put('award_count',earned)
+                }
+        }
+        // 统计游戏分成得到的能量结束
         list.addAll(result.values())
+
         list.each { BasicDBObject earndObj ->
             def user_id = earndObj.get('_id') as Integer
             if(user_id != null){
@@ -206,6 +141,7 @@ class LiveStat {
                 earndObj.lives = liveSet
                 earndObj.users = userSet.size()
                 earndObj.second = 0
+                earndObj.award_count = earndObj.get('award_count') as Integer
                 stat_lives.update(new BasicDBObject("_id", earndObj._id), earndObj, true, false)
             }
 
