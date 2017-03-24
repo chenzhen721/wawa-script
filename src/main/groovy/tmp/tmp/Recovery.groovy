@@ -82,6 +82,9 @@ class Recovery {
         Double android_recharge = 0d
         Double ios_recharge = 0d
         Double other_recharge = 0d
+        Integer android_recharge_count = 0
+        Integer ios_recharge_count = 0
+        Integer other_recharge_count = 0
         list.each { obj ->
             def cny = obj.get('cny') as Double
             def payType = pays[obj.via]
@@ -103,8 +106,11 @@ class Recovery {
                 // client = 2 android 4 ios
                 if (client == 2) {
                     android_recharge += cny
+                    android_recharge_count += 1
                 } else if (client == 4) {
                     ios_recharge += cny
+                    ios_recharge_count += 1
+                    other_recharge_count += 1
                 } else {
                     other_recharge += cny
                 }
@@ -124,6 +130,9 @@ class Recovery {
                 android_recharge: android_recharge,
                 ios_recharge: ios_recharge,
                 other_recharge: other_recharge,
+                ios_recharge_count:ios_recharge_count,
+                android_recharge_count:android_recharge_count,
+                other_recharge_count:other_recharge_count,
                 timestamp: gteMill
         )
         pays.each { String key, PayType type -> obj.put(StringUtils.isBlank(key) ? '' : key.toLowerCase(), type.toMap()) }
