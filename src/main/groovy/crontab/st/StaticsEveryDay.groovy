@@ -160,13 +160,14 @@ class StaticsEveryDay {
         Double android_recharge = 0d
         Double ios_recharge = 0d
         Double other_recharge = 0d
-        Integer android_recharge_count = 0
-        Integer ios_recharge_count = 0
-        Integer other_recharge_count = 0
+        def android_recharge_set = new HashSet()
+        def ios_recharge_set = new HashSet()
+        def other_recharge_set = new HashSet()
         list.each { obj ->
             def cny = obj.containsField('cny') ? obj['cny'] as Double : 0.0d
             def payType = pays[obj.via]
             payType.count.incrementAndGet()
+            payType.user.add(obj.user_id)
             def userId = obj['user_id'] as Integer
             def user = users.findOne($$('_id': userId), $$('qd': 1))
             if (user == null) {
@@ -177,14 +178,14 @@ class StaticsEveryDay {
             def channel = channels.findOne($$('_id': qd), $$('client': 1))
             def client = channel.containsField('client') ? channel['client'] as Integer : 2
             def via = obj.containsField('via') ? obj['via']: ''
-            if (payType.user.add(obj.user_id) && via != 'Admin') {
+            if (via != 'Admin') {
                 // 统计android和ios的充值人数，去重
                 if (client == 2) {
-                    android_recharge_count += 1
+                    android_recharge_set.add(userId)
                 } else if (client == 4) {
-                    ios_recharge_count += 1
+                    ios_recharge_set.add(userId)
                 } else {
-                    other_recharge_count += 1
+                    other_recharge_set.add(userId)
                 }
             }
 
@@ -215,9 +216,9 @@ class StaticsEveryDay {
                 android_recharge: android_recharge,
                 ios_recharge: ios_recharge,
                 other_recharge: other_recharge,
-                ios_recharge_count: ios_recharge_count,
-                android_recharge_count: android_recharge_count,
-                other_recharge_count: other_recharge_count,
+                ios_recharge_count: ios_recharge_set.size(),
+                android_recharge_count: android_recharge_set.size(),
+                other_recharge_count: other_recharge_set.size(),
                 timestamp: yesTday
         )
         pays.each { String key, PayType type -> obj.put(StringUtils.isBlank(key) ? '' : key.toLowerCase(), type.toMap()) }
