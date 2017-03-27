@@ -361,7 +361,7 @@ class Recovery {
 
         // 支付渠道统计充值
         l = System.currentTimeMillis()
-        pay_statics_recovery(day)
+        payStatics_recovery(day)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   pay_statics_recovery, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
