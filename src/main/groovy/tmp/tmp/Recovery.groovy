@@ -108,13 +108,16 @@ class Recovery {
             // client = 2 android 4 ios
             def channel = channels.findOne($$('_id': qd), $$('client': 1))
             def client = channel.containsField('client') ? channel['client'] as Integer : 2
-            def via = obj.containsField('Admin') ? obj['via'] : ''
+            def via = obj.containsField('via') ? obj['via']: ''
             if (payType.user.add(obj.user_id) && via != 'Admin') {
+                println("via is ${via}")
                 // 统计android和ios的充值人数，去重，如果是admin加币，则不用统计
                 if (client == 2) {
                     android_recharge_count += 1
                 } else if (client == 4) {
                     ios_recharge_count += 1
+                    println("ios_recharge_count is ${ios_recharge_count}")
+
                 } else {
                     other_recharge_count += 1
                 }
