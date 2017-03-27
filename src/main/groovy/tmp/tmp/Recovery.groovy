@@ -89,11 +89,7 @@ class Recovery {
             def cny = obj.get('cny') as Double
             def payType = pays[obj.via]
             payType.count.incrementAndGet()
-            payType.user.add(obj.user_id)
-            if (cny != null) {
-                cny = new BigDecimal(cny)
-                total = total.add(cny)
-                payType.cny = payType.cny.add(cny)
+            if(payType.user.add(obj.user_id) && cny != null){
                 // 新增统计android和ios充值情况
                 def userId = obj['user_id'] as Integer
                 def user = users.findOne($$('_id': userId), $$('qd': 1))
@@ -114,6 +110,11 @@ class Recovery {
                 } else {
                     other_recharge += cny
                 }
+            }
+            if (cny != null) {
+                cny = new BigDecimal(cny)
+                total = total.add(cny)
+                payType.cny = payType.cny.add(cny)
             }
             def coin = obj.get('coin') as Long
             if (coin) {
