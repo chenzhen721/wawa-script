@@ -230,7 +230,6 @@ class StaticsEveryDay {
     static String getCat(Map obj) {
         String via = obj.get('via')
         String shop
-        println("vai is ${via}")
         if ('Admin'.equals(via)) {
             return "1"
         } else if ('ali_pc'.equals(via)) {
