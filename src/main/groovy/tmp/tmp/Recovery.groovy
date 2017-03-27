@@ -96,35 +96,42 @@ class Recovery {
         Integer ios_recharge_count = 0
         Integer other_recharge_count = 0
         list.each { obj ->
-            def cny = obj.get('cny') as Double
+            def cny = obj.containsField('cny') ? obj['cny'] as Double : 0.0d
             def payType = pays[obj.via]
             payType.count.incrementAndGet()
-            if (payType.user.add(obj.user_id) && cny != null) {
-                // 新增统计android和ios充值情况
-                def userId = obj['user_id'] as Integer
-                def user = users.findOne($$('_id': userId), $$('qd': 1))
-                if (user == null) {
-                    return
-                }
-                def qd = user.containsField('qd') ? user['qd'] : 'aiwan_default'
-                def channel = channels.findOne($$('_id': qd), $$('client': 1))
-                def client = channel.containsField('client') ? channel['client'] as Integer : 2
-                // client = 2 android 4 ios
+            def userId = obj['to_id'] as Integer
+            def user = users.findOne($$('_id': userId), $$('qd': 1))
+            if (user == null) {
+                return
+            }
+            def qd = user.containsField('qd') ? user['qd'] : 'aiwan_default'
+            // client = 2 android 4 ios
+            def channel = channels.findOne($$('_id': qd), $$('client': 1))
+            def client = channel.containsField('client') ? channel['client'] as Integer : 2
+            def via = obj.containsField('Admin') ? obj['via'] : ''
+            if (payType.user.add(obj.user_id) && via != 'Admin') {
+                // 统计android和ios的充值人数，去重，如果是admin加币，则不用统计
                 if (client == 2) {
-                    android_recharge += cny
                     android_recharge_count += 1
                 } else if (client == 4) {
-                    ios_recharge += cny
                     ios_recharge_count += 1
-                    other_recharge_count += 1
                 } else {
-                    other_recharge += cny
+                    other_recharge_count += 1
                 }
             }
+
             if (cny != null) {
                 cny = new BigDecimal(cny)
                 total = total.add(cny)
                 payType.cny = payType.cny.add(cny)
+                // 统计android和ios的充值金额
+                if (client == 2) {
+                    android_recharge += cny
+                } else if (client == 4) {
+                    ios_recharge += cny
+                } else {
+                    other_recharge += cny
+                }
             }
             def coin = obj.get('coin') as Long
             if (coin) {
