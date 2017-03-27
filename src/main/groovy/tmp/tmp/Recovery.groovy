@@ -99,7 +99,7 @@ class Recovery {
             def cny = obj.containsField('cny') ? obj['cny'] as Double : 0.0d
             def payType = pays[obj.via]
             payType.count.incrementAndGet()
-            def userId = obj['to_id'] as Integer
+            def userId = obj['user_id'] as Integer
             def user = users.findOne($$('_id': userId), $$('qd': 1))
             if (user == null) {
                 return
