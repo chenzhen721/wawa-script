@@ -214,7 +214,6 @@ class Recovery {
         long yesterDay = begin - DAY_MILLON
         String ymd = new Date(yesterDay).format("yyyyMMdd")
         def last_day = diamond_dailyReport_stat.findOne($$(_id: "${ymd}_diamond_dailyReport_stat".toString()))
-        println("last_day is ${last_day}")
         return (last_day?.get('end_surplus') ?: 0) as Long;
     }
 
