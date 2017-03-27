@@ -153,9 +153,6 @@ class StaticsEveryDay {
         def list = mongo.getDB('xy_admin').getCollection('finance_log').find(new BasicDBObject(timestamp: [$gte: yesTday, $lt: zeroMill]))
                 .toArray()
 
-//        def cats = MapWithDefault.newInstance(new HashMap<String, BigDecimal>()) {
-//            return new BigDecimal(0)
-//        }
         def total = new BigDecimal(0)
         def totalCoin = new AtomicLong()
 
@@ -170,11 +167,8 @@ class StaticsEveryDay {
             def cny = obj.get('cny') as Double
             def payType = pays[obj.via]
             payType.count.incrementAndGet()
-            payType.user.add(obj.user_id)
-            if (cny != null) {
-                cny = new BigDecimal(cny)
-                total = total.add(cny)
-                payType.cny = payType.cny.add(cny)
+
+            if(payType.user.add(obj.user_id) && cny != null){
                 // 新增统计android和ios充值情况
                 def userId = obj['user_id'] as Integer
                 def user = users.findOne($$('_id': userId), $$('qd': 1))
@@ -192,6 +186,12 @@ class StaticsEveryDay {
                     other_recharge += cny
                     other_recharge_count += 1
                 }
+            }
+
+            if (cny != null) {
+                cny = new BigDecimal(cny)
+                total = total.add(cny)
+                payType.cny = payType.cny.add(cny)
             }
             def coin = obj.get('coin') as Long
             if (coin) {
