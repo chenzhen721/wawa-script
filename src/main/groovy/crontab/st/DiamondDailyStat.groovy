@@ -96,7 +96,7 @@ class DiamondDailyStat {
     static Long lastDaySurplus(Long begin) {
         long yesterDay = begin - DAY_MILLON
         String ymd = new Date(yesterDay).format("yyyyMMdd")
-        def last_day = diamond_dailyReport_stat.findOne($$(_id: "${ymd}_diamond_daily_stat".toString()))
+        def last_day = diamond_dailyReport_stat.findOne($$(_id: "${ymd}_diamond_dailyReport_stat".toString()))
         return (last_day?.get('end_surplus') ?: 0) as Long;
     }
 
