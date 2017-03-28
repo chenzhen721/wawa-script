@@ -110,6 +110,7 @@ class UpdateUserAndLive {
                 star_award_logs: M.getDB('game_log').getCollection('star_award_logs'),
                 diamond_logs   : M.getDB('xy_admin').getCollection('diamond_logs'),
                 diamond_cost_logs   : M.getDB('xy_admin').getCollection('diamond_cost_logs'),
+                sign_logs   : M.getDB('xylog').getCollection('sign_logs'),
         ]
         trans.each { k, v ->
             long lc = System.currentTimeMillis()
