@@ -165,7 +165,7 @@ class LiveStat {
                 if (liveObj == null) {
                     liveObj = new BasicDBObject(user_id: star_id, earned: 0, app_earned: 0, pc_earned: 0, lives: new HashSet<>())
                 }
-                def liveSet = new HashSet(liveObj?.lives)
+                def liveSet = new HashSet(liveObj?.lives?:new HashSet<>())
                 //总直播时间
                 def mills = getLiveTime(new BasicDBObject(type: "live_off", 'room': star_id, timestamp: timeBetween), yesterday, liveSet).intValue()
                 //手机直播时间
@@ -477,35 +477,35 @@ class LiveStat {
         return new BasicDBObject(map);
     }
 
-
+    static Integer day = 1
     static void main(String[] args) {
         long l = System.currentTimeMillis()
         //直播统计
         long begin = l
         //每天赚取柠檬数量
-        staticsEarned(1);
+        staticsEarned(day);
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   live staticsEarned cost  ${System.currentTimeMillis() - l} ms"
 
         //每天分成获取的能量
-        staticsAwardEarned(1);
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   live staticsEarned cost  ${System.currentTimeMillis() - l} ms"
+        staticsAwardEarned(day);
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   live staticsAwardEarned cost  ${System.currentTimeMillis() - l} ms"
 
         //每日直播时长
         l = System.currentTimeMillis()
-        staticsLiveTime(1);
+        staticsLiveTime(day);
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   live staticsLiveTime cost  ${System.currentTimeMillis() - l} ms"
         //每日关注数量/分享数量/平均人气
-        staticsOthers(1);
+        staticsOthers(day);
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   live staticsOthers cost  ${System.currentTimeMillis() - l} ms"
 
         //家族房直播统计
         l = System.currentTimeMillis()
-        staticsFamilyRoom(1)
+        staticsFamilyRoom(day)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   live staticsFamilyRoom cost  ${System.currentTimeMillis() - l} ms"
 
         //首页直播间排序统计
         l = System.currentTimeMillis()
-        staticsRoomRank(1)
+        staticsRoomRank(day)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   live staticsRoomRank cost  ${System.currentTimeMillis() - l} ms"
 
         //主播总直播时长
