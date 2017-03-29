@@ -81,11 +81,11 @@ class DiamondDailyStat {
 
         def total = inc_total - desc_total
         def curr_date = new Date(yesTday - day * DAY_MILLON)
-        def myId = curr_date.format("yyyyMMdd") + "_diamond_dailyReport_stat"
+        def myId = "${curr_date.format("yyyyMMdd")}_diamond_dailyReport_stat".toString()
 
         def row = $$('_id': myId, 'inc_total': inc_total, 'desc_total': desc_total, 'total': total, 'timestamp': curr_date.getTime(),
                 'inc_detail': inc_detail, 'desc_detail': desc_detail, 'begin_surplus': begin_surplus, 'end_surplus': total)
-        diamond_dailyReport_stat.save($$(row))
+        diamond_dailyReport_stat.update($$('_id', myId), $$(row), true, false)
     }
 
     /**
