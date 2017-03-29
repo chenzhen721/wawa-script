@@ -107,8 +107,12 @@ class tmp {
 
     //获取核心用户手机号
     static void getKeyUserMobile(){
+        Long begin = yesTday - DAY_MILLON
+        def timeBetween = [$gte: begin, $lt: begin + DAY_MILLON]
+
         //充值用户
-        Set users1 = aggregateUsers(finance_log, [via:[$ne:'Admin']], [user_id: '$to_id'])
+        Set users1 = aggregateUsers(finance_log, [via:[$ne:'Admin'], timestamp: timeBetween], [user_id: '$to_id'])
+  /*
         //送礼用户
         Set users2 = aggregateUsers(room_cost, ['session.data.xy_star_id': [$ne: null]], [user_id: '$session._id'])
         // 且在玩游戏用户
@@ -142,8 +146,9 @@ class tmp {
         println "所有用户id:"
         println userSet
         println userSet.size()
-
-        //TODO 最近连续超过三天登录
+*/
+        println "充值用户id:mobile"
+        println getMobileOfUsers(users1.toList())
     }
 
     static Set<Integer> aggregateUsers(DBCollection coll, Map match, Map project){
@@ -162,8 +167,17 @@ class tmp {
     static List<String> getMobile(List<Integer> userIds){
         //普通用户
         def tuids = users.find($$(_id: [$in: userIds] , priv:3), $$(tuid:1)).toArray()*.tuid as List<Integer>
-        def mobiles = xy_users.find($$(_id:[$in: tuids], mobile:[$ne:null]), $$(mobile:1)).toArray()*.mobile as List<String>
+        def mobiles = xy_users.find($$(_id:[$in: tuids], mobile:[$ne:null]), $$(mm_no:1,mobile:1)).toArray()*.mobile as List<String>
         return mobiles
+    }
+
+    static Map<String,String> getMobileOfUsers(List<Integer> userIds){
+        Map<String, String> datas = new HashMap<>();
+        def tuids = users.find($$(_id: [$in: userIds] , priv:3, timestamp:[$gte:yesTday]), $$(tuid:1)).toArray()*.tuid as List<Integer>
+        xy_users.find($$(_id:[$in: tuids], mobile:[$ne:null]), $$(mm_no:1,mobile:1)).toArray().each {DBObject user ->
+            datas.put(user['mm_no'] as String, user['mobile']  as String)
+        }
+        return datas
     }
 
     static void main(String[] args){
