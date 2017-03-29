@@ -81,7 +81,7 @@ class DiamondDailyStat {
 
         def total = inc_total - desc_total
         def curr_date = new Date(yesTday - day * DAY_MILLON)
-        def myId = "${curr_date.format("yyyyMMdd")}_diamond_dailyReport_stat".toString()
+        def myId = curr_date.format("yyyyMMdd") + "_diamond_dailyReport_stat"
 
         def row = $$('_id': myId, 'inc_total': inc_total, 'desc_total': desc_total, 'total': total, 'timestamp': curr_date.getTime(),
                 'inc_detail': inc_detail, 'desc_detail': desc_detail, 'begin_surplus': begin_surplus, 'end_surplus': total)
@@ -96,7 +96,8 @@ class DiamondDailyStat {
     static Long lastDaySurplus(Long begin) {
         long yesterDay = begin - DAY_MILLON
         String ymd = new Date(yesterDay).format("yyyyMMdd")
-        def last_day = diamond_dailyReport_stat.findOne($$(_id: "${ymd}_diamond_dailyReport_stat".toString()))
+        def last_day = diamond_dailyReport_stat.findOne($$(_id: ymd + "_diamond_dailyReport_stat"))
+
         return (last_day?.get('end_surplus') ?: 0) as Long;
     }
 
