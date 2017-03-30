@@ -224,7 +224,7 @@ class Recovery {
         def myId = "${YMD}_diamond_dailyReport_stat".toString()
 
         def row = $$('_id': myId, 'inc_total': inc_total, 'desc_total': desc_total, 'total': total, 'timestamp': gteMill,
-                'inc_detail': inc_detail, 'desc_detail': desc_detail, 'begin_surplus': begin_surplus, 'end_surplus': total)
+                'inc_detail': inc_detail, 'desc_detail': desc_detail, 'begin_surplus': begin_surplus, 'end_surplus': total + begin_surplus)
         diamond_dailyReport_stat.save($$(row))
     }
 

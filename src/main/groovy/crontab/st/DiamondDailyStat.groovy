@@ -84,7 +84,7 @@ class DiamondDailyStat {
         def myId = curr_date.format("yyyyMMdd") + "_diamond_dailyReport_stat"
 
         def row = $$('_id': myId, 'inc_total': inc_total, 'desc_total': desc_total, 'total': total, 'timestamp': curr_date.getTime(),
-                'inc_detail': inc_detail, 'desc_detail': desc_detail, 'begin_surplus': begin_surplus, 'end_surplus': total)
+                'inc_detail': inc_detail, 'desc_detail': desc_detail, 'begin_surplus': begin_surplus, 'end_surplus': total + begin_surplus)
         diamond_dailyReport_stat.update($$('_id', myId), $$(row), true, false)
     }
 
