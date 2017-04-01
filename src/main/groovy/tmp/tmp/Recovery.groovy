@@ -56,6 +56,7 @@ class Recovery {
     static DBCollection diamond_dailyReport_stat = mongo.getDB('xy_admin').getCollection('diamond_dailyReport_stat')
     static DBCollection channel_pay_DB = mongo.getDB('xy_admin').getCollection('channel_pay')
     static DBCollection finance_log_DB = mongo.getDB('xy_admin').getCollection('finance_log')
+    static DBCollection star_award_logs = mongo.getDB('game_log').getCollection('star_award_logs')
 
     /**
      * 充值统计recovery
@@ -92,7 +93,106 @@ class Recovery {
         }
     }
 
+    /**
+     * 经纪人收益统计
+     * @param day
+     */
+    static staticBroker_recovery(int day) {
+        for (int i = 0; i < day; i++) {
+            staticBroker(i)
+        }
+    }
 
+
+    static staticBroker(i){
+
+        def coll = mongo.getDB('xy_admin').getCollection('stat_brokers')
+        def star_award_logs = mongo.getDB('game_log').getCollection('star_award_logs')
+        def users = mongo.getDB('xy').getCollection('users')
+        def room_cost = mongo.getDB("xylog").getCollection("room_cost")
+        def flog = mongo.getDB('xy_admin').getCollection('finance_log')
+
+        Long begin = yesTday - i * DAY_MILLON
+        def timeBetween = [$gte: begin, $lt: begin + DAY_MILLON]
+
+        users.find(new BasicDBObject('priv', 5), new BasicDBObject('status', 1)).toArray().each { BasicDBObject broker ->
+
+            Integer bid = broker.get('_id') as Integer
+
+            def uids = new HashSet(
+                    users.find(new BasicDBObject('star.broker', bid), new BasicDBObject('star', 1)).toArray().collect {
+                        it.get('_id')
+                    })
+            def star = [count: uids.size()]
+            def res = room_cost.aggregate(
+                    new BasicDBObject('$match', ['session.data.xy_star_id': [$in: uids], timestamp: timeBetween]),
+                    new BasicDBObject('$project', [earned: '$session.data.earned']),
+                    new BasicDBObject('$group', [_id: null, earned: [$sum: '$earned']])
+            )
+            Iterator records = res.results().iterator();
+            def live_earned = 0
+            if (records.hasNext()) {
+                live_earned = records.next().earned
+            }
+
+            def game_award_res = star_award_logs.aggregate(
+                    new BasicDBObject('$match', [timestamp: timeBetween, 'room_id': [$in: uids]]),
+                    new BasicDBObject('$project', [earned: '$award_earned']),
+                    new BasicDBObject('$group', [_id: null, earned: [$sum: '$earned']])
+            ).results().iterator()
+            def game_earned = 0
+            if (game_award_res.hasNext()) {
+                game_earned = game_award_res.next().earned
+            }
+            star.bean_count =live_earned + game_earned
+
+            def sale = [:]
+            res = flog.aggregate(
+                    new BasicDBObject('$match', [ext: bid.toString(), timestamp: timeBetween]),
+                    new BasicDBObject('$project', [cny: '$cny']),
+                    new BasicDBObject('$group', [_id: null, cny: [$sum: '$cny'], count: [$sum: 1]])
+            )
+            records = res.results().iterator();
+            if (records.hasNext()) {
+                def rec = records.next()
+                sale.cny = rec.cny
+                sale.count = rec.count
+            }
+
+            def YMD = new Date(begin).format("yyyyMMdd")
+            coll.save(new BasicDBObject(
+                    _id: "${bid}_${YMD}".toString(),
+                    star: star,
+                    sale: sale,
+                    user_id: bid,
+                    timestamp: begin,
+            ))
+
+            res = flog.aggregate(
+                    new BasicDBObject('$match', [ext: bid.toString()]),
+                    new BasicDBObject('$project', [cny: '$cny']),
+                    new BasicDBObject('$group', [_id: null, cny: [$sum: '$cny'], count: [$sum: 1]])
+            )
+            records = res.results().iterator();
+            sale = [:]
+            if (records.hasNext()) {//字符多位 double 精度
+                def rec = records.next()
+                sale.cny = rec.cny
+                sale.count = rec.count
+            }
+
+            users.update(broker.append('broker.flag', [$ne: YMD]), new BasicDBObject(
+                    // TODO day add
+                    $inc: ['broker.bean_total': star.bean_count ?: 0],
+                    $set: [
+                            'broker.cny_total': sale.cny ?: 0,
+                            'broker.sale_count': sale.count ?: 0,
+                            //'broker.star_total':star.count,
+                            'broker.flag': YMD
+                    ]
+            ))
+        }
+    }
 
 
     /**
@@ -341,7 +441,7 @@ class Recovery {
         stat_report.update(new BasicDBObject(_id: "${prefix}allreport".toString()), new BasicDBObject(map), true, false)
     }
 
-    static int day = 1
+    static int day = 30
 
     static void main(String[] args) {
         long l = System.currentTimeMillis()
@@ -364,6 +464,12 @@ class Recovery {
         l = System.currentTimeMillis()
         payStatics_recovery(day)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   pay_statics_recovery, cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
+        // 经纪人旗下主播收益统计
+        l = System.currentTimeMillis()
+        staticBroker_recovery(day)
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   staticBroker_recovery, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         // 钻石出入统计
