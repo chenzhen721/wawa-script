@@ -446,24 +446,24 @@ class Recovery {
         long l = System.currentTimeMillis()
         long begin = l
 
-        // 充值统计recovery
-        pay_statics_recovery(day)
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   pay_statics_recovery, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-
-        // 钻石出入统计
-        l = System.currentTimeMillis()
-        diamond_statics_recovery(day)
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   diamond_statics_recovery, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-
-        // 支付渠道统计充值
-        l = System.currentTimeMillis()
-        payStatics_recovery(day)
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   pay_statics_recovery, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
+//        // 充值统计recovery
+//        pay_statics_recovery(day)
+//        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   pay_statics_recovery, cost  ${System.currentTimeMillis() - l} ms"
+//        Thread.sleep(1000L)
+//
+//
+//        // 钻石出入统计
+//        l = System.currentTimeMillis()
+//        diamond_statics_recovery(day)
+//        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   diamond_statics_recovery, cost  ${System.currentTimeMillis() - l} ms"
+//        Thread.sleep(1000L)
+//
+//
+//        // 支付渠道统计充值
+//        l = System.currentTimeMillis()
+//        payStatics_recovery(day)
+//        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   pay_statics_recovery, cost  ${System.currentTimeMillis() - l} ms"
+//        Thread.sleep(1000L)
 
         // 经纪人旗下主播收益统计
         l = System.currentTimeMillis()
@@ -471,11 +471,11 @@ class Recovery {
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   staticBroker_recovery, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
-        // 钻石出入统计
-        l = System.currentTimeMillis()
-        staticTotalReport_recovery(day)
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   staticTotalReport_recovery, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
+//        // 钻石出入统计
+//        l = System.currentTimeMillis()
+//        staticTotalReport_recovery(day)
+//        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   staticTotalReport_recovery, cost  ${System.currentTimeMillis() - l} ms"
+//        Thread.sleep(1000L)
 
         //落地定时执行的日志
         jobFinish(begin)
