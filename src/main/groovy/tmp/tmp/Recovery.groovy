@@ -105,14 +105,13 @@ class Recovery {
 
 
     static staticBroker(i){
-
         def coll = mongo.getDB('xy_admin').getCollection('stat_brokers')
         def star_award_logs = mongo.getDB('game_log').getCollection('star_award_logs')
         def users = mongo.getDB('xy').getCollection('users')
         def room_cost = mongo.getDB("xylog").getCollection("room_cost")
         def flog = mongo.getDB('xy_admin').getCollection('finance_log')
 
-        Long begin = yesTday - i * DAY_MILLON
+        Long begin = zeroMill - i * DAY_MILLON
         def timeBetween = [$gte: begin, $lt: begin + DAY_MILLON]
 
         users.find(new BasicDBObject('priv', 5), new BasicDBObject('status', 1)).toArray().each { BasicDBObject broker ->
