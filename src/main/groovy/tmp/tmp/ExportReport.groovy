@@ -393,10 +393,11 @@ class ExportReport {
         brokerIDs.each {Integer brokerId ->
             List<Integer> starIDs = getStarIdsFromBoker(brokerId)
             println "${brokerId} : star size : ${starIDs.size()} "
-            int begin = 11
+            /*int begin = 11
             while(begin-- > 0){
                 starsEarnedVcPerMonth(begin, starIDs)
-            }
+            }*/
+            starsEarnedVcPerMonth(0, starIDs)
         }
     }
 
@@ -471,7 +472,7 @@ class ExportReport {
     // test
     // static List<Integer> brokerIds = [1315023,1305799,1201928];
     //static List<Integer> brokerIds = [5874151,31292678,32077539,35027968,28237607,15604258,31952177];
-    static List<Integer> brokerIds = [36906429];
+    static List<Integer> brokerIds = [1205786,1205728];
 
 
     static void main(String[] args) {
