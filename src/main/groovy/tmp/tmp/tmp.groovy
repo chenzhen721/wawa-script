@@ -112,43 +112,46 @@ class tmp {
 
         //充值用户
         Set users1 = aggregateUsers(finance_log, [via:[$ne:'Admin'], timestamp: timeBetween], [user_id: '$to_id'])
-  /*
         //送礼用户
-        Set users2 = aggregateUsers(room_cost, ['session.data.xy_star_id': [$ne: null]], [user_id: '$session._id'])
+        Set users2 = aggregateUsers(room_cost, ['session.data.xy_star_id': [$ne: null], timestamp: timeBetween], [user_id: '$session._id'])
         // 且在玩游戏用户
-        Set users3 = aggregateUsers(user_bet, [user_id:[$ne:null]], [user_id: '$user_id'])
+        Set users3 = aggregateUsers(user_bet, [user_id:[$ne:null], timestamp: timeBetween], [user_id: '$user_id'])
+        /*
+               println "充值:"
+               List<String> m1 = getMobile(users1.toList())
+               println m1
 
-        println "充值:"
-        List<String> m1 = getMobile(users1.toList())
-        println m1
+               println "送礼:"
+               List<String> m2 = getMobile(users2.toList())
+               println m2
 
-        println "送礼:"
-        List<String> m2 = getMobile(users2.toList())
-        println m2
+               println "玩游戏:"
+               List<String> m3 = getMobile(users3.toList())
+               println m3
 
-        println "玩游戏:"
-        List<String> m3 = getMobile(users3.toList())
-        println m3
+               Set<String> userMobile = new HashSet()
+               userMobile.addAll(m1)
+               userMobile.addAll(m2)
+               userMobile.addAll(m3)
+               println "所有手机号:"
+               println userMobile
+               println userMobile.size()
 
-        Set<String> userMobile = new HashSet()
-        userMobile.addAll(m1)
-        userMobile.addAll(m2)
-        userMobile.addAll(m3)
-        println "所有手机号:"
-        println userMobile
-        println userMobile.size()
+               Set<Integer> userSet = new HashSet()
+               userSet.addAll(users1)
+               userSet.addAll(users2)
+               userSet.addAll(users3)
 
-        Set<Integer> userSet = new HashSet()
-        userSet.addAll(users1)
-        userSet.addAll(users2)
-        userSet.addAll(users3)
-
-        println "所有用户id:"
-        println userSet
-        println userSet.size()
-*/
-        println "充值用户id:mobile"
+               println "所有用户id:"
+               println userSet
+               println userSet.size()
+       */
+        println "昨日新增充值用户id+mobile : "
         println getMobileOfUsers(users1.toList())
+        println "昨日新增送礼用户id+mobile: "
+        println getMobileOfUsers(users2.toList())
+        println "昨日新增玩游戏用户id+mobile: "
+        println getMobileOfUsers(users3.toList())
     }
 
     static Set<Integer> aggregateUsers(DBCollection coll, Map match, Map project){
@@ -173,7 +176,7 @@ class tmp {
 
     static Map<String,String> getMobileOfUsers(List<Integer> userIds){
         Map<String, String> datas = new HashMap<>();
-        def tuids = users.find($$(_id: [$in: userIds] , priv:3, timestamp:[$gte:yesTday]), $$(tuid:1)).toArray()*.tuid as List<Integer>
+        def tuids = users.find($$(_id: [$in: userIds] , priv:3, timestamp:[$gte:yesTday - DAY_MILLON]), $$(tuid:1)).toArray()*.tuid as List<Integer>
         xy_users.find($$(_id:[$in: tuids], mobile:[$ne:null]), $$(mm_no:1,mobile:1)).toArray().each {DBObject user ->
             datas.put(user['mm_no'] as String, user['mobile']  as String)
         }
