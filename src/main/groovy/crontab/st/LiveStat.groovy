@@ -409,7 +409,7 @@ class LiveStat {
         //清除昨日统计分值
         rooms_rank.updateMulti($$(_id: [$gte: 0]), $$($unset: [yesterday: 1]))
         //运营加成积分归零
-        rooms_rank.updateMulti($$(op_points: [$gt: 0]), $$($set: [op_points: 0]))
+        //rooms_rank.updateMulti($$(op_points: [$gt: 0]), $$($set: [op_points: 0]))
 
         //昨日直播统计 收益 直播时长 送礼用户数量 昨日关注
         stat_lives.find($$(timestamp: tmp)).toArray().each { BasicDBObject liveStat ->
