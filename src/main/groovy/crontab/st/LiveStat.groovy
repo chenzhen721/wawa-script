@@ -119,7 +119,7 @@ class LiveStat {
                 earndObj.timestamp = tmp
                 earndObj.user_id = user_id
                 earndObj.lives = liveSet
-                earndObj.award = 0
+                earndObj.award_count = 0
                 earndObj.users = userSet.size()
                 earndObj.second = 0
                 stat_lives.update(new BasicDBObject("_id", earndObj._id), earndObj, true, false)
