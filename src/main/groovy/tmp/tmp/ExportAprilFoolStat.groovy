@@ -86,8 +86,8 @@ class Recovery {
         println("usrBuf is ${usrBuf}")
         println("starBuf is ${starBuf}")
 
-        createFile(usrBuf, '/Users/monkey', '/april_fool_sender.csv')
-        createFile(starBuf, '/Users/monkey', '/april_fool_receiver.csv')
+        createFile(usrBuf, null, '/april_fool_sender.csv')
+        createFile(starBuf, null, '/april_fool_receiver.csv')
     }
 
     /**
