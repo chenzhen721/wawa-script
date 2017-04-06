@@ -155,6 +155,7 @@ class LiveStat {
                 liveObj.put('award_count', award_count)
                 liveObj.put('earned', award_count + ((liveObj?.get('earned') ?: 0) as Long))
                 liveObj.put('app_earned', award_count + ((liveObj?.get('app_earned') ?: 0) as Long))
+                liveObj.put('timestamp', yesterday)
 
                 stat_lives.update(new BasicDBObject("_id", live_log_id), new BasicDBObject('$set', liveObj), true, false)
         }

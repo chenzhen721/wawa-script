@@ -310,6 +310,7 @@ class Recovery {
                 liveObj.put('award_count', award_count)
                 liveObj.put('earned', award_count + ((liveObj?.get('earned') ?: 0) as Long))
                 liveObj.put('app_earned', award_count + ((liveObj?.get('app_earned') ?: 0) as Long))
+                liveObj.put('timestamp', yesterday)
 
                 stat_lives.update(new BasicDBObject("_id", live_log_id), new BasicDBObject('$set', liveObj), true, false)
         }
@@ -429,6 +430,7 @@ class Recovery {
         def users = mongo.getDB('xy').getCollection('users')
         def room_cost = mongo.getDB("xylog").getCollection("room_cost")
         def flog = mongo.getDB('xy_admin').getCollection('finance_log')
+        def total = 0
 
         Long begin = zeroMill - i * DAY_MILLON
         def timeBetween = [$gte: begin, $lt: begin + DAY_MILLON]
@@ -462,8 +464,9 @@ class Recovery {
             if (game_award_res.hasNext()) {
                 game_earned = game_award_res.next().earned
             }
-            star.bean_count = live_earned + game_earned
 
+
+            star.bean_count = live_earned + game_earned
             def sale = [:]
             res = flog.aggregate(
                     new BasicDBObject('$match', [ext: bid.toString(), timestamp: timeBetween]),
@@ -510,6 +513,7 @@ class Recovery {
                     ]
             ))
         }
+        println("total is ${total}")
     }
 
     /**
@@ -758,7 +762,67 @@ class Recovery {
         stat_report.update(new BasicDBObject(_id: "${prefix}allreport".toString()), new BasicDBObject(map), true, false)
     }
 
-    static int day = 30
+    private static BasicDBObject $$(String key, Object value) {
+        return new BasicDBObject(key, value);
+    }
+
+    private static BasicDBObject $$(Map map) {
+        return new BasicDBObject(map)
+    }
+
+    static class PayType {
+        final user = new HashSet(1000)
+        final count = new AtomicInteger()
+        final coin = new AtomicLong()
+        def cny = new BigDecimal(0)
+
+        def toMap() { [user: user.size(), count: count.get(), coin: coin.get(), cny: cny.doubleValue()] }
+    }
+
+    static class PayStat {
+        final Set user = new HashSet(2000)
+        final AtomicInteger count = new AtomicInteger()
+        final AtomicLong coin = new AtomicLong()
+        def BigDecimal cny = new BigDecimal(0)
+
+        def toMap() { [user: user.size(), count: count.get(), coin: coin.get(), cny: cny.doubleValue()] }
+
+        def add(def user_id, BigDecimal deltaCny, Long deltaCoin) {
+            count.incrementAndGet()
+            user.add(user_id)
+            cny = cny.add(deltaCny)
+            coin.addAndGet(deltaCoin)
+        }
+
+        def add(def user_id, BigDecimal deltaCny, Long deltaCoin, Integer deltaCount) {
+            count.addAndGet(deltaCount)
+            user.add(user_id)
+            cny = cny.add(deltaCny)
+            coin.addAndGet(deltaCoin)
+        }
+    }
+
+    /**
+     * 标记任务完成  用于运维监控
+     * @return
+     */
+    private static jobFinish(Long begin) {
+        def timerName = 'Recovery'
+        Long totalCost = System.currentTimeMillis() - begin
+        saveTimerLogs(timerName, totalCost)
+        println "${new Date().format('yyyy-MM-dd')}:${Recovery.class.getSimpleName()}:finish  cost  ${System.currentTimeMillis() - begin} ms"
+    }
+
+    //落地定时执行的日志
+    private static saveTimerLogs(String timerName, Long totalCost) {
+        def timerLogsDB = mongo.getDB("xyrank").getCollection("timer_logs")
+        def tmp = System.currentTimeMillis()
+        def id = timerName + "_" + new Date().format("yyyyMMdd")
+        def update = new BasicDBObject(timer_name: timerName, cost_total: totalCost, cat: 'day', unit: 'ms', timestamp: tmp)
+        timerLogsDB.findAndModify(new BasicDBObject('_id', id), null, null, false, new BasicDBObject('$set', update), true, true)
+    }
+
+    static int day = 45
 
     static void main(String[] args) {
         long l = System.currentTimeMillis()
@@ -804,63 +868,5 @@ class Recovery {
         //落地定时执行的日志
 //        jobFinish(begin)
     }
-    /**
-     * 标记任务完成  用于运维监控
-     * @return
-     */
-    private static jobFinish(Long begin) {
-        def timerName = 'Recovery'
-        Long totalCost = System.currentTimeMillis() - begin
-        saveTimerLogs(timerName, totalCost)
-        println "${new Date().format('yyyy-MM-dd')}:${Recovery.class.getSimpleName()}:finish  cost  ${System.currentTimeMillis() - begin} ms"
-    }
 
-    //落地定时执行的日志
-    private static saveTimerLogs(String timerName, Long totalCost) {
-        def timerLogsDB = mongo.getDB("xyrank").getCollection("timer_logs")
-        def tmp = System.currentTimeMillis()
-        def id = timerName + "_" + new Date().format("yyyyMMdd")
-        def update = new BasicDBObject(timer_name: timerName, cost_total: totalCost, cat: 'day', unit: 'ms', timestamp: tmp)
-        timerLogsDB.findAndModify(new BasicDBObject('_id', id), null, null, false, new BasicDBObject('$set', update), true, true)
-    }
-
-    private static BasicDBObject $$(String key, Object value) {
-        return new BasicDBObject(key, value);
-    }
-
-    private static BasicDBObject $$(Map map) {
-        return new BasicDBObject(map)
-    }
-
-    static class PayType {
-        final user = new HashSet(1000)
-        final count = new AtomicInteger()
-        final coin = new AtomicLong()
-        def cny = new BigDecimal(0)
-
-        def toMap() { [user: user.size(), count: count.get(), coin: coin.get(), cny: cny.doubleValue()] }
-    }
-
-    static class PayStat {
-        final Set user = new HashSet(2000)
-        final AtomicInteger count = new AtomicInteger()
-        final AtomicLong coin = new AtomicLong()
-        def BigDecimal cny = new BigDecimal(0)
-
-        def toMap() { [user: user.size(), count: count.get(), coin: coin.get(), cny: cny.doubleValue()] }
-
-        def add(def user_id, BigDecimal deltaCny, Long deltaCoin) {
-            count.incrementAndGet()
-            user.add(user_id)
-            cny = cny.add(deltaCny)
-            coin.addAndGet(deltaCoin)
-        }
-
-        def add(def user_id, BigDecimal deltaCny, Long deltaCoin, Integer deltaCount) {
-            count.addAndGet(deltaCount)
-            user.add(user_id)
-            cny = cny.add(deltaCny)
-            coin.addAndGet(deltaCoin)
-        }
-    }
 }
