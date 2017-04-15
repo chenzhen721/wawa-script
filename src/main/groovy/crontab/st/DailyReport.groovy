@@ -114,6 +114,15 @@ class DailyReport {
         def game_spend_coin = list.sum { it.cost ?: 0 } as Long
         println("game_spend_coin is ${game_spend_coin}")
         coin_spend_day += game_spend_coin
+
+        // 日消耗加入红包解锁花费的阳光
+        query = $$('timestamp': timeBetween)
+        field = $$('coin_count': 1)
+        def unlockList = mongo.getDB('game_log').getCollection('red_packet_cost_logs').find(query, field).toArray()
+        def unlock_spend_coin = unlockList.sum { it.coin_count ?: 0 } as Long
+        println("unlock_spend_coin is ${unlock_spend_coin}")
+        coin_spend_day += unlock_spend_coin
+
         println "coin_spend_day:---->:${coin_spend_day}"
         financeTmpDB.update(new BasicDBObject(_id: myId), new BasicDBObject('$set', new BasicDBObject(coin_spend_room: coin_spend_day)))
     }
@@ -136,6 +145,16 @@ class DailyReport {
                 map.put(id.toString(),sum)
         }
         financeTmpDB.update($$(_id: myId), $$('$set', $$(game_spend_coin: game_spend_coin,'game_dec':map)))
+    }
+
+    // 解锁红包统计
+    static staticsUnlockCoin() {
+        def query = $$('timestamp': timeBetween)
+        def field = $$('coin_count': 1)
+        def unlockList = mongo.getDB('game_log').getCollection('red_packet_cost_logs').find(query, field).toArray()
+        def unlock_spend_coin = unlockList.sum { it.coin_count ?: 0 } as Long
+
+        financeTmpDB.update($$(_id: myId), $$('$set', $$(unlock_spend_coin: unlock_spend_coin)))
     }
 
     //03.在途阳光
@@ -533,6 +552,12 @@ class DailyReport {
         l = System.currentTimeMillis()
         staticsBetCoin()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},staticsBetCoin cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
+        // 解锁红包消费阳光
+        l = System.currentTimeMillis()
+        staticsUnlockCoin()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},staticsUnlockCoin cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         //03.在途阳光
