@@ -273,6 +273,34 @@ class DailyReport {
         financeTmpDB.update(new BasicDBObject(_id: myId), new BasicDBObject('$set', new BasicDBObject(mission_coin: mission_coin)))
     }
 
+    // 红包加币 红包获取加阳光 + 兑换的阳光
+    static staticsRedPacketCoin() {
+        def timeBetween = getTimeBetween()
+        def q = new BasicDBObject(timestamp: timeBetween)
+        def red_packet_logs = mongo.getDB('game_log').getCollection('red_packet_logs')
+        def acquireCoinList = red_packet_logs.
+                find(q, new BasicDBObject(coin_count: 1))
+                .toArray()
+
+        def red_packet_acquire_coin = acquireCoinList.sum { it.coin_count ?: 0 } as Long
+        if (null == red_packet_acquire_coin)
+            red_packet_acquire_coin = 0L
+        println "red_packet_acquire_coin:---->:${red_packet_acquire_coin}"
+
+        def red_packet_cost_logs = mongo.getDB('game_log').getCollection('red_packet_cost_logs')
+        def exchangeCoinList = red_packet_cost_logs.
+                find(q, new BasicDBObject(coin_count: 1))
+                .toArray()
+        def red_packet_exchange_coin = exchangeCoinList.sum { it.coin_count ?: 0 } as Long
+        if (null == red_packet_exchange_coin)
+            red_packet_exchange_coin = 0L
+        println "red_packet_exchange_coin:---->:${red_packet_exchange_coin}"
+
+        def coin_total = red_packet_acquire_coin + red_packet_exchange_coin
+        println "coin_total:---->:${coin_total}"
+        financeTmpDB.update(new BasicDBObject(_id: myId), new BasicDBObject('$set', new BasicDBObject(red_packet_coin: coin_total)))
+    }
+
     // 游戏加币
     static staticsGameCoin() {
         def timeBetween = getTimeBetween()
@@ -544,6 +572,12 @@ class DailyReport {
         l = System.currentTimeMillis()
         staticsAdminTotal()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},staticsAdminTotal cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
+        // 红包兑换和红包领取
+        l = System.currentTimeMillis()
+        staticsRedPacketCoin()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},staticsRedPacketCoin cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         //07.签到加币
