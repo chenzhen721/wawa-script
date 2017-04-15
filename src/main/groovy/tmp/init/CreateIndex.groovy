@@ -56,6 +56,7 @@ class CreateIndex {
         buildRedPacketLogIndex()
         buildRedPacketCostLogIndex()
         buildRedPacketApplyLogIndex()
+        buildRedPacketUnlockLogIndex()
     }
     /**
      * 构建game_log下game_round集合的索引
@@ -136,8 +137,8 @@ class CreateIndex {
      */
     private static void buildRedPacketLogIndex(){
         DBCollection redPacketLogs = mongo.getDB('game_log').getCollection('red_packet_logs')
-        def red_packet_logs_index = $$('user_id': 1,  'timestamp': -1,'date':1,'acquire_type':1,'type':1)
-        def indexName = '_user_date_type_acquire_type_timestamp_'
+        def red_packet_logs_index = $$('user_id': 1,  'timestamp': -1,'date':1,'type':1)
+        def indexName = '_user_date_type_timestamp_'
         createIfNotAbsent(redPacketLogs,red_packet_logs_index,indexName)
     }
 
@@ -146,8 +147,8 @@ class CreateIndex {
      */
     private static void buildRedPacketCostLogIndex(){
         DBCollection redPacketCostLogs = mongo.getDB('game_log').getCollection('red_packet_cost_logs')
-        def red_packet_cost_logs_index = $$('user_id': 1,  'timestamp': -1,'date':1,'cost_type':1,'type':1)
-        def indexName = '_user_date_type_cost_type_timestamp_'
+        def red_packet_cost_logs_index = $$('user_id': 1,  'timestamp': -1,'date':1,'type':1)
+        def indexName = '_user_date_type_timestamp_'
         createIfNotAbsent(redPacketCostLogs,red_packet_cost_logs_index,indexName)
     }
 
@@ -161,6 +162,15 @@ class CreateIndex {
         createIfNotAbsent(redPacketApplyLogs,red_packet_apply_logs_index,indexName)
     }
 
+    /**
+     * 红包提现日志表
+     */
+    private static void buildRedPacketUnlockLogIndex(){
+        DBCollection redPacketUnlockLogs = mongo.getDB('game_log').getCollection('red_packet_unlock_logs')
+        def red_packet_unlock_logs_index = $$('user_id': 1,  'timestamp': -1)
+        def indexName = '_user_timestamp_'
+        createIfNotAbsent(redPacketUnlockLogs,red_packet_unlock_logs_index,indexName)
+    }
 
     /**
      * 根据索引名称判断是否有索引 没有则创建
