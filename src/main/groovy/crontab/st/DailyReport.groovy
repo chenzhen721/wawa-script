@@ -136,15 +136,15 @@ class DailyReport {
         println "game_spend_coin:---->:${game_spend_coin}"
         def gameList = mongo.getDB('xy_admin').getCollection('games')
         gameList.find().each {
-            BasicDBObject obj->
+            BasicDBObject obj ->
                 def id = obj['_id'] as Integer
-                def query = $$('timestamp': timeBetween,'game_id':id)
+                def query = $$('timestamp': timeBetween, 'game_id': id)
                 def list = bet_log.find(query, field).toArray()
                 def sum = list.sum { it.cost ?: 0 } as Long
                 game_spend_coin += sum
-                map.put(id.toString(),sum)
+                map.put(id.toString(), sum)
         }
-        financeTmpDB.update($$(_id: myId), $$('$set', $$(game_spend_coin: game_spend_coin,'game_dec':map)))
+        financeTmpDB.update($$(_id: myId), $$('$set', $$(game_spend_coin: game_spend_coin, 'game_dec': map)))
     }
 
     // 解锁红包统计
@@ -295,29 +295,33 @@ class DailyReport {
     // 红包加币 红包获取加阳光 + 兑换的阳光
     static staticsRedPacketCoin() {
         def timeBetween = getTimeBetween()
-        def q = new BasicDBObject(timestamp: timeBetween)
         def red_packet_logs = mongo.getDB('game_log').getCollection('red_packet_logs')
-        def acquireCoinList = red_packet_logs.
-                find(q, new BasicDBObject(coin_count: 1))
-                .toArray()
-
-        def red_packet_acquire_coin = acquireCoinList.sum { it.coin_count ?: 0 } as Long
-        if (null == red_packet_acquire_coin)
-            red_packet_acquire_coin = 0L
-        println "red_packet_acquire_coin:---->:${red_packet_acquire_coin}"
+        def types = red_packet_logs.distinct('type')
+        def coin_total = 0
+        def red_pack_inc = new HashMap()
+        types.each {
+            String it ->
+                def acquireCoinList = red_packet_logs.
+                        find(new BasicDBObject('type': it, timestamp: timeBetween), new BasicDBObject(coin_count: 1)).toArray()
+                def sum = acquireCoinList.sum { it.coin_count ?: 0 } as Long
+                red_pack_inc.put(type, sum)
+                coin_total += sum
+        }
 
         def red_packet_cost_logs = mongo.getDB('game_log').getCollection('red_packet_cost_logs')
-        def exchangeCoinList = red_packet_cost_logs.
-                find(q, new BasicDBObject(coin_count: 1))
-                .toArray()
-        def red_packet_exchange_coin = exchangeCoinList.sum { it.coin_count ?: 0 } as Long
-        if (null == red_packet_exchange_coin)
-            red_packet_exchange_coin = 0L
-        println "red_packet_exchange_coin:---->:${red_packet_exchange_coin}"
+        def cost_types = red_packet_cost_logs.distinct('type')
+        cost_types.each {
+            String it ->
+                def costCoinList = red_packet_logs.
+                        find(new BasicDBObject('type': it, timestamp: timeBetween), new BasicDBObject(coin_count: 1)).toArray()
+                def sum = costCoinList.sum { it.coin_count ?: 0 } as Long
+                red_pack_inc.put(type, sum)
+                coin_total += sum
+        }
 
-        def coin_total = red_packet_acquire_coin + red_packet_exchange_coin
         println "coin_total:---->:${coin_total}"
-        financeTmpDB.update(new BasicDBObject(_id: myId), new BasicDBObject('$set', new BasicDBObject(red_packet_coin: coin_total)))
+
+        financeTmpDB.update(new BasicDBObject(_id: myId), new BasicDBObject('$set', new BasicDBObject(red_packet_coin: coin_total,'red_packet_inc':red_pack_inc)))
     }
 
     // 游戏加币
@@ -332,13 +336,13 @@ class DailyReport {
         gameList.each {
             BasicDBObject obj ->
                 def id = obj['_id'] as Integer
-                def query = $$('timestamp': timeBetween, 'coin': ['$gt': 0],'game_id':id)
-                def list = lottery_log.find(query,field).toArray()
+                def query = $$('timestamp': timeBetween, 'coin': ['$gt': 0], 'game_id': id)
+                def list = lottery_log.find(query, field).toArray()
                 def sum = list.sum { it.coin ?: 0 } as Long
                 game_coin += sum
-                map.put(id.toString(),sum)
+                map.put(id.toString(), sum)
         }
-        financeTmpDB.update($$(_id: myId), $$('$set', $$(game_coin: game_coin,'game_inc':map)))
+        financeTmpDB.update($$(_id: myId), $$('$set', $$(game_coin: game_coin, 'game_inc': map)))
     }
 
     //16.活动中奖--获得币  活动类型："10month","CardYouxi","Christmas","Fortune","SF","chargeRank","dianliang","laodong", "new_year","qq_wx_wb_share","send_hongbao" ,"worldcup"
