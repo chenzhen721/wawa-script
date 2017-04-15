@@ -53,6 +53,7 @@ class StaticsEveryDay {
     static DBCollection channel_pay_DB = mongo.getDB('xy_admin').getCollection('channel_pay')
     static DBCollection channels = mongo.getDB('xy_admin').getCollection('channels')
     static DBCollection games_DB = mongo.getDB('xy_admin').getCollection('games')
+    static DBCollection unlock_red_packet_DB = mongo.getDB('game_log').getCollection('unlock_logs')
     static DBCollection user_bet_DB = mongo.getDB('game_log').getCollection('user_bet')
     static DBCollection user_lottery_DB = mongo.getDB('game_log').getCollection('user_lottery')
     static DBCollection game_round_DB = mongo.getDB('game_log').getCollection('game_round')
@@ -351,6 +352,19 @@ class StaticsEveryDay {
             result.put(id.toString(), [cost: game_cost, user: game_user.size()])
         }
 
+        // 加入解锁红包的逻辑
+        def query = $$('timestamp': [$gte: yesTday, $lt: zeroMill])
+        def unlock_cost = 0L
+        def unlock_user = new HashSet()
+        unlock_red_packet_DB.find(query).each {
+            DBObject obj ->
+                def userId = obj['user_id'] as Integer
+                unlock_cost += obj['coin_count'] as Long
+                unlock_user.add(userId)
+                users.add(userId)
+        }
+        result.put('unlock', [cost: unlock_cost, user: unlock_user.size()])
+        costs+=unlock_cost
         // 对游戏和送礼加起来统计
 
         result.put('user_cost', [cost: costs, user: users.size()])
