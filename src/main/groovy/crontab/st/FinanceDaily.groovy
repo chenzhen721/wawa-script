@@ -158,31 +158,49 @@ class FinanceDaily {
     static BasicDBObject increase(Map timebetween) {
         Number totalCoin = 0
         Map data = new HashMap();
-        //签到
+        // 签到
         totalCoin += warpDataFromDaliyReport('login_coin', data)
-        //新手任务
+        // 新手任务
         totalCoin += warpDataFromDaliyReport('mission_coin', data)
-        //游戏获得
+        // 游戏获得
         totalCoin += warpDataFromDaliyReport('game_coin', data)
+        // 红包获得
+        totalCoin += warpDataFromDaliyReport('red_packet_coin', data)
 
-        def inc_map = new HashMap()
+        def game_inc_map = new HashMap()
+        def red_packet_inc_map = new HashMap()
         dailyReportList.each {
             BasicDBObject obj ->
+                // 游戏赢币
                 if (obj.containsField('game_inc')) {
                     def node = obj['game_inc']
                     for (String key : node.keySet()) {
                         def v = node[key] as Integer
                         Integer tmp = 0
-                        if (inc_map.containsKey(key)) {
-                            tmp = inc_map[key] as Integer
+                        if (game_inc_map.containsKey(key)) {
+                            tmp = game_inc_map[key] as Integer
                         }
                         def current_sum = tmp + v
-                        inc_map.put(key, current_sum)
+                        game_inc_map.put(key, current_sum)
+                    }
+                }
+
+                // 红包拿币
+                if(obj.containsField('red_packet_inc')){
+                    def node = obj['red_packet_inc']
+                    for (String key : node.keySet()) {
+                        def v = node[key] as Integer
+                        Integer tmp = 0
+                        if (red_packet_inc_map.containsKey(key)) {
+                            tmp = red_packet_inc_map[key] as Integer
+                        }
+                        def current_sum = tmp + v
+                        red_packet_inc_map.put(key, current_sum)
                     }
                 }
         }
 
-        def incData = $$('total': totalCoin, 'game': inc_map);
+        def incData = $$('total': totalCoin, 'game': game_inc_map,'red_packet':red_packet_inc_map);
         incData.putAll(data);
         return incData
     }
@@ -198,11 +216,12 @@ class FinanceDaily {
         }
 
         totalCoin += warpDataFromDaliyReport('game_spend_coin', data)
+        totalCoin += warpDataFromDaliyReport('unlock_spend_coin', data)
 
         def dec_map = new HashMap()
         dailyReportList.each {
             BasicDBObject obj ->
-                if (obj.containsField('game_inc')) {
+                if (obj.containsField('game_dec')) {
                     def node = obj['game_dec']
                     for (String key : node.keySet()) {
                         def v = node[key] as Integer
