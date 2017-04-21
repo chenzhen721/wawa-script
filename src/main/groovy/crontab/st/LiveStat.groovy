@@ -119,6 +119,7 @@ class LiveStat {
                 earndObj.timestamp = tmp
                 earndObj.user_id = user_id
                 earndObj.lives = liveSet
+                earndObj.award_count = 0
                 earndObj.users = userSet.size()
                 earndObj.second = 0
                 stat_lives.update(new BasicDBObject("_id", earndObj._id), earndObj, true, false)
@@ -130,22 +131,34 @@ class LiveStat {
     // 统计主播获得的分成能量
     static staticsAwardEarned(int i) {
         Long yesterday = zeroMill - i * DAY_MILLON
+        def timeLimit = new BasicDBObject(timestamp: [$gte: zeroMill - 30 * DAY_MILLON], test: [$ne: true]) // 最近30天开播过的
+        def starIds = rooms.find(timeLimit, new BasicDBObject("xy_star_id": 1)).toArray()*.xy_star_id
         def day = new Date(yesterday).format('yyyyMMdd')
         def timeBetween = Collections.unmodifiableMap([$gte: yesterday, $lt: yesterday + DAY_MILLON])
-        //游戏分成得到的能量计入总收入
-        star_award_logs.aggregate(
-                new BasicDBObject($match: [timestamp: timeBetween]),
-                new BasicDBObject($project: [_id: '$room_id', earned: '$award_earned']),
-                new BasicDBObject($group: [_id: '$_id', earned: [$sum: '$earned']])
-        ).results().each {
-            BasicDBObject obj ->
-                def user_id = obj.get('_id') as Integer
-                def earned = obj.get('earned') as Long
-                def _id = "${day}_${user_id}".toString()
-                // inc 用户的总能量，手机获得能量，分成能量
-                stat_lives.update($$("_id", _id), $$('$inc', ['award_count': earned,'app_earned':earned,'earned':earned]), true, false)
-        }
+        starIds.each {
+            Integer star_id ->
+                String live_log_id = "${day}_${star_id}".toString()
+                BasicDBObject liveObj = stat_lives.findOne(new BasicDBObject("_id", live_log_id)) as BasicDBObject
+                if (liveObj == null) {
+                    liveObj = new BasicDBObject(user_id: star_id,award_count:0, earned: 0, app_earned: 0, pc_earned: 0, lives: new HashSet<>())
+                }
+                def res = star_award_logs.aggregate(
+                        new BasicDBObject($match: [timestamp: timeBetween,'room_id':star_id]),
+                        new BasicDBObject($project: [_id: '$room_id', earned: '$award_earned']),
+                        new BasicDBObject($group: [_id: null, earned: [$sum: '$earned']])
+                ).results().iterator()
 
+                def award_count = 0
+                if(res.hasNext()){
+                    award_count = res.next().earned
+                }
+                liveObj.put('award_count', award_count)
+                liveObj.put('earned', award_count + ((liveObj?.get('earned') ?: 0) as Long))
+                liveObj.put('app_earned', award_count + ((liveObj?.get('app_earned') ?: 0) as Long))
+                liveObj.put('timestamp', yesterday)
+
+                stat_lives.update(new BasicDBObject("_id", live_log_id), new BasicDBObject('$set', liveObj), true, false)
+        }
 
     }
 
@@ -486,10 +499,6 @@ class LiveStat {
         staticsEarned(day);
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   live staticsEarned cost  ${System.currentTimeMillis() - l} ms"
 
-        //每天分成获取的能量
-        staticsAwardEarned(day);
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   live staticsAwardEarned cost  ${System.currentTimeMillis() - l} ms"
-
         //每日直播时长
         l = System.currentTimeMillis()
         staticsLiveTime(day);
@@ -512,6 +521,10 @@ class LiveStat {
         l = System.currentTimeMillis()
         staticsTotalLiveTime()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   live staticsTotalLiveTime cost  ${System.currentTimeMillis() - l} ms"
+
+        //每天分成获取的能量
+        staticsAwardEarned(day);
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   live staticsAwardEarned cost  ${System.currentTimeMillis() - l} ms"
 
         jobFinish(begin)
     }
