@@ -428,7 +428,7 @@ class LiveStat {
         stat_lives.find($$(timestamp: tmp)).toArray().each { BasicDBObject liveStat ->
             def rank = new HashMap();
             Integer starId = liveStat.get('user_id') as Integer
-            //收益 每10000vc 记录一分 10分上限
+            //收益 每1000vc 记录一分 10分上限
             Long earned = liveStat.get('earned') as Long
             Integer earned_points = cal_earned_points(earned)
             rank.earned = earned
@@ -440,7 +440,7 @@ class LiveStat {
             rank.second = second
             rank.second_points = second_points
 
-            //用户数量 每10个用户 记录一分 10分上限
+            //用户数量 每2个用户 记录一分 10分上限
             Integer users = liveStat.get('users') as Integer
             Integer users_points = cal_users_points(users)
             rank.users = users
@@ -461,8 +461,8 @@ class LiveStat {
     }
 
     static Integer cal_earned_points(Long earned) {
-        if (earned < 10000) return 0;
-        Integer points = (earned / 10000) as Integer
+        if (earned < 1000) return 0;
+        Integer points = (earned / 1000) as Integer
         return points > 10 ? 10 : points
     }
 
@@ -473,8 +473,8 @@ class LiveStat {
     }
 
     static Integer cal_users_points(Integer users) {
-        if (users < 10) return 0;
-        Integer points = (users / 10) as Integer
+        if (users < 2) return 0;
+        Integer points = (users / 2) as Integer
         return points > 10 ? 10 : points
     }
 
