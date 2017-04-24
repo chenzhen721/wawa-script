@@ -1,0 +1,188 @@
+#!/usr/bin/env groovy
+package crontab.st
+
+import com.mongodb.BasicDBObject
+import com.mongodb.DBCollection
+@Grapes([
+        @Grab('org.mongodb:mongo-java-driver:2.14.2'),
+        @Grab('commons-lang:commons-lang:2.6'),
+        @Grab('redis.clients:jedis:2.1.0'),
+])
+import com.mongodb.Mongo
+import com.mongodb.MongoURI
+
+/**
+ * 关于钻石的统计
+ */
+class RedPacketStat {
+    static Properties props = null;
+    static String profilepath = "/empty/crontab/db.properties";
+
+    static getProperties(String key, Object defaultValue) {
+        try {
+            if (props == null) {
+                props = new Properties();
+                props.load(new FileInputStream(profilepath));
+            }
+        } catch (Exception e) {
+            println e;
+        }
+        return props.get(key, defaultValue)
+    }
+
+    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
+    static DBCollection red_packet_logs = mongo.getDB('game_log').getCollection('red_packet_logs')
+    static DBCollection red_packet_cost_logs = mongo.getDB('game_log').getCollection('red_packet_cost_logs')
+    static DBCollection red_packet_apply_logs = mongo.getDB('game_log').getCollection('red_packet_apply_logs')
+    static DBCollection red_packet_dailyReport_stat = mongo.getDB('xy_admin').getCollection('red_packet_dailyReport_stat')
+    static DAY_MILLON = 24 * 3600 * 1000L
+    static long zeroMill = new Date().clearTime().getTime()
+    static Long yesTday = zeroMill - DAY_MILLON
+
+    private static Map getTimeBetween() {
+        def gteMill = yesTday - day * DAY_MILLON
+        return [$gte: gteMill, $lt: gteMill + DAY_MILLON]
+    }
+
+    /**
+     * 统计钻石的入账，出账，总账
+     */
+    private static void statics_red_packet() {
+        //本日期初结余=昨日期末结余
+        def begin_surplus = lastDaySurplus(yesTday)
+        def inc_total = 0
+        def inc_detail = new HashMap<String, Long>()
+        def apply_refuse = 0
+        def apply_pass_amount = 0
+        def apply_pass_income = 0
+        def desc_total = 0
+
+        def desc_detail = new HashMap<String, Long>()
+        def query = $$('timestamp': getTimeBetween())
+        def red_packet_cursors = red_packet_logs.find(query).batchSize(5000)
+        println("query is ${query}")
+        def red_packet_cost_cursors = red_packet_cost_logs.find(query).batchSize(5000)
+
+        // 提现未通过和通过的, 这里查询的是审核时间 而不是申请时间
+        query = $$('last_modify': getTimeBetween(), 'status': ['$in': [1, 2]])
+        def red_packet_apply_cursors = red_packet_apply_logs.find(query).batchSize(5000)
+
+        // 排除提现退款
+        while (red_packet_cursors.hasNext()) {
+            def obj = red_packet_cursors.next()
+            def cash_count = obj['cash_count'] as Long
+            def type = obj['type'] as String
+            if (type != 'apply_refuse') {
+                inc_total += cash_count
+                def current_type_acquire_cash = inc_detail.containsKey(type) ? inc_detail[type] : 0L
+                current_type_acquire_cash += cash_count
+                inc_detail.put(type, current_type_acquire_cash)
+            }
+        }
+
+        // 提现
+        while (red_packet_apply_cursors.hasNext()) {
+            def obj = red_packet_apply_cursors.next()
+            def status = obj['status'] as Integer
+            if(status == 1){
+                // 未通过
+                def amount = obj['amount'] as Long
+                apply_refuse += amount
+                inc_total += apply_refuse
+            }
+            if(status == 2){
+                // 通过
+                def amount = obj['amount'] as Long
+                def income = obj['income'] as Long
+                // 税前所得
+                apply_pass_amount += amount
+                // 个人所得
+                apply_pass_income += income
+                desc_total += apply_pass_amount
+            }
+        }
+
+        // 提现失败
+        inc_detail.put('apply_refuse',apply_refuse)
+        // 提现成功税前
+        desc_detail.put('apply_pass_amount',apply_pass_amount)
+        // 提现成功税后
+        desc_detail.put('apply_pass_income',apply_pass_income)
+
+        // 现金 红包兑换
+        println("red_packet_cost_cursors is ${red_packet_cost_cursors.size()}")
+        while (red_packet_cost_cursors.hasNext()) {
+            def obj = red_packet_cost_cursors.next()
+            def cash_count = obj['cash_count'] as Long
+            def type = obj['type'] as String
+            desc_total += cash_count
+            def current_type_minus_total = desc_detail.containsKey(type) ? desc_detail[type] : 0L
+            current_type_minus_total += cash_count
+            desc_detail.put(type, current_type_minus_total)
+        }
+
+        // 总现金 = 增加(红包 + 提现失败) + 减少(兑换 + 税前)
+        def total = inc_total - desc_total
+        def curr_date = new Date(yesTday - day * DAY_MILLON)
+        def myId = curr_date.format("yyyyMMdd") + "_red_packet_dailyReport_stat"
+
+        def row = $$('_id': myId, 'inc_total': inc_total, 'desc_total': desc_total, 'total': total, 'timestamp': curr_date.getTime(),
+                'inc_detail': inc_detail, 'desc_detail': desc_detail, 'begin_surplus': begin_surplus, 'end_surplus': total + begin_surplus)
+        red_packet_dailyReport_stat.update($$('_id', myId), $$(row), true, false)
+    }
+
+    /**
+     * 日期末结余
+     * @param begin
+     * @return
+     */
+    static Long lastDaySurplus(Long begin) {
+        long yesterDay = begin - DAY_MILLON
+        String ymd = new Date(yesterDay).format("yyyyMMdd")
+        def last_day = red_packet_dailyReport_stat.findOne($$(_id: ymd + "_red_packet_dailyReport_stat"))
+
+        return (last_day?.get('end_surplus') ?: 0) as Long;
+    }
+
+    final static Integer day = 0;
+
+    static void main(String[] args) {
+        long l = System.currentTimeMillis()
+        long begin = l
+
+        statics_red_packet()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${RedPacketStat.class.getSimpleName()},statics_red_packet cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
+        jobFinish(begin);
+    }
+
+    /**
+     * 标记任务完成  用于运维监控
+     * @return
+     */
+    private static jobFinish(Long begin) {
+        def timerName = 'RedPacketStat'
+        Long totalCost = System.currentTimeMillis() - begin
+        saveTimerLogs(timerName, totalCost)
+        println "${new Date().format('yyyy-MM-dd')}:${RedPacketStat.class.getSimpleName()}:finish  cost time:  ${System.currentTimeMillis() - begin} ms"
+    }
+
+    //落地定时执行的日志
+    private static saveTimerLogs(String timerName, Long totalCost) {
+        def timerLogsDB = mongo.getDB("xyrank").getCollection("timer_logs")
+        def tmp = System.currentTimeMillis()
+        def id = timerName + "_" + new Date().format("yyyyMMdd")
+        def update = new BasicDBObject(timer_name: timerName, cost_total: totalCost, cat: 'day', unit: 'ms', timestamp: tmp)
+        timerLogsDB.findAndModify(new BasicDBObject('_id', id), null, null, false, new BasicDBObject('$set', update), true, true)
+    }
+
+    protected static BasicDBObject $$(String key, Object value) {
+        return new BasicDBObject(key, value);
+    }
+
+    protected static BasicDBObject $$(Map map) {
+        return new BasicDBObject(map)
+    }
+
+}

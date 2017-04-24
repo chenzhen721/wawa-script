@@ -832,6 +832,11 @@ class StaticsEveryDay {
         }
     }
 
+    /**
+     * 任务统计
+     * @param i
+     * @return
+     */
     static missionStatic(int i) {
         def begin = yesTday - i * DAY_MILLON
         def YMD = new Date(begin).format('yyyyMMdd_')
@@ -843,7 +848,7 @@ class StaticsEveryDay {
                 new BasicDBObject('$project', [mission_id: '$mission_id', coin: '$coin']),
                 new BasicDBObject('$group', [_id: '$mission_id', count: [$sum: 1], coin: [$sum: '$coin']])
         ).results().each { BasicDBObject obj ->
-            row.put(obj.removeField('_id'), obj)
+            row.put(obj.removeField('_id').toString(), obj)
         }
         row._id = "${YMD}_mission".toString()
         row.timestamp = begin
@@ -851,6 +856,31 @@ class StaticsEveryDay {
 
         coll.save(row)
     }
+
+    /**todo
+     * 统计红包每天领取获得的阳光和现金 + 兑换换的阳光
+     * @param i
+     * @return
+     */
+    static redPacketStatic(int i) {
+        def begin = yesTday - i * DAY_MILLON
+        def YMD = new Date(begin).format('yyyyMMdd_')
+        def timebetween = [$gte: begin, $lt: begin + DAY_MILLON]
+        def red_packet_logs = mongo.getDB('game_log').getCollection('red_packet_logs')
+        def row = new BasicDBObject()
+        red_packet_logs.aggregate(
+                new BasicDBObject('$match', [timestamp: timebetween]),
+                new BasicDBObject('$project', [red_packet_id: '$red_packet_id', coin: '$coin_count',cash:'$cash_count']),
+                new BasicDBObject('$group', [_id: '$red_packet_id', count: [$sum: 1], coin: [$sum: '$coin'],cash: [$sum: '$cash']])
+        ).results().each { BasicDBObject obj ->
+            row.put(obj.removeField('_id').toString(), obj)
+        }
+        row._id = "${YMD}_red_packet".toString()
+        row.timestamp = begin
+        row.type = "red_packet_acquire"
+        coll.save(row)
+    }
+
 
     /**
      * 统计每个游戏每天有多少人玩过
@@ -993,6 +1023,12 @@ class StaticsEveryDay {
         l = System.currentTimeMillis()
         missionStatic(DAY)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   missionStatic, cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
+        // 红包获得统计
+        l = System.currentTimeMillis()
+        redPacketStatic(DAY)
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   redPacketStatic, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         //落地定时执行的日志
