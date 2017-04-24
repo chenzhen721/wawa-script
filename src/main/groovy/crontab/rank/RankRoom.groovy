@@ -49,6 +49,7 @@ class RankRoom {
     static users = mongo.getDB("xy").getCollection("users");
     static rooms = mongo.getDB("xy").getCollection("rooms");
     static lottery_logs = mongo.getDB('xylog').getCollection('lottery_logs')
+    static user_bet = mongo.getDB('game_log').getCollection('user_bet')
     static rooms_rank = mongo.getDB('xyrank').getCollection('rooms')
 
     static final Integer size = 100
@@ -86,14 +87,23 @@ class RankRoom {
             curr.timestamp = end
             rooms_rank.update($$(_id : starId), $$($set: ["curr" : curr]), true, false)
         }
+        def timeLimit = new BasicDBObject(timestamp: [$gte: zeroMill - 1 * DAY_MILLON], live : true) // 最近1天开播过的
+        def starIds = rooms.find(timeLimit, new BasicDBObject("xy_star_id": 1)).toArray()*.xy_star_id
+        starIds.each { Integer star_id ->
+            //游戏押注人数
+            def players = user_bet.distinct('user_id', new BasicDBObject(timestamp:timeBetween,room_id:star_id))
+            rooms_rank.update($$(_id : star_id), $$($set: ["curr.game_points" : cal_game_points(players.size())]), true, false)
+
+            //聊天人数
+        }
 
         //计算总分并更新直播间
         cal_room_rank_total();
     }
 
     static Integer cal_earned_points(Integer earned){
-        if(earned < 1000) return 0;
-        Integer points = (earned/1000) as Integer
+        if(earned < 100) return 0;
+        Integer points = (earned/100) as Integer
         return points
     }
 
@@ -103,9 +113,9 @@ class RankRoom {
         return points > 10 ? 10 : points
     }
 
-    static Integer cal_feathers_points(Integer feathers){
-        if(feathers < 10) return 0;
-        Integer points = (feathers/10) as Integer
+    static Integer cal_game_points(Integer players){
+        if(players < 1) return 0;
+        Integer points = (players/1) as Integer
         return points > 10 ? 10 : points
     }
 
@@ -123,10 +133,12 @@ class RankRoom {
             def curr = roomRankObj?.get('curr') as Map
             Integer earned_points = 0;
             Integer users_points = 0;
+            Integer game_points = 0;
             //当前周期积分
             if(curr){
                 earned_points = (curr?.get('earned_points') ?: 0 ) as Integer
                 users_points = (curr?.get('users_points') ?: 0 ) as Integer
+                game_points = (curr?.get('game_points') ?: 0 ) as Integer
             }
             //新人扶持积分
             Integer new_points = (roomRankObj?.get('new_points') ?: 0 ) as Integer
@@ -134,7 +146,7 @@ class RankRoom {
             Integer op_points = (roomRankObj?.get('op_points') ?: 0 ) as Integer
 
             //总分
-            total = yes_total + earned_points + users_points + new_points + op_points
+            total = yes_total + earned_points + users_points + game_points + new_points + op_points
             rooms_rank.update($$(_id : starId), $$($set: ["total" : total]), true, false)
 
             //更新直播间积分
