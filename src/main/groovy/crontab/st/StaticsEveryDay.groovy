@@ -178,7 +178,7 @@ class StaticsEveryDay {
             // client = 2 android 4 ios
             def channel = channels.findOne($$('_id': qd), $$('client': 1))
             def client = channel.containsField('client') ? channel['client'] as Integer : 2
-            def via = obj.containsField('via') ? obj['via']: ''
+            def via = obj.containsField('via') ? obj['via'] : ''
             if (via != 'Admin') {
                 // 统计android和ios的充值人数，去重
                 if (client == 2) {
@@ -364,7 +364,7 @@ class StaticsEveryDay {
                 users.add(userId)
         }
         result.put('unlock', [cost: unlock_cost, user: unlock_user.size()])
-        costs+=unlock_cost
+        costs += unlock_cost
         // 对游戏和送礼加起来统计
 
         result.put('user_cost', [cost: costs, user: users.size()])
@@ -857,7 +857,7 @@ class StaticsEveryDay {
         coll.save(row)
     }
 
-    /**todo
+    /**
      * 统计红包每天领取获得的阳光和现金 + 兑换换的阳光
      * @param i
      * @return
@@ -867,20 +867,55 @@ class StaticsEveryDay {
         def YMD = new Date(begin).format('yyyyMMdd_')
         def timebetween = [$gte: begin, $lt: begin + DAY_MILLON]
         def red_packet_logs = mongo.getDB('game_log').getCollection('red_packet_logs')
-        def row = new BasicDBObject()
+        def row = new BasicDBObject('system': ['coin_count': 0, 'cash_count': 0, users: 0], 'newcomer': ['coin_count': 0, 'cash_count': 0, users: 0], 'friend': ['coin_count': 0, 'cash_count': 0, users: 0],'unlock': ['coin_count': 0, 'cash_count': 0, users: 0], 'exchange': ['coin_count': 0, 'cash_count': 0, users: 0])
         red_packet_logs.aggregate(
                 new BasicDBObject('$match', [timestamp: timebetween]),
-                new BasicDBObject('$project', [red_packet_id: '$red_packet_id', coin: '$coin_count',cash:'$cash_count']),
-                new BasicDBObject('$group', [_id: '$red_packet_id', count: [$sum: 1], coin: [$sum: '$coin'],cash: [$sum: '$cash']])
+                new BasicDBObject('$project', [type: '$type', coin_count: '$coin_count', cash_count: '$cash_count', user_id: '$user_id']),
+                new BasicDBObject('$group', [_id: '$type', coin_count: [$sum: '$coin_count'], cash_count: [$sum: '$coin_count'], users: [$addToSet: '$user_id']])
         ).results().each { BasicDBObject obj ->
-            row.put(obj.removeField('_id').toString(), obj)
+            println("obj is ${obj}")
+            def type = obj.removeField('_id').toString()
+            Set<Integer> userList = obj['users'] as Set<Integer>
+            obj.put('users', userList.size())
+            row.put(type, obj)
         }
-        row._id = "${YMD}_red_packet".toString()
-        row.timestamp = begin
-        row.type = "red_packet_acquire"
-        coll.save(row)
-    }
+        println("row is ${row}")
 
+        // 兑换阳光
+        def red_packet_cost_logs = mongo.getDB('game_log').getCollection('red_packet_cost_logs')
+        red_packet_cost_logs.aggregate(
+                new BasicDBObject('$match', [timestamp: timebetween]),
+                new BasicDBObject('$project', [type: '$type',coin_count: '$coin_count', cash_count: '$cash_count', user_id: '$user_id']),
+                new BasicDBObject('$group', [_id: '$type', coin_count: [$sum: '$coin_count'], cash_count: [$sum: '$cash_count'], users: [$addToSet: '$user_id']])
+        ).results().each { BasicDBObject obj ->
+            def type = obj.removeField('_id').toString()
+            Set<Integer> userList = obj['users'] as Set<Integer>
+            obj.put('users', userList.size())
+            row.put(type, obj)
+        }
+
+        // 解锁阳光
+        def unlock_logs = mongo.getDB('game_log').getCollection('unlock_logs')
+        unlock_logs.aggregate(
+                new BasicDBObject('$match', [timestamp: timebetween]),
+                new BasicDBObject('$project', [coin_count: '$coin_count',  user_id: '$user_id']),
+                new BasicDBObject('$group', [_id: null, coin_count: [$sum: '$coin_count'], users: [$addToSet: '$user_id']])
+        ).results().each { BasicDBObject obj ->
+            Set<Integer> userList = obj['users'] as Set<Integer>
+            obj.put('users', userList.size())
+            row.put('unlock', obj)
+        }
+        println("row is ${row}")
+        // 好友数
+        def red_packet_friend_logs = mongo.getDB('game_log').getCollection('red_packet_friend_logs')
+        def count = red_packet_friend_logs.distinct('user_id',$$('timestamp':timebetween)).size()
+        row.put('friend_count',count)
+
+//        row._id = "${YMD}_red_packet".toString()
+        row.timestamp = begin
+        row.type = "red_packet"
+        coll.update(new BasicDBObject("_id", "${YMD}_red_packet".toString()), new BasicDBObject('$set', row), true, false)
+    }
 
     /**
      * 统计每个游戏每天有多少人玩过
@@ -953,7 +988,7 @@ class StaticsEveryDay {
 
     static void main(String[] args) { //待优化，可以到历史表查询记录
         long l = System.currentTimeMillis()
-//        //01.送礼日报表
+        //01.送礼日报表
         long begin = l
 
         // 游戏统计
