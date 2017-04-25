@@ -114,6 +114,15 @@ class DailyReport {
         def game_spend_coin = list.sum { it.cost ?: 0 } as Long
         println("game_spend_coin is ${game_spend_coin}")
         coin_spend_day += game_spend_coin
+
+        // 日消耗加入红包解锁花费的阳光
+        query = $$('timestamp': timeBetween)
+        field = $$('coin_count': 1)
+        def unlockList = mongo.getDB('game_log').getCollection('red_packet_cost_logs').find(query, field).toArray()
+        def unlock_spend_coin = unlockList.sum { it.coin_count ?: 0 } as Long
+        println("unlock_spend_coin is ${unlock_spend_coin}")
+        coin_spend_day += unlock_spend_coin
+
         println "coin_spend_day:---->:${coin_spend_day}"
         financeTmpDB.update(new BasicDBObject(_id: myId), new BasicDBObject('$set', new BasicDBObject(coin_spend_room: coin_spend_day)))
     }
@@ -127,15 +136,25 @@ class DailyReport {
         println "game_spend_coin:---->:${game_spend_coin}"
         def gameList = mongo.getDB('xy_admin').getCollection('games')
         gameList.find().each {
-            BasicDBObject obj->
+            BasicDBObject obj ->
                 def id = obj['_id'] as Integer
-                def query = $$('timestamp': timeBetween,'game_id':id)
+                def query = $$('timestamp': timeBetween, 'game_id': id)
                 def list = bet_log.find(query, field).toArray()
                 def sum = list.sum { it.cost ?: 0 } as Long
                 game_spend_coin += sum
-                map.put(id.toString(),sum)
+                map.put(id.toString(), sum)
         }
-        financeTmpDB.update($$(_id: myId), $$('$set', $$(game_spend_coin: game_spend_coin,'game_dec':map)))
+        financeTmpDB.update($$(_id: myId), $$('$set', $$(game_spend_coin: game_spend_coin, 'game_dec': map)))
+    }
+
+    // 解锁红包统计
+    static staticsUnlockCoin() {
+        def query = $$('timestamp': timeBetween)
+        def field = $$('coin_count': 1)
+        def unlockList = mongo.getDB('game_log').getCollection('red_packet_cost_logs').find(query, field).toArray()
+        def unlock_spend_coin = unlockList.sum { it.coin_count ?: 0 } as Long
+
+        financeTmpDB.update($$(_id: myId), $$('$set', $$(unlock_spend_coin: unlock_spend_coin)))
     }
 
     //03.在途阳光
@@ -273,6 +292,38 @@ class DailyReport {
         financeTmpDB.update(new BasicDBObject(_id: myId), new BasicDBObject('$set', new BasicDBObject(mission_coin: mission_coin)))
     }
 
+    // 红包加币 红包获取加阳光 + 兑换的阳光
+    static staticsRedPacketCoin() {
+        def timeBetween = getTimeBetween()
+        def red_packet_logs = mongo.getDB('game_log').getCollection('red_packet_logs')
+        def types = red_packet_logs.distinct('type')
+        def coin_total = 0
+        def red_pack_inc = new HashMap()
+        types.each {
+            String it ->
+                def acquireCoinList = red_packet_logs.
+                        find(new BasicDBObject('type': it, timestamp: timeBetween), new BasicDBObject(coin_count: 1)).toArray()
+                def sum = acquireCoinList.sum { it.coin_count ?: 0 } as Long
+                red_pack_inc.put(type, sum)
+                coin_total += sum
+        }
+
+        def red_packet_cost_logs = mongo.getDB('game_log').getCollection('red_packet_cost_logs')
+        def cost_types = red_packet_cost_logs.distinct('type')
+        cost_types.each {
+            String it ->
+                def costCoinList = red_packet_logs.
+                        find(new BasicDBObject('type': it, timestamp: timeBetween), new BasicDBObject(coin_count: 1)).toArray()
+                def sum = costCoinList.sum { it.coin_count ?: 0 } as Long
+                red_pack_inc.put(type, sum)
+                coin_total += sum
+        }
+
+        println "coin_total:---->:${coin_total}"
+
+        financeTmpDB.update(new BasicDBObject(_id: myId), new BasicDBObject('$set', new BasicDBObject(red_packet_coin: coin_total,'red_packet_inc':red_pack_inc)))
+    }
+
     // 游戏加币
     static staticsGameCoin() {
         def timeBetween = getTimeBetween()
@@ -285,13 +336,13 @@ class DailyReport {
         gameList.each {
             BasicDBObject obj ->
                 def id = obj['_id'] as Integer
-                def query = $$('timestamp': timeBetween, 'coin': ['$gt': 0],'game_id':id)
-                def list = lottery_log.find(query,field).toArray()
+                def query = $$('timestamp': timeBetween, 'coin': ['$gt': 0], 'game_id': id)
+                def list = lottery_log.find(query, field).toArray()
                 def sum = list.sum { it.coin ?: 0 } as Long
                 game_coin += sum
-                map.put(id.toString(),sum)
+                map.put(id.toString(), sum)
         }
-        financeTmpDB.update($$(_id: myId), $$('$set', $$(game_coin: game_coin,'game_inc':map)))
+        financeTmpDB.update($$(_id: myId), $$('$set', $$(game_coin: game_coin, 'game_inc': map)))
     }
 
     //16.活动中奖--获得币  活动类型："10month","CardYouxi","Christmas","Fortune","SF","chargeRank","dianliang","laodong", "new_year","qq_wx_wb_share","send_hongbao" ,"worldcup"
@@ -507,6 +558,12 @@ class DailyReport {
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},staticsBetCoin cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
+        // 解锁红包消费阳光
+        l = System.currentTimeMillis()
+        staticsUnlockCoin()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},staticsUnlockCoin cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
         //03.在途阳光
         l = System.currentTimeMillis()
         staticsTransitCoin()
@@ -544,6 +601,12 @@ class DailyReport {
         l = System.currentTimeMillis()
         staticsAdminTotal()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},staticsAdminTotal cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
+        // 红包兑换和红包领取
+        l = System.currentTimeMillis()
+        staticsRedPacketCoin()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},staticsRedPacketCoin cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         //07.签到加币

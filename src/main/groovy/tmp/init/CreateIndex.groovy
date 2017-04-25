@@ -51,6 +51,12 @@ class CreateIndex {
         buildDiamondLogIndex()
         buildDiamondCostLogIndex()
         buildStarAwardLogIndex()
+
+        //game_log 红包现金领取日志 红包兑换日志，红包现金提现日志
+        buildRedPacketLogIndex()
+        buildRedPacketCostLogIndex()
+        buildRedPacketApplyLogIndex()
+        buildRedPacketUnlockLogIndex()
     }
     /**
      * 构建game_log下game_round集合的索引
@@ -124,6 +130,46 @@ class CreateIndex {
         def star_award_index = $$('room_id': 1,  'timestamp': -1)
         def indexName = '_room_timestamp_'
         createIfNotAbsent(starAwardLog,star_award_index,indexName)
+    }
+
+    /**
+     * 红包领取日志
+     */
+    private static void buildRedPacketLogIndex(){
+        DBCollection redPacketLogs = mongo.getDB('game_log').getCollection('red_packet_logs')
+        def red_packet_logs_index = $$('user_id': 1,  'timestamp': -1,'date':1,'type':1)
+        def indexName = '_user_date_type_timestamp_'
+        createIfNotAbsent(redPacketLogs,red_packet_logs_index,indexName)
+    }
+
+    /**
+     * 红包消费日志
+     */
+    private static void buildRedPacketCostLogIndex(){
+        DBCollection redPacketCostLogs = mongo.getDB('game_log').getCollection('red_packet_cost_logs')
+        def red_packet_cost_logs_index = $$('user_id': 1,  'timestamp': -1,'date':1,'type':1)
+        def indexName = '_user_date_type_timestamp_'
+        createIfNotAbsent(redPacketCostLogs,red_packet_cost_logs_index,indexName)
+    }
+
+    /**
+     * 红包提现日志表
+     */
+    private static void buildRedPacketApplyLogIndex(){
+        DBCollection redPacketApplyLogs = mongo.getDB('game_log').getCollection('red_packet_apply_logs')
+        def red_packet_apply_logs_index = $$('user_id': 1,  'timestamp': -1,'date':1,'account':1,'status':1)
+        def indexName = '_user_date_status_account_timestamp_'
+        createIfNotAbsent(redPacketApplyLogs,red_packet_apply_logs_index,indexName)
+    }
+
+    /**
+     * 红包提现日志表
+     */
+    private static void buildRedPacketUnlockLogIndex(){
+        DBCollection redPacketUnlockLogs = mongo.getDB('game_log').getCollection('red_packet_unlock_logs')
+        def red_packet_unlock_logs_index = $$('user_id': 1,  'timestamp': -1)
+        def indexName = '_user_timestamp_'
+        createIfNotAbsent(redPacketUnlockLogs,red_packet_unlock_logs_index,indexName)
     }
 
     /**

@@ -53,6 +53,7 @@ class StaticsEveryDay {
     static DBCollection channel_pay_DB = mongo.getDB('xy_admin').getCollection('channel_pay')
     static DBCollection channels = mongo.getDB('xy_admin').getCollection('channels')
     static DBCollection games_DB = mongo.getDB('xy_admin').getCollection('games')
+    static DBCollection unlock_red_packet_DB = mongo.getDB('game_log').getCollection('unlock_logs')
     static DBCollection user_bet_DB = mongo.getDB('game_log').getCollection('user_bet')
     static DBCollection user_lottery_DB = mongo.getDB('game_log').getCollection('user_lottery')
     static DBCollection game_round_DB = mongo.getDB('game_log').getCollection('game_round')
@@ -351,6 +352,19 @@ class StaticsEveryDay {
             result.put(id.toString(), [cost: game_cost, user: game_user.size()])
         }
 
+        // 加入解锁红包的逻辑
+        def query = $$('timestamp': [$gte: yesTday, $lt: zeroMill])
+        def unlock_cost = 0L
+        def unlock_user = new HashSet()
+        unlock_red_packet_DB.find(query).each {
+            DBObject obj ->
+                def userId = obj['user_id'] as Integer
+                unlock_cost += obj['coin_count'] as Long
+                unlock_user.add(userId)
+                users.add(userId)
+        }
+        result.put('unlock', [cost: unlock_cost, user: unlock_user.size()])
+        costs+=unlock_cost
         // 对游戏和送礼加起来统计
 
         result.put('user_cost', [cost: costs, user: users.size()])
@@ -818,6 +832,11 @@ class StaticsEveryDay {
         }
     }
 
+    /**
+     * 任务统计
+     * @param i
+     * @return
+     */
     static missionStatic(int i) {
         def begin = yesTday - i * DAY_MILLON
         def YMD = new Date(begin).format('yyyyMMdd_')
@@ -829,7 +848,7 @@ class StaticsEveryDay {
                 new BasicDBObject('$project', [mission_id: '$mission_id', coin: '$coin']),
                 new BasicDBObject('$group', [_id: '$mission_id', count: [$sum: 1], coin: [$sum: '$coin']])
         ).results().each { BasicDBObject obj ->
-            row.put(obj.removeField('_id'), obj)
+            row.put(obj.removeField('_id').toString(), obj)
         }
         row._id = "${YMD}_mission".toString()
         row.timestamp = begin
@@ -837,6 +856,31 @@ class StaticsEveryDay {
 
         coll.save(row)
     }
+
+    /**todo
+     * 统计红包每天领取获得的阳光和现金 + 兑换换的阳光
+     * @param i
+     * @return
+     */
+    static redPacketStatic(int i) {
+        def begin = yesTday - i * DAY_MILLON
+        def YMD = new Date(begin).format('yyyyMMdd_')
+        def timebetween = [$gte: begin, $lt: begin + DAY_MILLON]
+        def red_packet_logs = mongo.getDB('game_log').getCollection('red_packet_logs')
+        def row = new BasicDBObject()
+        red_packet_logs.aggregate(
+                new BasicDBObject('$match', [timestamp: timebetween]),
+                new BasicDBObject('$project', [red_packet_id: '$red_packet_id', coin: '$coin_count',cash:'$cash_count']),
+                new BasicDBObject('$group', [_id: '$red_packet_id', count: [$sum: 1], coin: [$sum: '$coin'],cash: [$sum: '$cash']])
+        ).results().each { BasicDBObject obj ->
+            row.put(obj.removeField('_id').toString(), obj)
+        }
+        row._id = "${YMD}_red_packet".toString()
+        row.timestamp = begin
+        row.type = "red_packet_acquire"
+        coll.save(row)
+    }
+
 
     /**
      * 统计每个游戏每天有多少人玩过
@@ -979,6 +1023,12 @@ class StaticsEveryDay {
         l = System.currentTimeMillis()
         missionStatic(DAY)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   missionStatic, cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
+        // 红包获得统计
+        l = System.currentTimeMillis()
+        redPacketStatic(DAY)
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   redPacketStatic, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         //落地定时执行的日志
