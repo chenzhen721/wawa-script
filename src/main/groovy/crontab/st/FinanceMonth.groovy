@@ -37,7 +37,7 @@ class FinanceMonth {
         return props.get(key, defaultValue)
     }
 
-    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:10000,192.168.31.236:10000,192.168.31.231:10001/?w=1&slaveok=true') as String))
+    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
 
     static historyMongo = new Mongo(new MongoURI(getProperties('mongo_history.uri', 'mongodb://192.168.31.246:27017/?w=1') as String))
 
@@ -155,6 +155,7 @@ class FinanceMonth {
     static BasicDBObject increase(Map timebetween){
         Number totalCoin = 0
         Map data = new HashMap();
+        def red_packet_inc_map = new HashMap()
         //充值相关
         totalCoin += charge(data, timebetween);
 
@@ -164,6 +165,9 @@ class FinanceMonth {
         totalCoin += warpDataFromDaliyReport('mission_coin', data)
         //游戏
         totalCoin += warpDataFromDaliyReport('game_coin', data)
+
+        // 红包获得
+        totalCoin += warpDataFromDaliyReport('red_packet_coin', data)
 
         def inc_map = new HashMap()
         dailyReportList.each {
@@ -180,9 +184,22 @@ class FinanceMonth {
                         inc_map.put(key, current_sum)
                     }
                 }
+                // 红包拿币
+                if(obj.containsField('red_packet_inc')){
+                    def node = obj['red_packet_inc']
+                    for (String key : node.keySet()) {
+                        def v = node[key] as Integer
+                        Integer tmp = 0
+                        if (red_packet_inc_map.containsKey(key)) {
+                            tmp = red_packet_inc_map[key] as Integer
+                        }
+                        def current_sum = tmp + v
+                        red_packet_inc_map.put(key, current_sum)
+                    }
+                }
         }
 
-        def incData = $$('total': totalCoin, 'game': inc_map);
+        def incData = $$('total': totalCoin, 'game': inc_map,'red_packet':red_packet_inc_map);
         incData.putAll(data);
         return incData
     }
@@ -198,6 +215,7 @@ class FinanceMonth {
         }
 
         totalCoin += warpDataFromDaliyReport('game_spend_coin', data)
+        totalCoin += warpDataFromDaliyReport('unlock_spend_coin', data)
 
         def dec_map = new HashMap()
         dailyReportList.each {

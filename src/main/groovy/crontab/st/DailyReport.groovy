@@ -33,7 +33,7 @@ class DailyReport {
         return props.get(key, defaultValue)
     }
 
-    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:10000,192.168.31.236:10000,192.168.31.231:10001/?w=1&slaveok=true') as String))
+    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
     static DAY_MILLON = 24 * 3600 * 1000L
     static long zeroMill = new Date().clearTime().getTime()
     static Long yesTday = zeroMill - DAY_MILLON
@@ -106,12 +106,12 @@ class DailyReport {
         println "staticsRoomSpendCoin getTimeBetween:" + timeBetween
         def rq = new BasicDBObject(timestamp: timeBetween, type: [$nin: ['label', "song"]])
         def coinList = mongo.getDB('xylog').getCollection("room_cost").find(rq, new BasicDBObject(cost: 1)).toArray()
-        def coin_spend_day = coinList.sum { it.cost ?: 0 } as Long
+        def coin_spend_day =coinList.isEmpty() ? 0 : coinList.sum { it.cost ?: 0 } as Long
         // 日消耗要加游戏统计的
         def query = $$('timestamp': timeBetween)
         def field = $$('cost': 1)
         def list = bet_log.find(query, field).toArray()
-        def game_spend_coin = list.sum { it.cost ?: 0 } as Long
+        def game_spend_coin = list.isEmpty() ? 0 :list.sum { it.cost ?: 0 } as Long
         println("game_spend_coin is ${game_spend_coin}")
         coin_spend_day += game_spend_coin
 
@@ -119,7 +119,7 @@ class DailyReport {
         query = $$('timestamp': timeBetween)
         field = $$('coin_count': 1)
         def unlockList = mongo.getDB('game_log').getCollection('red_packet_cost_logs').find(query, field).toArray()
-        def unlock_spend_coin = unlockList.sum { it.coin_count ?: 0 } as Long
+        def unlock_spend_coin = unlockList.isEmpty() ? 0 : unlockList.sum { it.coin_count ?: 0 } as Long
         println("unlock_spend_coin is ${unlock_spend_coin}")
         coin_spend_day += unlock_spend_coin
 
@@ -140,13 +140,13 @@ class DailyReport {
                 def id = obj['_id'] as Integer
                 def query = $$('timestamp': timeBetween, 'game_id': id)
                 def list = bet_log.find(query, field).toArray()
-                def sum = list.sum { it.cost ?: 0 } as Long
+                def sum = list.isEmpty() ? 0:list.sum { it.cost ?: 0 } as Long
                 game_spend_coin += sum
                 map.put(id.toString(), sum)
         }
         financeTmpDB.update($$(_id: myId), $$('$set', $$(game_spend_coin: game_spend_coin, 'game_dec': map)))
     }
-
+//
     // 解锁红包统计
     static staticsUnlockCoin() {
         def query = $$('timestamp': timeBetween)
@@ -303,8 +303,8 @@ class DailyReport {
             String it ->
                 def acquireCoinList = red_packet_logs.
                         find(new BasicDBObject('type': it, timestamp: timeBetween), new BasicDBObject(coin_count: 1)).toArray()
-                def sum = acquireCoinList.sum { it.coin_count ?: 0 } as Long
-                red_pack_inc.put(type, sum)
+                def sum = acquireCoinList.isEmpty() ? 0:acquireCoinList.sum { it.coin_count ?: 0 } as Long
+                red_pack_inc.put(it.toString(), sum)
                 coin_total += sum
         }
 
@@ -314,14 +314,16 @@ class DailyReport {
             String it ->
                 def costCoinList = red_packet_logs.
                         find(new BasicDBObject('type': it, timestamp: timeBetween), new BasicDBObject(coin_count: 1)).toArray()
-                def sum = costCoinList.sum { it.coin_count ?: 0 } as Long
-                red_pack_inc.put(type, sum)
+                def sum = costCoinList.isEmpty() ? 0 :costCoinList.sum { it.coin_count ?: 0 } as Long
+                red_pack_inc.put(it.toString(), sum)
                 coin_total += sum
         }
 
+        println "red_pack_inc:---->:${red_pack_inc}"
         println "coin_total:---->:${coin_total}"
-
-        financeTmpDB.update(new BasicDBObject(_id: myId), new BasicDBObject('$set', new BasicDBObject(red_packet_coin: coin_total,'red_packet_inc':red_pack_inc)))
+        println("myId is ${myId}")
+        println("coin_total is ${coin_total}")
+        financeTmpDB.update(new BasicDBObject(_id: myId), new BasicDBObject('$set', new BasicDBObject(red_packet_coin: coin_total, 'red_packet_inc': red_pack_inc)))
     }
 
     // 游戏加币
@@ -338,7 +340,7 @@ class DailyReport {
                 def id = obj['_id'] as Integer
                 def query = $$('timestamp': timeBetween, 'coin': ['$gt': 0], 'game_id': id)
                 def list = lottery_log.find(query, field).toArray()
-                def sum = list.sum { it.coin ?: 0 } as Long
+                def sum = list.isEmpty() ? 0 :list.sum { it.coin ?: 0 } as Long
                 game_coin += sum
                 map.put(id.toString(), sum)
         }
@@ -603,7 +605,7 @@ class DailyReport {
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},staticsAdminTotal cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
-        // 红包兑换和红包领取
+        // 红包加币
         l = System.currentTimeMillis()
         staticsRedPacketCoin()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},staticsRedPacketCoin cost  ${System.currentTimeMillis() - l} ms"
