@@ -895,7 +895,7 @@ class StaticsEveryDay {
         }
 
         // 解锁阳光
-        def unlock_logs = mongo.getDB('game_log').getCollection('unlock_logs')
+        def unlock_logs = mongo.getDB('game_log').getCollection('red_packet_unlock_logs')
         unlock_logs.aggregate(
                 new BasicDBObject('$match', [timestamp: timebetween]),
                 new BasicDBObject('$project', [coin_count: '$coin_count',  user_id: '$user_id']),

@@ -29,7 +29,7 @@ class FinanceDaily {
         return props.get(key, defaultValue)
     }
 
-    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:10000,192.168.31.236:10000,192.168.31.231:10001/?w=1&slaveok=true') as String))
+    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
 
     static historyMongo = new Mongo(new MongoURI(getProperties('mongo_history.uri', 'mongodb://192.168.31.246:27017/?w=1') as String))
 
@@ -205,7 +205,7 @@ class FinanceDaily {
         return incData
     }
 
-    //礼物 + 游戏下注
+    //礼物 + 游戏下注 + 红包解锁
     private static final List<String> COST_FIELDS = ['send_gift']
 
     static BasicDBObject decrease(Map timebetween) {
