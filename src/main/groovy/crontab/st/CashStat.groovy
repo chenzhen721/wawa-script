@@ -63,9 +63,9 @@ class CashStat {
         println("query is ${query}")
         def red_packet_cost_cursors = red_packet_cost_logs.find(query).batchSize(5000)
 
-        // 提现未通过和通过的, 这里查询的是审核时间 而不是申请时间
-        query = $$('last_modify': getTimeBetween(), 'status': ['$in': [1, 2]])
-        def red_packet_apply_cursors = red_packet_apply_logs.find(query).batchSize(5000)
+        // 提现未通过 这里查询的是审核时间 而不是申请时间
+        query = $$('last_modify': getTimeBetween(),'status':1)
+        def red_packet_apply_refuse_cursors = red_packet_apply_logs.find(query).batchSize(5000)
 
         // 用户增加的现金，排除提现审核失败退款的现金
         while (red_packet_cursors.hasNext()) {
@@ -80,27 +80,44 @@ class CashStat {
             }
         }
 
-        // 提现
-        while (red_packet_apply_cursors.hasNext()) {
-            def obj = red_packet_apply_cursors.next()
-            def status = obj['status'] as Integer
-            if(status == 1){
-                // 未通过
-                def amount = obj['amount'] as Long
-                apply_refuse += amount
-                inc_total += apply_refuse
-                desc_total += apply_refuse
-            }
-            if(status == 2){
-                // 通过
-                def amount = obj['amount'] as Long
-                def income = obj['income'] as Long
-                // 税前所得
-                apply_pass_amount += amount
-                // 个人所得
-                apply_pass_income += income
-                desc_total += apply_pass_amount
-            }
+        // 提现拒绝
+        while (red_packet_apply_refuse_cursors.hasNext()) {
+            def obj = red_packet_apply_refuse_cursors.next()
+            def amount = obj['amount'] as Long
+            apply_refuse += amount
+            inc_total += apply_refuse
+            desc_total += apply_refuse
+        }
+
+        // 提现未处理，统计的是申请时间，因为申请就会扣费
+        query = $$('timestamp': getTimeBetween(),'status':3)
+        def red_packet_apply_cursors = red_packet_apply_logs.find(query).batchSize(5000)
+        while (red_packet_apply_cursors.hasNext()){
+            def obj = red_packet_apply_refuse_cursors.next()
+            def amount = obj['amount'] as Long
+            def income = obj['income'] as Long
+            // 税前所得
+            apply_pass_amount += amount
+            // 个人所得 仅方便财务查看
+            apply_pass_income += income
+            // 减少项 加入 税前所得
+            desc_total += apply_pass_amount
+        }
+
+        // 提现成功
+        query = $$('last_modify': getTimeBetween(),'status':2)
+        def red_packet_apply_pass_cursors = red_packet_apply_logs.find(query).batchSize(5000)
+        println("red_packet_apply_pass_cursors is ${red_packet_apply_pass_cursors.size()}")
+        while (red_packet_apply_pass_cursors.hasNext()){
+            def obj = red_packet_apply_pass_cursors.next()
+            def amount = obj['amount'] as Long
+            def income = obj['income'] as Long
+            // 税前所得
+            apply_pass_amount += amount
+            // 个人所得 仅方便财务查看
+            apply_pass_income += income
+            // 减少项 加入 税前所得
+            desc_total += apply_pass_amount
         }
 
         // 提现失败
