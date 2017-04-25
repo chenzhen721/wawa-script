@@ -12,9 +12,9 @@ import com.mongodb.Mongo
 import com.mongodb.MongoURI
 
 /**
- * 关于钻石的统计
+ * 关于现金的统计
  */
-class RedPacketStat {
+class CashStat {
     static Properties props = null;
     static String profilepath = "/empty/crontab/db.properties";
 
@@ -34,7 +34,7 @@ class RedPacketStat {
     static DBCollection red_packet_logs = mongo.getDB('game_log').getCollection('red_packet_logs')
     static DBCollection red_packet_cost_logs = mongo.getDB('game_log').getCollection('red_packet_cost_logs')
     static DBCollection red_packet_apply_logs = mongo.getDB('game_log').getCollection('red_packet_apply_logs')
-    static DBCollection red_packet_dailyReport_stat = mongo.getDB('xy_admin').getCollection('red_packet_dailyReport_stat')
+    static DBCollection cash_dailyReport_stat = mongo.getDB('xy_admin').getCollection('cash_dailyReport_stat')
     static DAY_MILLON = 24 * 3600 * 1000L
     static long zeroMill = new Date().clearTime().getTime()
     static Long yesTday = zeroMill - DAY_MILLON
@@ -45,16 +45,16 @@ class RedPacketStat {
     }
 
     /**
-     * 统计钻石的入账，出账，总账
+     * 现金报表
      */
-    private static void statics_red_packet() {
+    private static void statics_cash() {
         //本日期初结余=昨日期末结余
         def begin_surplus = lastDaySurplus(yesTday)
         def inc_total = 0
         def inc_detail = new HashMap<String, Long>()
         def apply_refuse = 0
-        def apply_pass_amount = 0
-        def apply_pass_income = 0
+        def apply_pass_amount = 0 // 提现审核通过税前金额
+        def apply_pass_income = 0 // 提现审核通过税后金额
         def desc_total = 0
 
         def desc_detail = new HashMap<String, Long>()
@@ -67,7 +67,7 @@ class RedPacketStat {
         query = $$('last_modify': getTimeBetween(), 'status': ['$in': [1, 2]])
         def red_packet_apply_cursors = red_packet_apply_logs.find(query).batchSize(5000)
 
-        // 排除提现退款
+        // 用户增加的现金，排除提现审核失败退款的现金
         while (red_packet_cursors.hasNext()) {
             def obj = red_packet_cursors.next()
             def cash_count = obj['cash_count'] as Long
@@ -89,6 +89,7 @@ class RedPacketStat {
                 def amount = obj['amount'] as Long
                 apply_refuse += amount
                 inc_total += apply_refuse
+                desc_total += apply_refuse
             }
             if(status == 2){
                 // 通过
@@ -104,6 +105,8 @@ class RedPacketStat {
 
         // 提现失败
         inc_detail.put('apply_refuse',apply_refuse)
+        // 这一列是为了财务显示方便，不计入总计
+        desc_detail.put('apply_refuse',apply_refuse)
         // 提现成功税前
         desc_detail.put('apply_pass_amount',apply_pass_amount)
         // 提现成功税后
@@ -121,14 +124,14 @@ class RedPacketStat {
             desc_detail.put(type, current_type_minus_total)
         }
 
-        // 总现金 = 增加(红包 + 提现失败) + 减少(兑换 + 税前)
-        def total = inc_total - desc_total
+        // 期末 = (红包 + 提现失败) - (提现税前 + 兑换 + 提现失败)
+        def end_surplus = inc_total - desc_total
         def curr_date = new Date(yesTday - day * DAY_MILLON)
-        def myId = curr_date.format("yyyyMMdd") + "_red_packet_dailyReport_stat"
+        def myId = curr_date.format("yyyyMMdd") + "_cash_dailyReport_stat"
 
-        def row = $$('_id': myId, 'inc_total': inc_total, 'desc_total': desc_total, 'total': total, 'timestamp': curr_date.getTime(),
-                'inc_detail': inc_detail, 'desc_detail': desc_detail, 'begin_surplus': begin_surplus, 'end_surplus': total + begin_surplus)
-        red_packet_dailyReport_stat.update($$('_id', myId), $$(row), true, false)
+        def row = $$('_id': myId, 'inc_total': inc_total, 'desc_total': desc_total, 'timestamp': curr_date.getTime(),
+                'inc_detail': inc_detail, 'desc_detail': desc_detail, 'begin_surplus': begin_surplus, 'end_surplus': end_surplus + begin_surplus)
+        cash_dailyReport_stat.update($$('_id', myId), $$(row), true, false)
     }
 
     /**
@@ -139,7 +142,7 @@ class RedPacketStat {
     static Long lastDaySurplus(Long begin) {
         long yesterDay = begin - DAY_MILLON
         String ymd = new Date(yesterDay).format("yyyyMMdd")
-        def last_day = red_packet_dailyReport_stat.findOne($$(_id: ymd + "_red_packet_dailyReport_stat"))
+        def last_day = cash_dailyReport_stat.findOne($$(_id: ymd + "_cash_dailyReport_stat"))
 
         return (last_day?.get('end_surplus') ?: 0) as Long;
     }
@@ -150,8 +153,8 @@ class RedPacketStat {
         long l = System.currentTimeMillis()
         long begin = l
 
-        statics_red_packet()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${RedPacketStat.class.getSimpleName()},statics_red_packet cost  ${System.currentTimeMillis() - l} ms"
+        statics_cash()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${CashStat.class.getSimpleName()},statics_cash cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         jobFinish(begin);
@@ -162,10 +165,10 @@ class RedPacketStat {
      * @return
      */
     private static jobFinish(Long begin) {
-        def timerName = 'RedPacketStat'
+        def timerName = 'CashStat'
         Long totalCost = System.currentTimeMillis() - begin
         saveTimerLogs(timerName, totalCost)
-        println "${new Date().format('yyyy-MM-dd')}:${RedPacketStat.class.getSimpleName()}:finish  cost time:  ${System.currentTimeMillis() - begin} ms"
+        println "${new Date().format('yyyy-MM-dd')}:${CashStat.class.getSimpleName()}:finish  cost time:  ${System.currentTimeMillis() - begin} ms"
     }
 
     //落地定时执行的日志
