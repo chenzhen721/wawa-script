@@ -71,6 +71,15 @@ class Recovery {
     static DBCollection room_meme_day = mongo.getDB('xylog').getCollection('room_meme_day')
 
     /**
+     * 红包统计
+     */
+    static static_red_packet(int day){
+        for (int i = 0; i < day; i++) {
+            red_packet_static(i)
+        }
+    }
+
+    /**
      * 充值统计recovery
      */
     static pay_statics_recovery(int day) {
@@ -818,104 +827,72 @@ class Recovery {
         }
     }
 
-    static DBCollection red_packet_logs = mongo.getDB('game_log').getCollection('red_packet_logs')
-    static DBCollection red_packet_cost_logs = mongo.getDB('game_log').getCollection('red_packet_cost_logs')
-    static DBCollection red_packet_apply_logs = mongo.getDB('game_log').getCollection('red_packet_apply_logs')
-    static DBCollection red_packet_dailyReport_stat = mongo.getDB('xy_admin').getCollection('red_packet_dailyReport_stat')
-    private static void statics_red_packet(int day) {
-        //本日期初结余=昨日期末结余
-        def inc_total = 0
-        def inc_detail = new HashMap<String, Long>()
-        def apply_refuse = 0
-        def apply_pass_amount = 0
-        def apply_pass_income = 0
-        def desc_total = 0
-        def desc_detail = new HashMap<String, Long>()
-        def gteMill = yesTday - day * DAY_MILLON
-        def begin_surplus = lastDaySurplus_cash(gteMill - DAY_MILLON)
-        def query = $$('timestamp': [$gte: gteMill, $lt: gteMill + DAY_MILLON])
-        def red_packet_cursors = red_packet_logs.find(query).batchSize(5000)
-        def red_packet_cost_cursors = red_packet_cost_logs.find(query).batchSize(5000)
-
-        // 提现未通过和通过的, 这里查询的是审核时间 而不是申请时间
-        query = $$('last_modify': [$gte: gteMill, $lt: gteMill + DAY_MILLON], 'status': ['$in': [1, 2]])
-        def red_packet_apply_cursors = red_packet_apply_logs.find(query).batchSize(5000)
-
-        // 排除提现退款
-        while (red_packet_cursors.hasNext()) {
-            def obj = red_packet_cursors.next()
-            def cash_count = obj['cash_count'] as Long
-            def type = obj['type'] as String
-            if (type != 'apply_refuse') {
-                inc_total += cash_count
-                def current_type_acquire_cash = inc_detail.containsKey(type) ? inc_detail[type] : 0L
-                current_type_acquire_cash += cash_count
-                inc_detail.put(type, current_type_acquire_cash)
-            }
+    static red_packet_static(int i){
+        def begin = yesTday - i * DAY_MILLON
+        def YMD = new Date(begin).format('yyyyMMdd_')
+        def timebetween = [$gte: begin, $lt: begin + DAY_MILLON]
+        def red_packet_logs = mongo.getDB('game_log').getCollection('red_packet_logs')
+        def row = new BasicDBObject('system': ['coin_count': 0, 'cash_count': 0, users: 0], 'newcomer': ['coin_count': 0, 'cash_count': 0, users: 0], 'friend': ['coin_count': 0, 'cash_count': 0, users: 0], 'unlock': ['coin_count': 0, 'cash_count': 0, users: 0], 'exchange': ['coin_count': 0, 'cash_count': 0, users: 0],'apply':['coin_count': 0, 'cash_count': 0, users: 0])
+        red_packet_logs.aggregate(
+                new BasicDBObject('$match', [timestamp: timebetween]),
+                new BasicDBObject('$project', [type: '$type', coin_count: '$coin_count', cash_count: '$cash_count', user_id: '$user_id']),
+                new BasicDBObject('$group', [_id: '$type', coin_count: [$sum: '$coin_count'], cash_count: [$sum: '$coin_count'], users: [$addToSet: '$user_id']])
+        ).results().each { BasicDBObject obj ->
+            println("obj is ${obj}")
+            def type = obj.removeField('_id').toString()
+            Set<Integer> userList = obj['users'] as Set<Integer>
+            obj.put('users', userList.size())
+            row.put(type, obj)
         }
+        println("row is ${row}")
+
+        // 兑换阳光
+        def red_packet_cost_logs = mongo.getDB('game_log').getCollection('red_packet_cost_logs')
+        red_packet_cost_logs.aggregate(
+                new BasicDBObject('$match', [timestamp: timebetween]),
+                new BasicDBObject('$project', [type: '$type', coin_count: '$coin_count', cash_count: '$cash_count', user_id: '$user_id']),
+                new BasicDBObject('$group', [_id: '$type', coin_count: [$sum: '$coin_count'], cash_count: [$sum: '$cash_count'], users: [$addToSet: '$user_id']])
+        ).results().each { BasicDBObject obj ->
+            def type = obj.removeField('_id').toString()
+            Set<Integer> userList = obj['users'] as Set<Integer>
+            obj.put('users', userList.size())
+            row.put(type, obj)
+        }
+
+        // 解锁阳光
+        def unlock_logs = mongo.getDB('game_log').getCollection('red_packet_unlock_logs')
+        unlock_logs.aggregate(
+                new BasicDBObject('$match', [timestamp: timebetween]),
+                new BasicDBObject('$project', [coin_count: '$coin_count', user_id: '$user_id']),
+                new BasicDBObject('$group', [_id: null, coin_count: [$sum: '$coin_count'], users: [$addToSet: '$user_id']])
+        ).results().each { BasicDBObject obj ->
+            Set<Integer> userList = obj['users'] as Set<Integer>
+            obj.put('users', userList.size())
+            row.put('unlock', obj)
+        }
+
+        // 好友数
+        def red_packet_friend_logs = mongo.getDB('game_log').getCollection('red_packet_friend_logs')
+        def count = red_packet_friend_logs.distinct('user_id', $$('timestamp': timebetween)).size()
+        row.put('friend_count', count)
 
         // 提现
-        while (red_packet_apply_cursors.hasNext()) {
-            def obj = red_packet_apply_cursors.next()
-            def status = obj['status'] as Integer
-            if(status == 1){
-                // 未通过
-                def amount = obj['amount'] as Long
-                apply_refuse += amount
-                inc_total += apply_refuse
-            }
-            if(status == 2){
-                // 通过
-                def amount = obj['amount'] as Long
-                def income = obj['income'] as Long
-                // 税前所得
-                apply_pass_amount += amount
-                // 个人所得
-                apply_pass_income += income
-                desc_total += apply_pass_amount
-            }
+        def red_packet_apply_logs = mongo.getDB('game_log').getCollection('red_packet_apply_logs')
+        red_packet_apply_logs.aggregate(
+                new BasicDBObject('$match', ['last_modify': timebetween, 'status': 2]),
+                new BasicDBObject('$project', [income: '$income', user_id: '$user_id']),
+                new BasicDBObject('$group', [_id: null, cash_count: [$sum: '$income'], users: [$addToSet: '$user_id']])
+        ).results().each { BasicDBObject obj ->
+            Set<Integer> userList = obj['users'] as Set<Integer>
+            obj.put('users', userList.size())
+            obj.remove('_id')
+            obj.put('coin_count',0)
+            row.put('apply', obj)
         }
 
-        // 提现失败
-        inc_detail.put('apply_refuse',apply_refuse)
-        // 提现成功税前
-        desc_detail.put('apply_pass_amount',apply_pass_amount)
-        // 提现成功税后
-        desc_detail.put('apply_pass_income',apply_pass_income)
-
-        // 现金 红包兑换
-        println("red_packet_cost_cursors is ${red_packet_cost_cursors.size()}")
-        while (red_packet_cost_cursors.hasNext()) {
-            def obj = red_packet_cost_cursors.next()
-            def cash_count = obj['cash_count'] as Long
-            def type = obj['type'] as String
-            desc_total += cash_count
-            def current_type_minus_total = desc_detail.containsKey(type) ? desc_detail[type] : 0L
-            current_type_minus_total += cash_count
-            desc_detail.put(type, current_type_minus_total)
-        }
-
-        // 总现金 = 增加(红包 + 提现失败) + 减少(兑换 + 税前)
-        def total = inc_total - desc_total
-        def curr_date = new Date(yesTday - day * DAY_MILLON)
-        def myId = curr_date.format("yyyyMMdd") + "_red_packet_dailyReport_stat"
-
-        def row = $$('_id': myId, 'inc_total': inc_total, 'desc_total': desc_total, 'total': total, 'timestamp': curr_date.getTime(),
-                'inc_detail': inc_detail, 'desc_detail': desc_detail, 'begin_surplus': begin_surplus, 'end_surplus': total + begin_surplus)
-        red_packet_dailyReport_stat.update($$('_id', myId), $$(row), true, false)
-    }
-
-    /**
-     * 日期末结余
-     * @param begin
-     * @return
-     */
-    static Long lastDaySurplus_cash(Long begin) {
-        long yesterDay = begin - DAY_MILLON
-        String ymd = new Date(yesterDay).format("yyyyMMdd")
-        def last_day = red_packet_dailyReport_stat.findOne($$(_id: ymd + "_red_packet_dailyReport_stat"))
-
-        return (last_day?.get('end_surplus') ?: 0) as Long;
+        row.timestamp = begin
+        row.type = "red_packet"
+        coll.update(new BasicDBObject("_id", "${YMD}_red_packet".toString()), new BasicDBObject('$set', row), true, false)
     }
 
     /**
@@ -938,7 +915,7 @@ class Recovery {
         timerLogsDB.findAndModify(new BasicDBObject('_id', id), null, null, false, new BasicDBObject('$set', update), true, true)
     }
 
-    static int day = 45
+    static int day = 2
 
     static void main(String[] args) {
         long l = System.currentTimeMillis()
@@ -981,8 +958,9 @@ class Recovery {
 //        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   staticLive_recovery, cost  ${System.currentTimeMillis() - l} ms"
 //        Thread.sleep(1000L)
 
-        static_cash(day)
+//        static_cash(day)
 
+        static_red_packet(day)
         //落地定时执行的日志
 //        jobFinish(begin)
     }
