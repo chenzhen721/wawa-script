@@ -28,9 +28,6 @@
 
 00 06 * * * root source /etc/profile && /empty/crontab/SysEveryDay.groovy >> /empty/crontab/logs/SysEveryDay.log &
 
-10 02 * * * root source /etc/profile && /empty/crontab/RedPacketStat.groovy >> /empty/crontab/logs/RedPacketStat.log &
-
-
 ###
 30 04 01 */1 * root source /etc/profile && /empty/crontab/StaticsEveryMonth.groovy >> /empty/crontab/logs/StaticsEveryMonth.log
 
