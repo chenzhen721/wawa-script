@@ -60,12 +60,12 @@ class CashStat {
         def desc_detail = new HashMap<String, Long>()
         def query = $$('timestamp': getTimeBetween())
         def red_packet_cursors = red_packet_logs.find(query).batchSize(5000)
-        println("query is ${query}")
         def red_packet_cost_cursors = red_packet_cost_logs.find(query).batchSize(5000)
 
         // 提现未通过 这里查询的是审核时间 而不是申请时间
         query = $$('last_modify': getTimeBetween(),'status':1)
         def red_packet_apply_refuse_cursors = red_packet_apply_logs.find(query).batchSize(5000)
+
 
         // 用户增加的现金，排除提现审核失败退款的现金
         while (red_packet_cursors.hasNext()) {
@@ -80,28 +80,29 @@ class CashStat {
             }
         }
 
+
         // 提现拒绝
         while (red_packet_apply_refuse_cursors.hasNext()) {
             def obj = red_packet_apply_refuse_cursors.next()
             def amount = obj['amount'] as Long
             apply_refuse += amount
-            inc_total += apply_refuse
-            desc_total += apply_refuse
+            inc_total += amount
+            desc_total += amount
         }
 
         // 提现未处理，统计的是申请时间，因为申请就会扣费
         query = $$('timestamp': getTimeBetween(),'status':3)
         def red_packet_apply_cursors = red_packet_apply_logs.find(query).batchSize(5000)
         while (red_packet_apply_cursors.hasNext()){
-            def obj = red_packet_apply_refuse_cursors.next()
+            def obj = red_packet_apply_cursors.next()
             def amount = obj['amount'] as Long
             def income = obj['income'] as Long
             // 税前所得
             apply_pass_amount += amount
-            // 个人所得 仅方便财务查看
+            // 个人所得 仅方便财务查看,不计入减少项总计
             apply_pass_income += income
             // 减少项 加入 税前所得
-            desc_total += apply_pass_amount
+            desc_total += amount
         }
 
         // 提现成功
@@ -117,7 +118,7 @@ class CashStat {
             // 个人所得 仅方便财务查看
             apply_pass_income += income
             // 减少项 加入 税前所得
-            desc_total += apply_pass_amount
+            desc_total += amount
         }
 
         // 提现失败
