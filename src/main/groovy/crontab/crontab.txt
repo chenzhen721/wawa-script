@@ -28,9 +28,6 @@
 
 00 06 * * * root source /etc/profile && /empty/crontab/SysEveryDay.groovy >> /empty/crontab/logs/SysEveryDay.log &
 
-10 02 * * * root source /etc/profile && /empty/crontab/RedPacketStat.groovy >> /empty/crontab/logs/RedPacketStat.log &
-
-
 ###
 30 04 01 */1 * root source /etc/profile && /empty/crontab/StaticsEveryMonth.groovy >> /empty/crontab/logs/StaticsEveryMonth.log
 
@@ -39,7 +36,6 @@
 
 2 0 * * mon root source /etc/profile && /empty/crontab/RankGiftMonDay.groovy >> /empty/crontab/logs/RankGiftMonDay.log
 
-
 01 02 * * * root source /etc/profile && /empty/crontab/FinanceDaily.groovy >> /empty/crontab/logs/FinanceDaily.log &
 
 ### 商城统计脚本
@@ -47,5 +43,8 @@
 
 ### 钻石流水统计脚本
 30 02 * * * root source /etc/profile && /empty/crontab/DiamondDailyStat.groovy >> /empty/crontab/logs/DiamondDailyStat.log
+
+### 红包现金统计
+05 02 * * * root source /etc/profile && /empty/crontab/CashStat.groovy >> /empty/crontab/logs/CashStat.log &
 
 

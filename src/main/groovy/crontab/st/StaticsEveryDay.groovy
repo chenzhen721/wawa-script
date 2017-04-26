@@ -867,7 +867,7 @@ class StaticsEveryDay {
         def YMD = new Date(begin).format('yyyyMMdd_')
         def timebetween = [$gte: begin, $lt: begin + DAY_MILLON]
         def red_packet_logs = mongo.getDB('game_log').getCollection('red_packet_logs')
-        def row = new BasicDBObject('system': ['coin_count': 0, 'cash_count': 0, users: 0], 'newcomer': ['coin_count': 0, 'cash_count': 0, users: 0], 'friend': ['coin_count': 0, 'cash_count': 0, users: 0],'unlock': ['coin_count': 0, 'cash_count': 0, users: 0], 'exchange': ['coin_count': 0, 'cash_count': 0, users: 0])
+        def row = new BasicDBObject('system': ['coin_count': 0, 'cash_count': 0, users: 0], 'newcomer': ['coin_count': 0, 'cash_count': 0, users: 0], 'friend': ['coin_count': 0, 'cash_count': 0, users: 0], 'unlock': ['coin_count': 0, 'cash_count': 0, users: 0], 'exchange': ['coin_count': 0, 'cash_count': 0, users: 0],'apply':['coin_count': 0, 'cash_count': 0, users: 0])
         red_packet_logs.aggregate(
                 new BasicDBObject('$match', [timestamp: timebetween]),
                 new BasicDBObject('$project', [type: '$type', coin_count: '$coin_count', cash_count: '$cash_count', user_id: '$user_id']),
@@ -885,7 +885,7 @@ class StaticsEveryDay {
         def red_packet_cost_logs = mongo.getDB('game_log').getCollection('red_packet_cost_logs')
         red_packet_cost_logs.aggregate(
                 new BasicDBObject('$match', [timestamp: timebetween]),
-                new BasicDBObject('$project', [type: '$type',coin_count: '$coin_count', cash_count: '$cash_count', user_id: '$user_id']),
+                new BasicDBObject('$project', [type: '$type', coin_count: '$coin_count', cash_count: '$cash_count', user_id: '$user_id']),
                 new BasicDBObject('$group', [_id: '$type', coin_count: [$sum: '$coin_count'], cash_count: [$sum: '$cash_count'], users: [$addToSet: '$user_id']])
         ).results().each { BasicDBObject obj ->
             def type = obj.removeField('_id').toString()
@@ -898,20 +898,33 @@ class StaticsEveryDay {
         def unlock_logs = mongo.getDB('game_log').getCollection('red_packet_unlock_logs')
         unlock_logs.aggregate(
                 new BasicDBObject('$match', [timestamp: timebetween]),
-                new BasicDBObject('$project', [coin_count: '$coin_count',  user_id: '$user_id']),
+                new BasicDBObject('$project', [coin_count: '$coin_count', user_id: '$user_id']),
                 new BasicDBObject('$group', [_id: null, coin_count: [$sum: '$coin_count'], users: [$addToSet: '$user_id']])
         ).results().each { BasicDBObject obj ->
             Set<Integer> userList = obj['users'] as Set<Integer>
             obj.put('users', userList.size())
             row.put('unlock', obj)
         }
-        println("row is ${row}")
+
         // 好友数
         def red_packet_friend_logs = mongo.getDB('game_log').getCollection('red_packet_friend_logs')
-        def count = red_packet_friend_logs.distinct('user_id',$$('timestamp':timebetween)).size()
-        row.put('friend_count',count)
+        def count = red_packet_friend_logs.distinct('user_id', $$('timestamp': timebetween)).size()
+        row.put('friend_count', count)
 
-//        row._id = "${YMD}_red_packet".toString()
+        // 提现
+        def red_packet_apply_logs = mongo.getDB('game_log').getCollection('red_packet_apply_logs')
+        red_packet_apply_logs.aggregate(
+                new BasicDBObject('$match', ['last_modify': timebetween, 'status': 2]),
+                new BasicDBObject('$project', [income: '$income', user_id: '$user_id']),
+                new BasicDBObject('$group', [_id: null, cash_count: [$sum: '$income'], users: [$addToSet: '$user_id']])
+        ).results().each { BasicDBObject obj ->
+            Set<Integer> userList = obj['users'] as Set<Integer>
+            obj.put('users', userList.size())
+            obj.remove('_id')
+            obj.put('coin_count',0)
+            row.put('apply', obj)
+        }
+
         row.timestamp = begin
         row.type = "red_packet"
         coll.update(new BasicDBObject("_id", "${YMD}_red_packet".toString()), new BasicDBObject('$set', row), true, false)
