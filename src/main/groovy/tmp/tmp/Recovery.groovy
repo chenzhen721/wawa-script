@@ -915,7 +915,7 @@ class Recovery {
         timerLogsDB.findAndModify(new BasicDBObject('_id', id), null, null, false, new BasicDBObject('$set', update), true, true)
     }
 
-    static int day = 2
+    static int day = 8
 
     static void main(String[] args) {
         long l = System.currentTimeMillis()
