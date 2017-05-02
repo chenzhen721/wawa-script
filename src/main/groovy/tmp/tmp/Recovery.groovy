@@ -303,6 +303,7 @@ class Recovery {
             }
         }
     }
+
     /**
      * 统计主播获得的分成能量
      * 可能没有送礼 只有游戏分成的情况
@@ -836,7 +837,7 @@ class Recovery {
         red_packet_logs.aggregate(
                 new BasicDBObject('$match', [timestamp: timebetween]),
                 new BasicDBObject('$project', [type: '$type', coin_count: '$coin_count', cash_count: '$cash_count', user_id: '$user_id']),
-                new BasicDBObject('$group', [_id: '$type', coin_count: [$sum: '$coin_count'], cash_count: [$sum: '$coin_count'], users: [$addToSet: '$user_id']])
+                new BasicDBObject('$group', [_id: '$type', coin_count: [$sum: '$coin_count'], cash_count: [$sum: '$cash_count'], users: [$addToSet: '$user_id']])
         ).results().each { BasicDBObject obj ->
             println("obj is ${obj}")
             def type = obj.removeField('_id').toString()
@@ -915,7 +916,7 @@ class Recovery {
         timerLogsDB.findAndModify(new BasicDBObject('_id', id), null, null, false, new BasicDBObject('$set', update), true, true)
     }
 
-    static int day = 2
+    static int day = 8
 
     static void main(String[] args) {
         long l = System.currentTimeMillis()

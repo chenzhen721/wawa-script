@@ -871,7 +871,7 @@ class StaticsEveryDay {
         red_packet_logs.aggregate(
                 new BasicDBObject('$match', [timestamp: timebetween]),
                 new BasicDBObject('$project', [type: '$type', coin_count: '$coin_count', cash_count: '$cash_count', user_id: '$user_id']),
-                new BasicDBObject('$group', [_id: '$type', coin_count: [$sum: '$coin_count'], cash_count: [$sum: '$coin_count'], users: [$addToSet: '$user_id']])
+                new BasicDBObject('$group', [_id: '$type', coin_count: [$sum: '$coin_count'], cash_count: [$sum: '$cash_count'], users: [$addToSet: '$user_id']])
         ).results().each { BasicDBObject obj ->
             println("obj is ${obj}")
             def type = obj.removeField('_id').toString()
