@@ -224,10 +224,12 @@ class UpdateUserAndLive {
             if (mic_first > 0 && !isLive(roomId.toString(), mic_first)) {
                 query.append('mic_first', mic_first)
                 set.append('mic_first', null)
+                isOffLive = Boolean.TRUE
             }
             if (mic_sec > 0 && !isLive(roomId.toString(), mic_sec)) {
                 query.append('mic_sec', mic_first)
                 set.append('mic_sec', null)
+                isOffLive = Boolean.TRUE
             }
             if(isOffLive){
                 rooms.update(query, new BasicDBObject('$set', set))
