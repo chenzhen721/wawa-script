@@ -92,7 +92,7 @@ class UpdateUserAndLive {
 
         //房间用户上麦状态检测
         l = System.currentTimeMillis()
-        task.roomMicLiveCheck()()
+        task.roomMicLiveCheck()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  roomMicLiveCheck---> cost: ${System.currentTimeMillis() - l} ms"
 
         //异常交易检测
@@ -209,7 +209,7 @@ class UpdateUserAndLive {
      */
     def roomMicLiveCheck() {
         //获取小于当前时间2分钟前得开播的房间列表
-        def roomList = rooms.find(new BasicDBObject('mic_first': [$ne: null], $or: ['mic_sec': [$ne: null]]),
+        def roomList = rooms.find(new BasicDBObject( $or: [['mic_first': [$ne: null]], ['mic_sec': [$ne: null]]]),
                 new BasicDBObject(mic_first: 1, mic_sec: 1)).toArray()
 
         roomList.each { room ->
@@ -238,7 +238,7 @@ class UpdateUserAndLive {
     }
 
     boolean isLive(def roomId, def userId){
-        String key = 'room:' + roomId + ":live:" + roomId + ':' + userId
+        String key = "room:mic:live:"+roomId+':'+userId
         return liveRedis.exists(key)
     }
 
