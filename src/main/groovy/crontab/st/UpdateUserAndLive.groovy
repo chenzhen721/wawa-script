@@ -61,12 +61,11 @@ class UpdateUserAndLive {
     static M = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
 
     static mongo = M.getDB("xy")
-    static logRoomEdit = M.getDB("xylog").getCollection("room_edit")
     static rooms = mongo.getCollection("rooms")
     static users = mongo.getCollection("users")
     static orders = M.getDB("shop").getCollection('orders')
     static room_cost_coll = M.getDB('xylog').getCollection('room_cost')
-    static star_recommends = M.getDB('xy_admin').getCollection('star_recommends')
+    static DBCollection familyDB = M.getDB('xyactive').getCollection('familys')
 
     static final String api_domain = getProperties("api.domain", "http://test-aiapi.memeyule.com/")
 
@@ -80,24 +79,24 @@ class UpdateUserAndLive {
     static MIN_MILLON = 60 * 1000L
     static WEEK_MILLON = 7 * DAY_MILLON
 
-    static
-    final String CLOSE_GAME_SERVER_URL = getProperties('aigd.domain', 'http://test-aigd.memeyule.com:6050/api/room/close?room_id=ROOM_ID&game_id=GAME_ID&live_id=LIVE_ID')
     static final String WS_DOMAIN = getProperties('ws.domain', 'http://test-aiws.memeyule.com:6010')
 
     static main(arg) {
         final UpdateUserAndLive task = new UpdateUserAndLive()
 
         long l = System.currentTimeMillis()
+        task.awardCoin()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   awardCoin, cost  ${System.currentTimeMillis() - l} ms"
 
-        //直播间人数统计
+        //房间在线人数统计
         long begin = l
         Integer i = task.roomUserCount()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  roomUserCount---> update ${i} rows , cost  ${System.currentTimeMillis() - l} ms"
 
-        //直播间直播状态检测
+        //房间用户上麦状态检测
         l = System.currentTimeMillis()
-        task.liveCheck()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  liveCheck---> cost: ${System.currentTimeMillis() - l} ms"
+        task.roomMicLiveCheck()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  roomMicLiveCheck---> cost: ${System.currentTimeMillis() - l} ms"
 
         //异常交易检测
         l = System.currentTimeMillis()
@@ -106,8 +105,6 @@ class UpdateUserAndLive {
                 finance_log    : M.getDB('xy_admin').getCollection('finance_log'),
                 exchange_log   : M.getDB('xylog').getCollection('exchange_log'),
                 mission_logs   : M.getDB('xylog').getCollection('mission_logs'),
-                withdrawl_log  : M.getDB('xy_admin').getCollection('withdrawl_log'),
-                star_award_logs: M.getDB('game_log').getCollection('star_award_logs'),
                 diamond_logs   : M.getDB('xy_admin').getCollection('diamond_logs'),
                 diamond_cost_logs   : M.getDB('xy_admin').getCollection('diamond_cost_logs'),
                 sign_logs   : M.getDB('xylog').getCollection('sign_logs'),
@@ -126,11 +123,6 @@ class UpdateUserAndLive {
         l = System.currentTimeMillis()
         task.auto_unfreeze()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  auto_unfreeze---->cost:  ${System.currentTimeMillis() - l} ms"
-
-        //主播推荐有效期检测
-        l = System.currentTimeMillis()
-        task.recommendCheck()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  recommendCheck---->cost:  ${System.currentTimeMillis() - l} ms"
 
         //延时支付订单检查
         l = System.currentTimeMillis()
@@ -214,99 +206,45 @@ class UpdateUserAndLive {
 
     }
 
-    def liveCheck() {
+    /**
+     * 直播间上麦用户心跳检测
+     * @return
+     */
+    def roomMicLiveCheck() {
         //获取小于当前时间2分钟前得开播的房间列表
-        def roomList = rooms.find(new BasicDBObject('live': true, timestamp: [$lte: System.currentTimeMillis() - (2 * MIN_MILLON)]),
-                new BasicDBObject(live_id: 1, timestamp: 1, type: 1, game_id: 1, live_type: 1)).toArray()
-
-        //获取七牛推流直播间列表
-        List<String> liveStreamList = getLiveStreamIds()
+        def roomList = rooms.find(new BasicDBObject( $or: [['mic_first': [$ne: null]], ['mic_sec': [$ne: null]]]),
+                new BasicDBObject(mic_first: 1, mic_sec: 1)).toArray()
 
         roomList.each { room ->
             def roomId = room.get("_id")
-            String live_id = room.get("live_id")
-            String game_id = room.get("game_id")
-            Integer live_type = room?.get("live_type") as Integer
-            Integer type = (room.get("type") ?: 0) as Integer
+            Integer mic_first = (room?.get("mic_first") ?: 0) as Integer
+            Integer mic_sec = (room?.get("mic_sec") ?: 0) as Integer
+            println "room : ${roomId}, mic_first : ${mic_first}, mic_sec: ${mic_sec}".toString()
+            Boolean isOffLive = Boolean.FALSE
             //检查是否心跳存在和推流状态
-            if (!isLive(roomId.toString(), liveStreamList)) {
-                Long l = Math.max(System.currentTimeMillis() - 60000, (room['timestamp'] ?: 0) as Long) + 1
-                if (logRoomEdit.update(
-                        new BasicDBObject(type: "live_on", data: live_id, room: roomId),
-                        new BasicDBObject('$set': [etime: l, status: 'LiveStatusCheck'])).getN() == 1) {
-                    try {
-                        delLiveRedis(roomId)
-                        // 关闭时通知游戏服务端关闭
-                        notifyGameServerClose(game_id, roomId.toString(), live_id)
-                        logRoomEdit.save(new BasicDBObject(type: 'live_off', room: roomId, data: live_id, live_type: live_type, status: 'LiveStatusCheck', timestamp: l))
-                    }
-                    finally {
-                        def set = new BasicDBObject(live: false, live_id: '', timestamp: l, live_end_time: l, game_id: '', position: null, pull_urls: null, push_urls: null)
-                        rooms.update(new BasicDBObject(_id: roomId, live: Boolean.TRUE), new BasicDBObject('$set', set))
-                        def params = new HashMap()
-                        def body = ['live': false, room_id: roomId, 'template_id': 'live_on']
-                        params.put('action', 'room.live.rc')
-                        params.put('data', body)
-                        publish(params, roomId.toString())
-                    }
-                }
+            def set = new BasicDBObject()
+            def query = new BasicDBObject()
+            if (mic_first > 0 && !isLive(roomId.toString(), mic_first)) {
+                query.append('mic_first', mic_first)
+                set.append('mic_first', null)
+                isOffLive = Boolean.TRUE
+            }
+            if (mic_sec > 0 && !isLive(roomId.toString(), mic_sec)) {
+                query.append('mic_sec', mic_first)
+                set.append('mic_sec', null)
+                isOffLive = Boolean.TRUE
+            }
+            if(isOffLive){
+                rooms.update(query, new BasicDBObject('$set', set))
+                println query
             }
 
         }
     }
 
-    /**
-     * 获取七牛推流直播间列表
-     * @return
-     */
-    private static List<String> getLiveStreamIds() {
-        JsonSlurper jsonSlurper = new JsonSlurper()
-        // 查询当前七牛开播的流列表
-        String url = "${api_domain}/monitor/live_list"
-        String result = request(url)
-        Map map = jsonSlurper.parseText(result) as Map
-        List<String> liveStreamList = (map['data'] ?: Collections.emptyList()) as List
-        return liveStreamList
-    }
-    /**
-     * 检查是否流断了
-     * @return
-     */
-    private static Boolean isLive(String roomId, List<String> liveStreamList) {
-        if (!userRedis.exists("room:${roomId}:live")) {
-            println("${new Date().format('yyyy-MM-dd HH:mm:ss')}  ${roomId}:hearth was broken ,it will be close ..")
-            return Boolean.FALSE
-        }
-        if (!liveStreamList.contains(roomId)) {//如果流不存在列表中  记录当前失败次数
-            String key = "live:${roomId}:bad:stream"
-            Long errorTimes = liveRedis.incr(key)
-            liveRedis.expire(key, 90)
-            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  stream check ${roomId}: recordTimes : ${errorTimes}"
-            return errorTimes < 3 //三次检测流未正常推送则关闭直播间
-        }
-        return Boolean.TRUE
-    }
-
-
-    private void delLiveRedis(def roomId) {
-        try {
-            liveRedis.keys("live:${roomId}:*".toString()).each { liveRedis.del(it) };
-            println "${new Date().format('yyyy-MM-dd HH:mm:ss')} liveRedis DEL live:${roomId}:*"
-        }
-        catch (e) {
-            e.printStackTrace()
-        }
-    }
-
-    /**
-     * 通知游戏服务器关闭直播间
-     * @param game_id
-     * @param roomId
-     * @param live_id
-     */
-    private void notifyGameServerClose(String game_id, String roomId, String live_id) {
-        String url = CLOSE_GAME_SERVER_URL.replace('ROOM_ID', roomId.toString()).replace('GAME_ID', game_id).replace('LIVE_ID', live_id)
-        println request(url)
+    boolean isLive(def roomId, def userId){
+        String key = "room:mic:live:"+roomId+':'+userId
+        return liveRedis.exists(key)
     }
 
     long WAIT = 30 * 1000L
@@ -342,13 +280,6 @@ class UpdateUserAndLive {
                 }
             }
         }
-    }
-
-
-    def recommendCheck() {
-        def expire_query = new BasicDBObject('is_recomm': Boolean.TRUE, 'expires': [$lt: System.currentTimeMillis()])
-        star_recommends.updateMulti(expire_query, new BasicDBObject('$set', [expires: null, is_recomm: Boolean.FALSE]))
-
     }
 
     //检测间隔速率  0 挡为慢速， 1 挡为快速检测挡
@@ -416,6 +347,101 @@ class UpdateUserAndLive {
             }
         }
         return jsonText;
+    }
+
+
+
+    static final long[] family_level = [0,
+                                        20000,
+                                        80000,
+                                        180000,
+                                        320000,
+                                        500000,
+                                        720000,
+                                        980000,
+                                        1280000,
+                                        1620000,
+                                        2000000,
+                                        2420000,
+                                        2880000,
+                                        3380000,
+                                        3920000,
+                                        4500000,
+                                        5120000,
+                                        5780000,
+                                        6480000,
+                                        7220000,
+                                        8000000,
+                                        8820000,
+                                        9680000,
+                                        10580000,
+                                        11520000,
+                                        12500000,
+                                        13520000,
+                                        14580000,
+                                        15680000,
+                                        16820000,
+                                        18000000,
+                                        19220000,
+                                        20480000,
+                                        21780000,
+                                        23120000,
+                                        24500000,
+                                        25920000,
+                                        27380000,
+                                        28880000,
+                                        30420000,
+                                        32000000,
+                                        33620000,
+                                        35280000,
+                                        36980000,
+                                        38720000,
+                                        40500000,
+                                        42320000,
+                                        44180000,
+                                        46080000,
+                                        48020000,
+                                        50000000
+    ]
+
+    private static final int max_family_level = family_level.length;
+
+    public int familyLevel(long prestige) {
+        for (int i = 1; i < max_family_level; i++) {
+            if (prestige < (family_level[i])) {
+                return i - 1;
+            }
+        }
+        return max_family_level - 1;
+    }
+
+    void awardCoin(){
+        Random random = new Random()
+        def list = familyDB.find()
+        list.each {
+            BasicDBObject obj ->
+                Integer coin
+                def prestige = obj.containsField('prestige') ? obj['prestige'] as Long : 0L
+                def id = obj['_id'] as Integer
+                def level = familyLevel(prestige)
+                println("level is ${level}")
+                if(level >= 0 && level <=10){
+                    coin = random.nextInt(5000) + 10001
+                }else if(level >=11 && level <=20){
+                    coin = random.nextInt(7500) + 15001
+                }else if(level >=21 && level <=30){
+                    coin = random.nextInt(10000) + 20001
+                }else if (level >=31 && level <=40){
+                    coin = random.nextInt(12500) + 25001
+                }else if(level >=41 && level <=50){
+                    coin = random.nextInt(15000) + 30001
+                }else{
+                    coin = random.nextInt(17500) + 35001
+                }
+                coin = coin/60
+                println("award coin family ${id} is ${coin}")
+                familyDB.update($$('_id',id),$$('$inc':['gold':coin]))
+        }
     }
 
     /**
