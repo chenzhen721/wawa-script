@@ -21,6 +21,8 @@ import org.apache.http.impl.client.DefaultHttpClient
 import org.apache.http.params.HttpConnectionParams
 import org.apache.http.params.HttpParams
 import redis.clients.jedis.Jedis
+import redis.clients.jedis.Pipeline
+import redis.clients.jedis.Response
 
 /**
  * 定时更新房间的在线人数
@@ -158,9 +160,9 @@ class UpdateUserAndLive {
         int i = 0
         Long vCount = 0
         def roomWithCount = new HashMap<Integer, Long>()
-        def liveRooms = rooms.find(new BasicDBObject(timestamp: [$gte: now - 2 * DAY_MILLON], test: [$ne: true]), new BasicDBObject(_id: 1, live: 1)).toArray()
+        def liveRooms = rooms.find(new BasicDBObject(test: [$ne: true]), new BasicDBObject(_id: 1, live: 1)).toArray()
         //println "roomUserCount query total time cost : ${System.currentTimeMillis() - now}"
-        //long n = System.currentTimeMillis()
+        long n = System.currentTimeMillis()
         liveRooms.each { dbo -> //,status:Boolean.TRUE
             i++
             Integer room_id = dbo.get("_id") as Integer
@@ -172,13 +174,13 @@ class UpdateUserAndLive {
                     new BasicDBObject('$set', new BasicDBObject("visiter_count", visiter_count))
             )
             vCount += room_count
+            /*
             if (live) {
                 roomWithCount.put(room_id, room_count)
-            }
+            }*/
         }
-        //println "roomUserCount update time cost : ${System.currentTimeMillis() - n}"
         redis.set(vistor_key, vCount.toString())
-        recordRoomCount(roomWithCount)
+        //recordRoomCount(roomWithCount)
         return i
     }
 
@@ -439,7 +441,6 @@ class UpdateUserAndLive {
                     coin = random.nextInt(17500) + 35001
                 }
                 coin = coin/60
-                println("award coin family ${id} is ${coin}")
                 familyDB.update($$('_id',id),$$('$inc':['gold':coin]))
         }
     }

@@ -67,6 +67,7 @@ class tmp {
     static finance_log = mongo.getDB('xy_admin').getCollection('finance_log')
     static DBCollection room_cost =  mongo.getDB("xylog").getCollection("room_cost")
     static DBCollection user_bet =  mongo.getDB("game_log").getCollection("user_bet")
+    static DBCollection smelter =  mongo.getDB("xyactive").getCollection("smelter")
 
     static users = mongo.getDB('xy').getCollection('users')
     static xy_users = mongo.getDB('xy_user').getCollection('users')
@@ -183,10 +184,28 @@ class tmp {
         return datas
     }
 
+    static insetsmelter(){
+        smelter.insert([
+                        $$("_id":1,"type":1,"value":200,"status":true,"name":"一级导弹","price":5000,"cool_down":600,"min":100),
+                        $$("_id":2,"type":1,"value":250,"status":true,"name":"二级导弹","min":150,"price":15000,"cool_down":900),
+                        $$("_id":3,"type":1,"value":300,"status":true,"min":200,"name":"三级导弹","price":20000,"cool_down":1200),
+                        $$("_id":4,"type":1,"value":350,"status":true,"min":250,"name":"四级导弹","price":25000,"cool_down":1800),
+                        $$("_id":5,"type":2,"min":100,"value":200,"status":true,"name":"一级盾牌","price":5000,"cool_down":300),
+                        $$("_id":6,"type":2,"value":250,"min":150,"status":true,"name":"二级盾牌","price":15000,"cool_down":450),
+                        $$("_id":7,"type":2,"value":300,"min":200,"status":true,"name":"三级盾牌","price":20000,"cool_down":600),
+                        $$("_id":8,"type":2,"value":350,"min":250,"status":true,"name":"四级盾牌","price":25000,"cool_down":900),
+                        ])
+    }
+
+    static initUserInfo(){
+        users.updateMulti($$(_id:[$gte:0]), $$('$set':[exp:0,level:0]))
+    }
     static void main(String[] args){
         def l = System.currentTimeMillis()
         //recoverFinanceLogToId();
-        getKeyUserMobile();
+        //getKeyUserMobile();
+        //insetsmelter()
+        initUserInfo();
         println " cost  ${System.currentTimeMillis() -l} ms".toString()
     }
 
