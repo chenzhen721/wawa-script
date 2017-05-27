@@ -57,9 +57,15 @@ class RobotMsg {
 
     }
 
+    static delMsg(){
+        String key = 'chat:msg:list'
+        userRedis.del(key)
+    }
+
     static void main(String[] args) {
         long l = System.currentTimeMillis()
-        importMsg()
+        //importMsg()
+        delMsg();
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   importMsg, cost  ${System.currentTimeMillis() - l} ms"
     }
 }

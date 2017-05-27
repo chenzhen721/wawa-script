@@ -226,20 +226,19 @@ class UpdateUserAndLive {
             Boolean isOffLive = Boolean.FALSE
             //检查是否心跳存在和推流状态
             def set = new BasicDBObject()
-            def query = new BasicDBObject()
+            def query = new BasicDBObject(_id:roomId as Integer)
             if (mic_first > 0 && !isLive(roomId.toString(), mic_first)) {
                 query.append('mic_first', mic_first)
                 set.append('mic_first', null)
                 isOffLive = Boolean.TRUE
             }
             if (mic_sec > 0 && !isLive(roomId.toString(), mic_sec)) {
-                query.append('mic_sec', mic_first)
+                query.append('mic_sec', mic_sec)
                 set.append('mic_sec', null)
                 isOffLive = Boolean.TRUE
             }
             if(isOffLive){
                 rooms.update(query, new BasicDBObject('$set', set))
-                println query
             }
 
         }
@@ -247,7 +246,7 @@ class UpdateUserAndLive {
 
     boolean isLive(def roomId, def userId){
         String key = "room:mic:live:"+roomId+':'+userId
-        return liveRedis.exists(key)
+        return liveRedis.ttl(key) > 0
     }
 
     long WAIT = 30 * 1000L
