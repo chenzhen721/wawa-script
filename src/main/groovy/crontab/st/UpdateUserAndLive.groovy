@@ -440,7 +440,8 @@ class UpdateUserAndLive {
                     coin = random.nextInt(17500) + 35001
                 }
                 coin = coin/60
-                familyDB.update($$('_id',id),$$('$inc':['gold':coin]))
+                familyDB.update($$('_id':id,gold:[$lte:1000000]),$$('$inc':['gold':coin]))
+                familyDB.update($$('_id':id,prestige:[$gt:0]),$$('$inc':['gold':coin]))
         }
     }
 
