@@ -130,7 +130,7 @@ class FamilyContribution {
         def timerName = 'LiveStat'
         Long totalCost = System.currentTimeMillis() - begin
         saveTimerLogs(timerName, totalCost)
-        println "${new Date().format('yyyy-MM-dd')}:${LiveStat.class.getSimpleName()}:finish  cost  ${System.currentTimeMillis() - begin} ms"
+        println "${new Date().format('yyyy-MM-dd')}:${FamilyContribution.class.getSimpleName()}:finish  cost  ${System.currentTimeMillis() - begin} ms"
     }
 
     //落地定时执行的日志
