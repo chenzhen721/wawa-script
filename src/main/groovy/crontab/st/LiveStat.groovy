@@ -16,9 +16,6 @@ import com.mongodb.Mongo
 
 /**
  *  直播统计
- *
- * date: 13-2-28 下午2:46
- * @author: yangyang.cong@ttpod.com
  */
 class LiveStat {
     static Properties props = null;

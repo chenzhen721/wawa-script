@@ -27,6 +27,7 @@ import com.mongodb.DBObject
 import com.mongodb.Mongo
 import com.mongodb.MongoURI
 import groovy.json.JsonBuilder
+
 class tmp {
 
     static Properties props = null;
@@ -200,12 +201,45 @@ class tmp {
     static initUserInfo(){
         users.updateMulti($$(_id:[$gte:0]), $$('$set':[exp:0,level:0]))
     }
+
+    /**
+     *
+     * Type Number Type Explanation
+     1 Double 浮点型
+     2 String UTF-8字符串都可表示为字符串类型的数据
+     3 Object 对象，嵌套另外的文档
+     4 Array 值的集合或者列表可以表示成数组
+     5 Binary data 二进制
+     7 Object id 对象id是文档的12字节的唯一 ID 系统默认会自动生成
+     8 Boolean 布尔类型有两个值TRUE和FALSE
+     9 Date 日期类型存储的是从标准纪元开始的毫秒数。不存储时区
+     10 Null 用于表示空值或者不存在的字段
+     11 Regular expression 采用js 的正则表达式语法
+     13 JavaScript code 可以存放Javasript 代码
+     14 Symbol 符号
+     15 JavaScript code with scope
+     16 32-bit integer 32位整数类型
+     17 Timestamp 特殊语义的时间戳数据类型
+     18 64-bit integer 64位整数类型
+     */
+    static recoverUserCoinType(){
+        DBCursor cursor = users.find($$("finance.coin_count", $$($type:1))).batchSize(5000)
+        while (cursor.hasNext()) {
+            def obj = cursor.next()
+            Map finance = obj['finance'] as Map
+            Long coin_count = finance['coin_count'] as Long
+            finance['coin_count'] = coin_count
+            obj['finance'] = finance
+            users.save(obj)
+        }
+    }
     static void main(String[] args){
         def l = System.currentTimeMillis()
         //recoverFinanceLogToId();
         //getKeyUserMobile();
         //insetsmelter()
-        initUserInfo();
+        //initUserInfo();
+        recoverUserCoinType();
         println " cost  ${System.currentTimeMillis() -l} ms".toString()
     }
 

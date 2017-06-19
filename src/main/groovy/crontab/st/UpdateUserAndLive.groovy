@@ -175,13 +175,8 @@ class UpdateUserAndLive {
                     new BasicDBObject('$set', new BasicDBObject("visiter_count", visiter_count))
             )
             vCount += room_count
-            /*
-            if (live) {
-                roomWithCount.put(room_id, room_count)
-            }*/
         }
         redis.set(vistor_key, vCount.toString())
-        //recordRoomCount(roomWithCount)
         return i
     }
 
