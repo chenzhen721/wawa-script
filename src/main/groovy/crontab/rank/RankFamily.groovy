@@ -37,7 +37,7 @@ class RankFamily {
     static DAY_MILLON = 24 * HOUR_MILLON
 
     static familys = mongo.getDB("xy_family").getCollection("familys")
-    static user_contributions = mongo.getDB("xy_family").getCollection("user_contributions")
+    static member_contributions = mongo.getDB("xy_family").getCollection("member_contributions")
     static family_user_rank = mongo.getDB("xyrank").getCollection("family_user")
     static final Integer size = 100
 
@@ -53,7 +53,8 @@ class RankFamily {
     static void saveRank(String cat, Integer familyId) {
         long now = System.currentTimeMillis()
         def list = new ArrayList(500)
-        user_contributions.find($$(family_id:familyId)).sort($$(coin:-1)).limit(10).toArray().each {DBObject contri->
+        Date yesterday = new Date()-1;
+        member_contributions.find($$(family_id:familyId, date:yesterday.format('yyyyMMdd'))).sort($$(coin:-1)).limit(10).toArray().each {DBObject contri->
             Integer user_id = contri['user_id'] as Integer
             Long coin = contri['coin'] as Long
             list.add(new BasicDBObject(_id: "${cat}_${user_id}".toString(), cat: cat, family_id:familyId, user_id: user_id, num: coin, sj: new Date()))
