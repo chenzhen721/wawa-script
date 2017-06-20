@@ -2,15 +2,15 @@
 
 #### git push 后会自动覆盖服务器crontab ###
 
-05,45 * * * * root source /etc/profile && /empty/crontab/RankGift.groovy >> /empty/crontab/logs/RankGift.log
+05,45 * * * * root source /etc/profile && /empty/crontab/RankGift.groovy >> /empty/crontab/logs/RankFamily.log
 
-*/15 * * * * root source /etc/profile && /empty/crontab/RankStar.groovy >> /empty/crontab/logs/RankStar.log
+#### */15 * * * * root source /etc/profile && /empty/crontab/RankStar.groovy >> /empty/crontab/logs/RankStar.log
 
-11 * * * * root source /etc/profile && /empty/crontab/RankUser.groovy >> /empty/crontab/logs/RankUser.log
+#### 11 * * * * root source /etc/profile && /empty/crontab/RankUser.groovy >> /empty/crontab/logs/RankUser.log
 
-*/30 * * * * root source /etc/profile && /empty/crontab/RankGame.groovy >> /empty/crontab/logs/RankGame.log
+#### */30 * * * * root source /etc/profile && /empty/crontab/RankGame.groovy >> /empty/crontab/logs/RankGame.log
 
-*/30 * * * * root source /etc/profile && /empty/crontab/RankRoom.groovy >> /empty/crontab/logs/RankRoom.log
+#### */30 * * * * root source /etc/profile && /empty/crontab/RankRoom.groovy >> /empty/crontab/logs/RankRoom.log
 
 */1 * * * * root source /etc/profile && /empty/crontab/UpdateUserAndLive.groovy >> /empty/crontab/logs/star_UpdateUserAndLive.log
 

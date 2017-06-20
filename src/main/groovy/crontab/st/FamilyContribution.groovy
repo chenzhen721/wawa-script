@@ -75,8 +75,11 @@ class FamilyContribution {
         jobFinish(begin)
     }
 
-    private static void publish(Map params) {
+    private static void publish(Map data) {
         String url = getPublishUrl();
+        Map<String, Object> params = new HashMap<>();
+        params.put("action", "global.marquee");
+        params.put("data", data);
         String content = JsonOutput.toJson(params)
         request_post(url, content)
     }
