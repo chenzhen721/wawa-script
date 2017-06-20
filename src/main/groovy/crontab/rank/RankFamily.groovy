@@ -57,10 +57,10 @@ class RankFamily {
         member_contributions.find($$(family_id:familyId, date:yesterday.format('yyyyMMdd'))).sort($$(coin:-1)).limit(10).toArray().each {DBObject contri->
             Integer user_id = contri['user_id'] as Integer
             Long coin = contri['coin'] as Long
-            list.add(new BasicDBObject(_id: "${cat}_${user_id}".toString(), cat: cat, family_id:familyId, user_id: user_id, num: coin, sj: new Date()))
+            list.add($$(_id: "${cat}_${familyId}_${user_id}".toString(), cat: cat, family_id:familyId, user_id: user_id, num: coin, sj: new Date()))
         }
 
-        family_user_rank.remove(new BasicDBObject("cat", cat))
+        family_user_rank.remove($$("cat": cat, family_id:familyId,))
         if (list.size() > 0)
             family_user_rank.insert(list)
     }
