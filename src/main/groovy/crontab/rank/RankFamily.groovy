@@ -54,10 +54,11 @@ class RankFamily {
         long now = System.currentTimeMillis()
         def list = new ArrayList(500)
         Date yesterday = new Date()-1;
+        Integer rank = 1
         member_contributions.find($$(family_id:familyId, date:yesterday.format('yyyyMMdd'))).sort($$(coin:-1)).limit(10).toArray().each {DBObject contri->
             Integer user_id = contri['user_id'] as Integer
             Long coin = contri['coin'] as Long
-            list.add($$(_id: "${cat}_${familyId}_${user_id}".toString(), cat: cat, family_id:familyId, user_id: user_id, num: coin, sj: new Date()))
+            list.add($$(_id: "${cat}_${familyId}_${user_id}".toString(), cat: cat, rank:rank++,family_id:familyId, user_id: user_id, num: coin, sj: new Date()))
         }
 
         family_user_rank.remove($$("cat": cat, family_id:familyId,))
