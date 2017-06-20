@@ -45,7 +45,7 @@ class RankFamily {
      * 用户昨日贡献榜
      */
     static void familyUserRankYesterday() {
-        familys.find($$(status:1)).toArray().each {DBObject family ->
+        familys.find($$(status:2)).toArray().each {DBObject family ->
             saveRank("yesterday",  family['_id'] as Integer)
         }
     }
