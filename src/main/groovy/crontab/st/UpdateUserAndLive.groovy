@@ -131,6 +131,11 @@ class UpdateUserAndLive {
         task.delayOrderCheck()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  delayOrderCheck---->cost:  ${System.currentTimeMillis() - l} ms"
 
+        //家族活动
+        l = System.currentTimeMillis()
+        task.familyEventAward()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  familyEventAward---->cost:  ${System.currentTimeMillis() - l} ms"
+
         Long totalCost = System.currentTimeMillis() - begin
         //落地定时执行的日志
         l = System.currentTimeMillis()
@@ -277,6 +282,11 @@ class UpdateUserAndLive {
                 }
             }
         }
+    }
+
+    def familyEventAward() {
+        def api_url = api_domain + "job/family_event_award".toString()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')} result : ${request(api_url)}"
     }
 
     //检测间隔速率  0 挡为慢速， 1 挡为快速检测挡

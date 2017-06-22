@@ -16,7 +16,7 @@ import com.mongodb.BasicDBObject
 
 
 
-class CardDataImport {
+class DataImport {
 
     static Properties props = null;
     static String profilepath = "/empty/crontab/db.properties";
@@ -35,13 +35,15 @@ class CardDataImport {
 
     static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.246:27017/?w=1') as String))
     static cards = mongo.getDB("xy_admin").getCollection("cards")
+    static events = mongo.getDB("xy_admin").getCollection("events")
 
-    static String filePath = "/empty/crontab/game_data_v1.csv"
+    static String cardFilePath = "/empty/crontab/game_data_v1.csv"
+    static String eventFilePath = "/empty/crontab/event_data_v1.csv"
 
 
-    static importData(){
+    static importCardData(){
         //cards.remove(new BasicDBObject("_id",[$ne: null]))
-        new File(filePath).splitEachLine(','){row->
+        new File(cardFilePath).splitEachLine(','){row->
             if(!row[0].equals("id")){
                 int i = 1
                 def info = ["status": 1,type:row[i++] as Integer, category:row[i++] as Integer, level : row[i++] as Integer,
@@ -60,9 +62,32 @@ class CardDataImport {
 
     }
 
+    static importEventData(){
+        //cards.remove(new BasicDBObject("_id",[$ne: null]))
+        new File(eventFilePath).splitEachLine(','){row->
+            if(!row[0].equals("family_level")){
+                int i = 1
+                def info = ["status": 1,family_level:row[0] as Integer,
+                            coin_rate:row[i++] as Double,coin_min:row[i++] as Integer,coin_max:row[i++] as Integer,
+                            cash_rate:row[i++] as Double,cash_min:row[i++] as Integer,cash_max:row[i++] as Integer,
+                            exp_rate:row[i++] as Double,exp_min:row[i++] as Integer,exp_max:row[i++] as Integer,
+                            diamond_rate:row[i++] as Double,diamond_min:row[i++] as Integer,diamond_max:row[i++] as Integer,
+                            ack_rate:row[i++] as Double,ack_min:row[i++] as Integer,ack_max:row[i++] as Integer,
+                            def_rate:row[i++] as Double,def_min:row[i++] as Integer,def_max:row[i++] as Integer,
+                            steal_rate:row[i++] as Double,steal_min:row[i++] as Integer,steal_max:row[i++] as Integer];
+                println info
+                events.update(new BasicDBObject("_id",row[0] as Integer),new BasicDBObject('$set',info), true, false)
+            }
+        }
+
+    }
+
     static void main(String[] args) {
         long l = System.currentTimeMillis()
-        importData()
+        //导入卡牌数据
+        //importCardData()
+        //导入家族活动(挖矿)数据
+        importEventData()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   importData, cost  ${System.currentTimeMillis() - l} ms"
     }
 }
