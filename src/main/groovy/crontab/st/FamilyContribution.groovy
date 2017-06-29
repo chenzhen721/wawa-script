@@ -53,9 +53,9 @@ class FamilyContribution {
     //1:可发放, 2:待领取, 3:已领取
     static renewRewardStatus(){
         Long next_time = (System.currentTimeMillis() + HOUR_MILLON) - 5000
-        members.updateMulti($$(award_status:3,next_time:[$lt:System.currentTimeMillis()]), $$($set:[award_status:1, next_time:next_time ]))
+        members.updateMulti($$(award_status:3), $$($set:[award_status:1]))
         members.updateMulti($$(award_status:null), $$($set:[award_status:1]))
-        members.updateMulti($$(next_time:null), $$($set:[next_time:next_time]))
+        members.updateMulti($$(_id:[$ne:null]), $$($set:[next_time:next_time]))
         //推送到直播间
     }
 
