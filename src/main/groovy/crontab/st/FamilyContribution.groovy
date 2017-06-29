@@ -48,7 +48,7 @@ class FamilyContribution {
 
     static long zeroMill = new Date().clearTime().getTime()
     static members = mongo.getDB('xy_family').getCollection('members')
-    static Long VALID_DAY = 7200
+    static final String api_domain = getProperties("api.domain", "http://test-aiapi.memeyule.com/")
 
     //1:可发放, 2:待领取, 3:已领取
     static renewRewardStatus(){
@@ -58,6 +58,12 @@ class FamilyContribution {
         members.updateMulti($$(next_time:null), $$($set:[next_time:next_time]))
         //推送到直播间
     }
+
+    static reCaculateValue() {
+        def api_url = api_domain + "job/caculate_cvalue".toString()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')} result : ${request_post(api_url, null)}"
+    }
+
     private static BasicDBObject $$(String key, Object value) {
         return new BasicDBObject(key, value);
     }
@@ -69,6 +75,9 @@ class FamilyContribution {
     static void main(String[] args) {
         long l = System.currentTimeMillis()
         long begin = l
+        reCaculateValue();
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  reCaculateValue cost  ${System.currentTimeMillis() - l} ms"
+
         renewRewardStatus();
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  renewRewardStatus cost  ${System.currentTimeMillis() - l} ms"
 
