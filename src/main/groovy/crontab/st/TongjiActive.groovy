@@ -55,7 +55,7 @@ class TongjiActive {
     static String AUTH_TOKEN = 'yudDFxUp8ZmLlyP9gfnv'
 
     //友盟秘钥
-    static final String APP_KEY = '58ac09dd717c195234000979'
+    static final String APP_KEY = '592fd9bbc62dca09280015ec'
 
     static String request(String url) {
         HttpURLConnection conn = null;

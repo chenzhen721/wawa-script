@@ -24,7 +24,7 @@
 
 21 1 * * * root source /etc/profile && /empty/crontab/QdStat.groovy  >> /empty/crontab/logs/star_Qd.log &
 
-03 08 * * * root source /etc/profile && /empty/crontab/TongjiActive.groovy >> /empty/crontab/logs/TongjiActive.log &
+01 09 * * * root source /etc/profile && /empty/crontab/TongjiActive.groovy >> /empty/crontab/logs/TongjiActive.log &
 
 00 06 * * * root source /etc/profile && /empty/crontab/SysEveryDay.groovy >> /empty/crontab/logs/SysEveryDay.log &
 
