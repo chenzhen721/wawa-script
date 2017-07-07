@@ -49,4 +49,7 @@
 ### 红包现金统计
 05 02 * * * root source /etc/profile && /empty/crontab/CashStat.groovy >> /empty/crontab/logs/CashStat.log &
 
+### 翻牌奖励统计
+05 02 * * * root source /etc/profile && /empty/crontab/UserAwardDailyStat.groovy >> /empty/crontab/logs/UserAwardDailyStat.log &
+
 
