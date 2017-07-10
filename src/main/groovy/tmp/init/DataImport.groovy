@@ -15,7 +15,9 @@ import com.mongodb.Mongo
 import com.mongodb.BasicDBObject
 
 
-
+/**
+ * 卡牌和家族挖矿数据导入
+ */
 class DataImport {
 
     static Properties props = null;
@@ -85,7 +87,7 @@ class DataImport {
     static void main(String[] args) {
         long l = System.currentTimeMillis()
         //导入卡牌数据
-        //importCardData()
+        importCardData()
         //导入家族活动(挖矿)数据
         importEventData()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   importData, cost  ${System.currentTimeMillis() - l} ms"

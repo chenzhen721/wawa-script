@@ -199,7 +199,7 @@ class tmp {
     }
 
     static initUserInfo(){
-        users.updateMulti($$(_id:[$gte:0]), $$('$set':[exp:0,level:0]))
+        users.updateMulti($$(level:[$lte:0]), $$('$set':[level:1]))
     }
 
     /**
@@ -238,8 +238,8 @@ class tmp {
         //recoverFinanceLogToId();
         //getKeyUserMobile();
         //insetsmelter()
-        //initUserInfo();
-        recoverUserCoinType();
+        initUserInfo();
+        //recoverUserCoinType();
         println " cost  ${System.currentTimeMillis() -l} ms".toString()
     }
 
