@@ -123,13 +123,15 @@ class RedisTest{
         printZset('2016NianDuStar:race:star:rank:2:2016-12-10:2', mainRedis)
         printZset('2016NianDuStar:race:star:rank:2:2016-12-10:1', mainRedis)
         printZset('2016NianDuStar:race:star:rank:2:2016-12-10:3', mainRedis)*/
-        println printSet('2016NianDuStar:race:star:promoteds:5',mainRedis)
+        //println printSet('2016NianDuStar:race:star:promoteds:5',mainRedis)
         //22149607:27482733, 26175714:8168991, 2912313:25974419
         /*mainRedis.hset('room:recommend:list:user', '22149607', '27482733_0')
         mainRedis.hset('room:recommend:list:user', '26175714', '8168991_0')
         mainRedis.hset('room:recommend:list:user', '2912313', '25974419_0')
         println mainRedis.hgetAll('room:recommend:list:user')*/
         //printZset('2016NianDuStar:race:star:rank:3', mainRedis)
+        println mainRedis.get("laihou:family:ack:1254788")
+        println mainRedis.ttl("laihou:family:ack:1254788")
     }
 
     static String[] keys = ['2016XuebiRace:race:user:rank:total']

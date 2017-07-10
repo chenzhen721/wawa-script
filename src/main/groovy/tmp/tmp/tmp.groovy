@@ -27,6 +27,7 @@ import com.mongodb.DBObject
 import com.mongodb.Mongo
 import com.mongodb.MongoURI
 import groovy.json.JsonBuilder
+
 class tmp {
 
     static Properties props = null;
@@ -67,6 +68,7 @@ class tmp {
     static finance_log = mongo.getDB('xy_admin').getCollection('finance_log')
     static DBCollection room_cost =  mongo.getDB("xylog").getCollection("room_cost")
     static DBCollection user_bet =  mongo.getDB("game_log").getCollection("user_bet")
+    static DBCollection smelter =  mongo.getDB("xyactive").getCollection("smelter")
 
     static users = mongo.getDB('xy').getCollection('users')
     static xy_users = mongo.getDB('xy_user').getCollection('users')
@@ -183,10 +185,61 @@ class tmp {
         return datas
     }
 
+    static insetsmelter(){
+        smelter.insert([
+                        $$("_id":1,"type":1,"value":200,"status":true,"name":"一级导弹","price":5000,"cool_down":600,"min":100),
+                        $$("_id":2,"type":1,"value":250,"status":true,"name":"二级导弹","min":150,"price":15000,"cool_down":900),
+                        $$("_id":3,"type":1,"value":300,"status":true,"min":200,"name":"三级导弹","price":20000,"cool_down":1200),
+                        $$("_id":4,"type":1,"value":350,"status":true,"min":250,"name":"四级导弹","price":25000,"cool_down":1800),
+                        $$("_id":5,"type":2,"min":100,"value":200,"status":true,"name":"一级盾牌","price":5000,"cool_down":300),
+                        $$("_id":6,"type":2,"value":250,"min":150,"status":true,"name":"二级盾牌","price":15000,"cool_down":450),
+                        $$("_id":7,"type":2,"value":300,"min":200,"status":true,"name":"三级盾牌","price":20000,"cool_down":600),
+                        $$("_id":8,"type":2,"value":350,"min":250,"status":true,"name":"四级盾牌","price":25000,"cool_down":900),
+                        ])
+    }
+
+    static initUserInfo(){
+        users.updateMulti($$(level:[$lte:0]), $$('$set':[level:1]))
+    }
+
+    /**
+     *
+     * Type Number Type Explanation
+     1 Double 浮点型
+     2 String UTF-8字符串都可表示为字符串类型的数据
+     3 Object 对象，嵌套另外的文档
+     4 Array 值的集合或者列表可以表示成数组
+     5 Binary data 二进制
+     7 Object id 对象id是文档的12字节的唯一 ID 系统默认会自动生成
+     8 Boolean 布尔类型有两个值TRUE和FALSE
+     9 Date 日期类型存储的是从标准纪元开始的毫秒数。不存储时区
+     10 Null 用于表示空值或者不存在的字段
+     11 Regular expression 采用js 的正则表达式语法
+     13 JavaScript code 可以存放Javasript 代码
+     14 Symbol 符号
+     15 JavaScript code with scope
+     16 32-bit integer 32位整数类型
+     17 Timestamp 特殊语义的时间戳数据类型
+     18 64-bit integer 64位整数类型
+     */
+    static recoverUserCoinType(){
+        DBCursor cursor = users.find($$("finance.coin_count", $$($type:1))).batchSize(5000)
+        while (cursor.hasNext()) {
+            def obj = cursor.next()
+            Map finance = obj['finance'] as Map
+            Long coin_count = finance['coin_count'] as Long
+            finance['coin_count'] = coin_count
+            obj['finance'] = finance
+            users.save(obj)
+        }
+    }
     static void main(String[] args){
         def l = System.currentTimeMillis()
         //recoverFinanceLogToId();
-        getKeyUserMobile();
+        //getKeyUserMobile();
+        //insetsmelter()
+        initUserInfo();
+        //recoverUserCoinType();
         println " cost  ${System.currentTimeMillis() -l} ms".toString()
     }
 

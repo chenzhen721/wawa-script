@@ -13,10 +13,7 @@ import com.mongodb.Mongo
 import com.mongodb.MongoURI
 
 /**
- * 每天统计一份数据
- *
- * date: 13-2-28 下午2:46
- * @author: yangyang.cong@ttpod.com
+ * 渠道统计
  */
 class QdStat {
     static Properties props = null;
