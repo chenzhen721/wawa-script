@@ -4,6 +4,8 @@
 
 05,45 * * * * root source /etc/profile && /empty/crontab/RankFamily.groovy >> /empty/crontab/logs/RankFamily.log
 
+02 * * * * root source /etc/profile && /empty/crontab/FamilyContribution.groovy >> /empty/crontab/logs/FamilyContribution.log
+
 */1 * * * * root source /etc/profile && /empty/crontab/UpdateUserAndLive.groovy >> /empty/crontab/logs/star_UpdateUserAndLive.log
 
 21 1 * * * root source /etc/profile && /empty/crontab/QdStat.groovy  >> /empty/crontab/logs/star_Qd.log &
