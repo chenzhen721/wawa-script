@@ -86,10 +86,6 @@ class UpdateUserAndLive {
     static main(arg) {
         final UpdateUserAndLive task = new UpdateUserAndLive()
 
-        long l = System.currentTimeMillis()
-        task.awardCoin()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   awardCoin, cost  ${System.currentTimeMillis() - l} ms"
-
         //房间在线人数统计
         long begin = l
         Integer i = task.roomUserCount()
