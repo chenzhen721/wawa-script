@@ -85,7 +85,7 @@ class UpdateUserAndLive {
 
     static main(arg) {
         final UpdateUserAndLive task = new UpdateUserAndLive()
-
+        long l = System.currentTimeMillis()
         //房间在线人数统计
         long begin = l
         Integer i = task.roomUserCount()
