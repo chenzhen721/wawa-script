@@ -397,12 +397,12 @@ class StaticsEveryDay {
             PayStat all = new PayStat()
             PayStat delta = new PayStat()
             def cursor = finance_log_DB.find($$([timestamp: time, via: [$in: v.toArray()]]),
-                    new BasicDBObject(user_id: 1, cny: 1, coin: 1, timestamp: 1)).batchSize(50000)
+                    new BasicDBObject(user_id: 1, cny: 1, diamond: 1, timestamp: 1)).batchSize(50000)
             while (cursor.hasNext()) {
                 def obj = cursor.next()
                 def user_id = obj['user_id'] as String
                 def cny = new BigDecimal(((Number) obj.get('cny')).doubleValue())
-                def coin = obj.get('coin') as Long
+                def coin = obj.get('diamond') as Long
                 all.add(user_id, cny, coin)
                 total.add(user_id, cny, coin)
                 //该用户之前无充值记录或首冲记录为当天则算为当天新增用户
@@ -818,7 +818,7 @@ class StaticsEveryDay {
         //每日消费大于1000的用户
         finance_log_DB.aggregate(
                 new BasicDBObject('$match', [via: [$ne: 'Admin'], timestamp: timebetween]),
-                new BasicDBObject('$project', [_id: '$user_id', cny: '$cny', coin: '$coin']),
+                new BasicDBObject('$project', [_id: '$user_id', cny: '$cny', coin: '$diamond']),
                 new BasicDBObject('$group', [_id: '$_id', cny: [$sum: '$cny'], coin: [$sum: '$coin']]),
                 new BasicDBObject('$match', [cny: [$gte: 1000]]),
                 new BasicDBObject('$sort', [cny: -1])

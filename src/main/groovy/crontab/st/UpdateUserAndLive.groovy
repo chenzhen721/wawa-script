@@ -101,15 +101,8 @@ class UpdateUserAndLive {
         def trans = [
                 room_cost      : room_cost_coll,
                 finance_log    : M.getDB('xy_admin').getCollection('finance_log'),
-                exchange_log   : M.getDB('xylog').getCollection('exchange_log'),
-                mission_logs   : M.getDB('xylog').getCollection('mission_logs'),
                 diamond_logs   : M.getDB('xy_admin').getCollection('diamond_logs'),
-                diamond_cost_logs   : M.getDB('xy_admin').getCollection('diamond_cost_logs'),
-                sign_logs   : M.getDB('xylog').getCollection('sign_logs'),
-                red_packet_apply_logs   : M.getDB('game_log').getCollection('red_packet_apply_logs'),
-                red_packet_logs   : M.getDB('game_log').getCollection('red_packet_logs'),
-                red_packet_cost_logs   : M.getDB('game_log').getCollection('red_packet_cost_logs'),
-                unlock_logs   : M.getDB('game_log').getCollection('unlock_logs')
+                diamond_cost_logs   : M.getDB('xy_admin').getCollection('diamond_cost_logs')
         ]
         trans.each { k, v ->
             long lc = System.currentTimeMillis()
