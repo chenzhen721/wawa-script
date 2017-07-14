@@ -33,7 +33,9 @@ class UserAwardDailyStat {
     static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
     static DBCollection card_logs = mongo.getDB('xylog').getCollection('user_award_logs')
     static DBCollection family_event_logs = mongo.getDB('game_log').getCollection('family_event_logs')
-    static DBCollection award_daily_logs = mongo.getDB('xylog').getCollection('award_daily_stat')
+
+    //写log
+    static DBCollection award_daily_logs = mongo.getDB('xy_admin').getCollection('stat_award_daily')
 
     static DAY_MILLON = 24 * 3600 * 1000L
     static long zeroMill = new Date().clearTime().getTime()
@@ -102,7 +104,7 @@ class UserAwardDailyStat {
     }
 
 
-    final static Integer day = -1;
+    final static Integer day = 0;
 
     static void main(String[] args) {
         long l = System.currentTimeMillis()

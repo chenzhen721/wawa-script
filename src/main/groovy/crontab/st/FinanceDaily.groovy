@@ -40,7 +40,7 @@ class FinanceDaily {
     static DBCollection channel_pay = mongo.getDB('xy_admin').getCollection('channel_pay')
     static DBCollection stat_daily = mongo.getDB('xy_admin').getCollection('stat_daily')
     static DBCollection applys = mongo.getDB('xy_admin').getCollection('applys')
-    static DBCollection family_award_log = mongo.getDB('xy_family').getCollection('award_log')
+    //static DBCollection family_award_log = mongo.getDB('xy_family').getCollection('award_log')
     static DBCollection finance_log = mongo.getDB('xy_admin').getCollection('finance_log')
     static DBCollection games_DB = mongo.getDB('xy_admin').getCollection('games')
 
@@ -332,7 +332,7 @@ class FinanceDaily {
     /**
      * 爱玩直播没有这个统计
      */
-    static Long gameInfo(Map timebetween, Map data) {
+    /*static Long gameInfo(Map timebetween, Map data) {
         Long game_total = 0;
         def game = new HashMap();
         //翻牌柠檬的奖励
@@ -358,11 +358,11 @@ class FinanceDaily {
         data.put('game_total', game_total)
         data.put('game', game)
         return game_total
-    }
+    }*/
 
     private static final Integer GIFT_PRICE = 5000
 
-    static Long familyAwardCoin(Map timebetween, Map data) {
+    /*static Long familyAwardCoin(Map timebetween, Map data) {
         def query = $$(timebetween)
         def sum = (family_award_log.find(query, $$(count: 1)).toArray().sum {
             it['count'] ?: 0
@@ -370,7 +370,7 @@ class FinanceDaily {
         def total = sum * GIFT_PRICE
         data.put('family_award_price', total)
         return total
-    }
+    }*/
 
 
     static void getStatDaily(Map timebetween) {

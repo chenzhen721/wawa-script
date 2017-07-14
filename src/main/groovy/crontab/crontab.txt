@@ -2,17 +2,22 @@
 
 #### git push 后会自动覆盖服务器crontab ###
 
+### main 数据
 05,45 * * * * root source /etc/profile && /empty/crontab/RankFamily.groovy >> /empty/crontab/logs/RankFamily.log
 
 02 * * * * root source /etc/profile && /empty/crontab/FamilyContribution.groovy >> /empty/crontab/logs/FamilyContribution.log
 
 */1 * * * * root source /etc/profile && /empty/crontab/UpdateUserAndLive.groovy >> /empty/crontab/logs/star_UpdateUserAndLive.log
 
+##################################后台统计数据###########################################
+### 渠道数据统计
 21 1 * * * root source /etc/profile && /empty/crontab/QdStat.groovy  >> /empty/crontab/logs/star_Qd.log &
 
+### 友盟联运统计
 01 09 * * * root source /etc/profile && /empty/crontab/TongjiActive.groovy >> /empty/crontab/logs/TongjiActive.log &
 
 ### 翻牌奖励统计
 05 02 * * * root source /etc/profile && /empty/crontab/UserAwardDailyStat.groovy >> /empty/crontab/logs/UserAwardDailyStat.log &
 
-
+### 统计运营数据
+1 1 * * * root source /etc/profile && /root/crontab/st/StaticsEveryDay.groovy  >> /empty/crontab/logs/star_StaticsEveryDay.log &
