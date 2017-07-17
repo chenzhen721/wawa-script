@@ -21,3 +21,6 @@
 
 ### 统计运营数据
 1 1 * * * root source /etc/profile && /root/crontab/st/StaticsEveryDay.groovy  >> /empty/crontab/logs/star_StaticsEveryDay.log &
+
+### 翻牌奖励统计
+05 01 * * * root source /etc/profile && /empty/crontab/MicStat.groovy >> /empty/crontab/logs/MicStat.log &
