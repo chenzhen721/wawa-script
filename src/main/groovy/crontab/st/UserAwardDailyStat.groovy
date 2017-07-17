@@ -31,8 +31,7 @@ class UserAwardDailyStat {
     }
 
     static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
-    static DBCollection card_logs = mongo.getDB('xylog').getCollection('user_award_logs')
-    static DBCollection family_event_logs = mongo.getDB('game_log').getCollection('family_event_logs')
+    static DBCollection award_logs = mongo.getDB('xylog').getCollection('user_award_logs')
 
     //写log
     static DBCollection award_daily_logs = mongo.getDB('xy_admin').getCollection('stat_award_daily')
@@ -47,75 +46,69 @@ class UserAwardDailyStat {
     }
 
     /**
-     * 翻牌统计，type：open_card
+     * 翻牌统计：open_card
+     * 寻宝（挖矿）统计: family_event
+     * 道具使用统计：use_item
      */
-    static void statics_open_card() {
+    static void statics_award() {
         def timeBetween = getTimeBetween()
         def YMD = new Date(timeBetween.get(BEGIN)).format("yyyyMMdd")
-        def _id = YMD + "_open_card"
-        def query = new BasicDBObject(["type": "open_card", "timestamp": getTimeBetween()])
-        def count = card_logs.count(query) as Number
-        card_logs.aggregate([
-            new BasicDBObject('$match', query),
-            new BasicDBObject('$project', [user_id: '$user_id', defense: '$award.defense', steal: '$award.steal', exp: '$award.exp', coin: '$award.coin', diamond: '$award.diamond', cash: '$award.cash', attack: '$award.attack']),
-            new BasicDBObject('$group', [_id: null, ids: [$addToSet: '$user_id'], defense: [$sum: '$defense'], steal: [$sum: '$steal'], exp: [$sum: '$exp'], coin: [$sum: '$coin'], diamond: [$sum: '$diamond'], cash: [$sum: '$cash'], attack: [$sum: '$attack']]) //top N 算法
+        ['open_card', 'family_event', 'use_item'].collect().each { String type ->
+            def _id = "${YMD}_${type}".toString()
+            def query = new BasicDBObject(["type": type, "timestamp": getTimeBetween()])
+            def count = award_logs.count(query) as Number
+            award_logs.aggregate([
+                    new BasicDBObject('$match', query),
+                    new BasicDBObject('$project', [user_id: '$user_id', defense: '$award.defense', steal: '$award.steal', exp: '$award.exp', coin: '$award.coin', diamond: '$award.diamond', cash: '$award.cash', attack: '$award.attack']),
+                    new BasicDBObject('$group', [_id: null, ids: [$addToSet: '$user_id'], defense: [$sum: '$defense'], steal: [$sum: '$steal'], exp: [$sum: '$exp'], coin: [$sum: '$coin'], diamond: [$sum: '$diamond'], cash: [$sum: '$cash'], attack: [$sum: '$attack']]) //top N 算法
+            ]).results().each { row ->
+                def ids = row.removeField("ids") as List
+                row.put("user_count", ids.size())
+                row.put("total_count", count)
+                row.put("_id", _id)
+                row.put("type", type)
+                row.put("timestamp", timeBetween.get(BEGIN))
+                award_daily_logs.update($$('_id', _id), row, true, false)
+            }
+        }
+    }
+
+    /**
+     * 家族贡献领奖：family_award
+     */
+    static void statics_family_award() {
+        def timeBetween = getTimeBetween()
+        def YMD = new Date(timeBetween.get(BEGIN)).format("yyyyMMdd")
+        def _id = YMD + "_family_award"
+        def query = $$([type: 'family_award', "timestamp": getTimeBetween()])
+        def count = award_logs.count(query) as Number
+        award_logs.aggregate([
+                new BasicDBObject('$match', query),
+                new BasicDBObject('$project', [user_id: '$user_id', award: '$award']),
+                new BasicDBObject('$group', [_id: null, ids: [$addToSet: '$user_id'], diamond: [$sum: '$award']]) //top N 算法
         ]).results().each { row ->
             def ids = row.removeField("ids") as List
             row.put("user_count", ids.size())
             row.put("total_count", count)
             row.put("_id", _id)
-            row.put("type", "open_card")
+            row.put("type", "family_award")
             row.put("timestamp", timeBetween.get(BEGIN))
             award_daily_logs.update($$('_id', _id), row, true, false)
         }
     }
-
-
-    /**
-     * 寻宝统计，type: family_event
-     */
-    static void statics_family_event() {
-        def timeBetween = getTimeBetween()
-        def YMD = new Date(timeBetween.get(BEGIN)).format("yyyyMMdd")
-        def _id = YMD + "_family_event"
-        def query = new BasicDBObject(["status": 4, "users.0": [$exists: 1], "timestamp": getTimeBetween()])
-        def count = family_event_logs.count(query) as Number //寻宝次数
-        family_event_logs.aggregate([
-            new BasicDBObject('$match', query),
-            new BasicDBObject('$project', [rewards: '$rewards']),
-            new BasicDBObject('$group', [_id: null, rewards: [$addToSet: '$rewards']])
-        ]).results().each { row ->
-            def record = [:]
-            def uids = [] as Set
-            row.get("rewards").each { BasicDBObject reward ->
-                uids.add(reward.removeField("_id"))
-                reward.each {String key, Integer value ->
-                    Integer val = record.get(key) == null ? 0 : record.get(key) as Integer
-                    record.put(key, val + value)
-                }
-            }
-            record.put("user_count", uids.size())
-            record.put("total_count", count)
-            record.put("_id", _id)
-            record.put("type", "family_event")
-            record.put("timestamp", timeBetween.get(BEGIN))
-            award_daily_logs.update($$('_id', _id), $$(record), true, false)
-        }
-    }
-
 
     final static Integer day = 0;
 
     static void main(String[] args) {
         long l = System.currentTimeMillis()
         long begin = l
-        statics_open_card()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${UserAwardDailyStat.class.getSimpleName()},statics_open_card cost  ${System.currentTimeMillis() - l} ms"
+        statics_award()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${UserAwardDailyStat.class.getSimpleName()},statics_award cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         l = System.currentTimeMillis()
-        statics_family_event()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${UserAwardDailyStat.class.getSimpleName()},statics_family_event cost  ${System.currentTimeMillis() - l} ms"
+        statics_family_award()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${UserAwardDailyStat.class.getSimpleName()},statics_family_award cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
         jobFinish(begin)
     }
@@ -133,9 +126,9 @@ class UserAwardDailyStat {
      * @return
      */
     private static jobFinish(Long begin) {
-        def timerName = 'DiamondDailyStat'
+        def timerName = 'UserAwardDailyStat'
         Long totalCost = System.currentTimeMillis() - begin
-//        saveTimerLogs(timerName, totalCost)
+        saveTimerLogs(timerName, totalCost)
         println "${new Date().format('yyyy-MM-dd')}:${UserAwardDailyStat.class.getSimpleName()}:finish  cost time:  ${System.currentTimeMillis() - begin} ms"
     }
 
