@@ -46,6 +46,10 @@ class StaticsEveryDay {
     static Long yesTday = zeroMill - DAY_MILLON
     static String YMD = new Date(yesTday).format("yyyyMMdd")
 
+    //手续费比例
+    static Map<String, Double> PAY_RATES = ['itunes': 0.7]
+    static String QD_DEFAULT = 'laihou_default'
+
     static DBCollection coll = mongo.getDB('xy_admin').getCollection('stat_daily')
     static DBCollection room_cost_DB = mongo.getDB("xylog").getCollection("room_cost")
     static DBCollection finance_log_DB = mongo.getDB('xy_admin').getCollection('finance_log')
@@ -130,7 +134,10 @@ class StaticsEveryDay {
                 .toArray()
 
         def total = new BigDecimal(0)
+        def total_cut = new BigDecimal(0)
         def totalCoin = new AtomicLong()
+        def charge_coin = new AtomicLong()
+        def hand_coin = new AtomicLong()
 
         def pays = MapWithDefault.<String, PayType> newInstance(new HashMap()) { new PayType() }
         Double android_recharge = 0d
@@ -149,7 +156,7 @@ class StaticsEveryDay {
             if (user == null) {
                 return
             }
-            def qd = user.containsField('qd') ? user['qd'] : 'aiwan_default'
+            def qd = user.containsField('qd') ? user['qd'] : QD_DEFAULT
             // client = 2 android 4 ios
             def channel = channels.findOne($$('_id': qd), $$('client': 1))
             def client = channel.containsField('client') ? channel['client'] as Integer : 2
@@ -168,6 +175,7 @@ class StaticsEveryDay {
             if (cny != null) {
                 cny = new BigDecimal(cny)
                 total = total.add(cny)
+                total_cut = total_cut.add(cny.multiply(PAY_RATES.get(via) ?: 1))
                 payType.cny = payType.cny.add(cny)
                 // 统计android和ios的充值金额
                 if (client == 2) {
@@ -182,12 +190,20 @@ class StaticsEveryDay {
             if (coin) {
                 totalCoin.addAndGet(coin)
                 payType.coin.addAndGet(coin)
+                if (!via.equals('Admin')) {
+                    charge_coin.addAndGet(coin)
+                } else {
+                    hand_coin.addAndGet(coin)
+                }
             }
         }
         def obj = new BasicDBObject(
                 _id: "${YMD}_finance".toString(),
-                total: total.doubleValue(),
-                total_coin: totalCoin,
+                total: total.doubleValue(), //总充值额度
+                total_cut: total_cut.doubleValue(), //预收款
+                total_coin: totalCoin, //总钻石
+                charge_coin: charge_coin, //充值加钻
+                hand_coin: hand_coin, //手动加钻
                 type: 'finance',
                 android_recharge: android_recharge,
                 ios_recharge: ios_recharge,
@@ -206,26 +222,26 @@ class StaticsEveryDay {
     static userRemainByAggregate() {
         def coin = 0
         def bean = 0
-        users.aggregate(
-                new BasicDBObject('$match', new BasicDBObject('finance.coin_count': [$gt: 0])),
-                new BasicDBObject('$project', [coin: '$finance.coin_count']),
+        users.aggregate([
+                new BasicDBObject('$match', new BasicDBObject('finance.diamond_count': [$gt: 0])),
+                new BasicDBObject('$project', [coin: '$finance.diamond_count']),
                 new BasicDBObject('$group', [_id: null, coin: [$sum: '$coin']])
-        ).results().each { BasicDBObject obj ->
+        ]).results().each { BasicDBObject obj ->
             coin = obj.get('coin') as Long
         }
-        users.aggregate(
+        /*users.aggregate(
                 new BasicDBObject('$match', new BasicDBObject('finance.bean_count': [$gt: 0])),
                 new BasicDBObject('$project', [bean: '$finance.bean_count']),
                 new BasicDBObject('$group', [_id: null, bean: [$sum: '$bean']])
         ).results().each { BasicDBObject obj ->
             bean = obj.get('bean') as Long
-        }
+        }*/
         //println "userRemainByAggregate totalcoin:---->:${coin}"
         //println "userRemainByAggregate totalbean:---->:${bean}"
         [coin: coin, bean: bean]
     }
 
-    //TODO
+    //TODO 统计钻石消费
     static costStatics() {
         def cost = dayCost() as Map
         def remain = userRemainByAggregate()
@@ -499,13 +515,13 @@ class StaticsEveryDay {
         def prefix = date.format('yyyyMMdd_')
         //运营统计报表
         def stat_report = mongo.getDB('xy_admin').getCollection('stat_report')
-        // 查询充值信息
+        // 查询充值渠道、人数等信息
         def pay = coll.findOne(new BasicDBObject(_id: "${prefix}allpay".toString()))
-        // 查询充值柠檬
+        // 查询充值额度信息
         def pay_coin = coll.findOne(new BasicDBObject(_id: "${prefix}finance".toString()))
         // 查询注册人数
         def regs = users.count(new BasicDBObject(timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON]))
-        // 查询消费信息
+        // 查询消费人数
         def cost = coll.findOne(new BasicDBObject(_id: "${prefix}allcost".toString()))
         def map = new HashMap()
         map.put('type', 'allreport')

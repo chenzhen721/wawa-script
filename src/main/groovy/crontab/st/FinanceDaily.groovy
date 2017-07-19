@@ -1,13 +1,15 @@
 #!/usr/bin/env groovy
 package crontab.st
 
-import com.mongodb.*
+import com.mongodb.BasicDBObject
+import com.mongodb.DBCollection
 @Grapes([
         @Grab('org.mongodb:mongo-java-driver:2.14.2'),
         @Grab('commons-lang:commons-lang:2.6'),
         @Grab('redis.clients:jedis:2.1.0'),
 ])
 import com.mongodb.Mongo
+import com.mongodb.MongoURI
 
 /**
  * 每日充值消费报表（财务-真实柠檬币比例）
@@ -33,46 +35,31 @@ class FinanceDaily {
 
     static historyMongo = new Mongo(new MongoURI(getProperties('mongo_history.uri', 'mongodb://192.168.31.246:27017/?w=1') as String))
 
-    static DB historyDB = historyMongo.getDB('xylog_history')
-//    static DBCollection coll = mongo.getDB('xy_admin').getCollection('stat_month')
-    static DBCollection finance_dailyReport = mongo.getDB('xy_admin').getCollection('finance_dailyReport')
     static DBCollection finance_daily_log = mongo.getDB('xy_admin').getCollection('finance_daily_log')
-    static DBCollection channel_pay = mongo.getDB('xy_admin').getCollection('channel_pay')
     static DBCollection stat_daily = mongo.getDB('xy_admin').getCollection('stat_daily')
-    static DBCollection applys = mongo.getDB('xy_admin').getCollection('applys')
-    //static DBCollection family_award_log = mongo.getDB('xy_family').getCollection('award_log')
     static DBCollection finance_log = mongo.getDB('xy_admin').getCollection('finance_log')
-    static DBCollection games_DB = mongo.getDB('xy_admin').getCollection('games')
+    static DBCollection award_daily_logs = mongo.getDB('xy_admin').getCollection('stat_award_daily')
 
     static DAY_MILLON = 24 * 3600 * 1000L
     static long zeroMill = new Date().clearTime().getTime()
     static Long yesTday = zeroMill - DAY_MILLON
-    static MIN_MILLS = 60 * 1000L
-
-    def static List<DBObject> dailyReportList = null;
-    def static List<DBObject> statDailyList = null;
-    def static Map<String, String> payKeys = new HashMap<>(50);
-    def static Set<Integer> stars = new HashSet<>(5000);
 
     //比较每日统计和用户剩余柠檬快照差额 邮件报警
     static Long EMAIL_THRESHOLD = 3500
-    //手续费比例
-    def static Map<String, Double> PAY_RATES = ['itunes': 0.7]
-    static {
-        //initChargeKeys();
-        //initStars();
+    static BEGIN = '$gte'
+    private static Map getTimeBetween() {
+        def gteMill = yesTday - day * DAY_MILLON
+        return [$gte: gteMill, $lt: gteMill + DAY_MILLON]
     }
 
     //财务每日统计
-    def static Boolean financeDayStatic(Long begin) {
-        Long end = begin + DAY_MILLON * 2
+    static Boolean financeDayStatic(Long begin) {
+        def timebtn = getTimeBetween()
+        begin = timebtn[BEGIN]
+        Long end = begin + DAY_MILLON
         String ymd = new Date(begin).format("yyyyMMdd")
 
         def timebetween = [timestamp: [$gte: begin, $lt: end]]
-
-        //初始化工作
-        getDailyReportList(timebetween)
-        getStatDaily(timebetween)
 
         //统计充值相关
         def charge = charge_total(timebetween)
@@ -83,35 +70,41 @@ class FinanceDaily {
 
         //本月期初结余=上月期末结余
         def begin_surplus = lastDaySurplus(begin)
-        //充值新增柠檬
-        Long charge_coin = charge['charge_coin'] as Long
-        //非充值新增柠檬 (非充值手段新增的柠檬，如玩游戏) + 手动加币
+
+        //新增钻石(所有的)
         def inc = increase(timebetween)
-        def inc_coin = (inc['total'] as Number) + (charge['hand_coin'] as Number)
-
-        //运营后台扣币
-        def hand_cut_coin = sumDailyReportData('hand_cut_coin')
-
-        //总新增柠檬= 充值新增柠檬 + 非充值新增柠檬- 运营后台减币
-        def inc_total = charge_coin + inc_coin - hand_cut_coin
+        //充值新增钻石
+        Long charge_coin = inc['user_pay'] as Long
+        //非充值新增钻石 (非充值手段新增的钻石，如玩游戏) + 手动加币
+        def inc_coin = (inc['total'] as Number) - charge_coin
 
         //总消费柠檬
         def dec = decrease(timebetween)
         def dec_total = dec['total'] as Number
+        //运营后台扣币
+        def hand_cut_coin = dec['hand_cut_diamond'] as Number
+
+        //总新增柠檬= 充值新增柠檬 + 非充值新增柠檬- 运营后台减币
+        def inc_total = (inc['total'] as Number) - hand_cut_coin
 
         //期末柠檬余额=上月期末节约 + 增加的柠檬 - 总消费柠檬
         def end_surplus = begin_surplus + inc_total - dec_total
 
         //今日消费差额 = 总新增柠檬 - 总消费柠檬
         def today_balance = inc_total - dec_total
+
         //今日用户剩余柠檬快照
-        Long remain = userRemain(begin);
+        Long remain = userRemain(begin)
+
         //昨日用户剩余柠檬快照
-        Long yesterday_remain = userRemain(begin - DAY_MILLON);
+        Long yesterday_remain = userRemain(begin - DAY_MILLON)
+
         //用户剩余柠檬快照差额 = 今日用户剩余柠檬快照 - /昨日用户剩余柠檬快照
-        def remian_balance = remain - yesterday_remain;
+        def remian_balance = remain - yesterday_remain
+
         //比较统计和快照差额
-        Long balance = today_balance - remian_balance;
+        Long balance = today_balance - remian_balance
+
         def obj = new BasicDBObject(
                 inc: inc,
                 dec: dec,
@@ -133,7 +126,6 @@ class FinanceDaily {
                 date: ymd,
                 timestamp: begin
         )
-        //println "save : ${ym}"
         finance_daily_log.update($$(_id: "${ymd}_finance".toString()), new BasicDBObject('$set', obj), true, false)
 
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')} from ${new Date(begin).format("yyyy-MM-dd HH:mm:ss")} to ${new Date(end).format("yyyy-MM-dd HH:mm:ss")}".toString()
@@ -145,98 +137,35 @@ class FinanceDaily {
     }
 
     static BasicDBObject charge_total(Map timebetween) {
-        Map data = new HashMap();
-        charge(data, timebetween);
-        def incData = $$(data);
+        Map data = new HashMap()
+        charge(data, timebetween)
+        def incData = $$(data)
         return incData
-    }
-
-    static Long getRemain(Map timebetween) {
-        return sumDailyReportData('total_coin')
     }
 
     static BasicDBObject increase(Map timebetween) {
         Number totalCoin = 0
-        Map data = new HashMap();
-        // 签到
-        totalCoin += warpDataFromDaliyReport('login_coin', data)
-        // 新手任务
-        totalCoin += warpDataFromDaliyReport('mission_coin', data)
-        // 游戏获得
-        totalCoin += warpDataFromDaliyReport('game_coin', data)
-        // 红包获得
-        totalCoin += warpDataFromDaliyReport('red_packet_coin', data)
-
-        def game_inc_map = new HashMap()
-        def red_packet_inc_map = new HashMap()
-        dailyReportList.each {
-            BasicDBObject obj ->
-                // 游戏赢币
-                if (obj.containsField('game_inc')) {
-                    def node = obj['game_inc']
-                    for (String key : node.keySet()) {
-                        def v = node[key] as Integer
-                        Integer tmp = 0
-                        if (game_inc_map.containsKey(key)) {
-                            tmp = game_inc_map[key] as Integer
-                        }
-                        def current_sum = tmp + v
-                        game_inc_map.put(key, current_sum)
-                    }
-                }
-
-                // 红包拿币
-                if(obj.containsField('red_packet_inc')){
-                    def node = obj['red_packet_inc']
-                    for (String key : node.keySet()) {
-                        def v = node[key] as Integer
-                        Integer tmp = 0
-                        if (red_packet_inc_map.containsKey(key)) {
-                            tmp = red_packet_inc_map[key] as Integer
-                        }
-                        def current_sum = tmp + v
-                        red_packet_inc_map.put(key, current_sum)
-                    }
-                }
+        Map data = new HashMap()
+        def query = $$(timebetween).putAll(status: 0, diamond: [$exists: true])
+        award_daily_logs.find(query, $$(type: 1, diamond: 1)).toArray().each {BasicDBObject obj ->
+            totalCoin += obj.get('diamond') as Long
+            data.put(obj.get('type'), obj.get('diamond'))
         }
-
-        def incData = $$('total': totalCoin, 'game': game_inc_map,'red_packet':red_packet_inc_map);
-        incData.putAll(data);
+        def incData = $$('total': totalCoin)
+        incData.putAll(data)
         return incData
     }
 
-    //礼物 + 游戏下注 + 红包解锁
-    private static final List<String> COST_FIELDS = ['send_gift']
-
     static BasicDBObject decrease(Map timebetween) {
         Number totalCoin = 0
-        Map data = new HashMap();
-        COST_FIELDS.each { String field ->
-            totalCoin += warpDataFromStatDaily(field, data)
+        Map data = new HashMap()
+        def query = $$(timebetween).putAll(status: 1, diamond: [$exists: true])
+        award_daily_logs.find(query, $$(type: 1, diamond: 1)).toArray().each {BasicDBObject obj ->
+            totalCoin += obj.get('diamond') as Long
+            data.put(obj.get('type'), obj.get('diamond'))
         }
-
-        totalCoin += warpDataFromDaliyReport('game_spend_coin', data)
-        totalCoin += warpDataFromDaliyReport('unlock_spend_coin', data)
-
-        def dec_map = new HashMap()
-        dailyReportList.each {
-            BasicDBObject obj ->
-                if (obj.containsField('game_dec')) {
-                    def node = obj['game_dec']
-                    for (String key : node.keySet()) {
-                        def v = node[key] as Integer
-                        Integer tmp = 0
-                        if (dec_map.containsKey(key)) {
-                            tmp = dec_map[key] as Integer
-                        }
-                        def current_sum = tmp + v
-                        dec_map.put(key, current_sum)
-                    }
-                }
-        }
-
-        def decData = $$('total': totalCoin, 'game': dec_map);
-        decData.putAll(data);
+        def decData = $$('total': totalCoin)
+        decData.putAll(data)
         return decData
     }
 
@@ -245,48 +174,14 @@ class FinanceDaily {
      * @return
      */
     static charge(Map data, Map timebetween) {
-        def query = $$(timebetween)
-        def financeList = finance_log.find(query).toArray()
-        //扣费充值金额
-        def total_cny = new BigDecimal(0)
-        //扣费充值金额
-        def cut_total_cny = new BigDecimal(0)
-        //充值柠檬
-        def charge_coin = new BigDecimal(0)
-        //总柠檬
-        def total_coin = new BigDecimal(0)
-        //手动加币
-        def hand_coin = new BigDecimal(0)
-        financeList.each { DBObject finance ->
-            String via = (finance['via'] ?: '') as String
-            Double cny = new BigDecimal((finance['cny'] ?: 0.0d) as Double)
-            total_coin = total_coin.add(new BigDecimal((finance['coin'] ?: 0) as Long))
-            if (!via.equals('Admin')) {
-                charge_coin = charge_coin.add(new BigDecimal((finance['coin'] ?: 0) as Long))
-                total_cny = total_cny.add(cny)
-            } else {
-                hand_coin = hand_coin.add(new BigDecimal((finance['coin'] ?: 0) as Long))
-            }
-            Double rate = PAY_RATES.get(via) ?: 1
-            //Double cut_cny = cny - (((cny * 100) * rate)/ 100)
-            Double cut_cny = cny * rate
-            cut_total_cny = cut_total_cny.add(cut_cny)
-        }
-        data.put('charge_cny', total_cny.toDouble() as Long)
-        data.put('cut_charge_cny', cut_total_cny.toDouble() as Long)
-        data.put('charge_coin', charge_coin.toLong())
-        data.put('total_coin', total_coin.toLong())
-        data.put('hand_coin', hand_coin.toLong())
-    }
+        def YMD = timebetween['timestamp'][BEGIN]
+        def result = stat_daily.findOne($$(_id: "${YMD}_finance".toString()))
 
-    static Long aggregate(DBCollection col, List<DBObject> pipeline) {
-        Long total = 0;
-        def res = col.aggregate(pipeline).results().iterator()
-        while (res.hasNext()) {
-            def log = res.next()
-            total = log['total'] as Long
-        }
-        return total
+        data.put('charge_cny', result.get('total'))
+        data.put('cut_charge_cny', result.get('total_cut'))
+        data.put('charge_coin', result.get('charge_coin'))
+        data.put('total_coin', result.get('total_coin'))
+        data.put('hand_coin', result.get('hand_coin'))
     }
 
     static Long lastDaySurplus(Long begin) {
@@ -298,131 +193,27 @@ class FinanceDaily {
 
     static Long userRemain(Long begin) {
         String ymd = new Date(begin).format("yyyyMMdd")
-        def last_day = finance_dailyReport.findOne($$(_id: "finance_${ymd}".toString()))
-        return (last_day?.get('total_coin') ?: 0) as Long;
-    }
-
-    static Long warpDataFromDaliyReport(String field, Map data) {
-        def coin = sumDailyReportData(field)
-        data[field] = coin
-        return coin
-    }
-
-    static Long sumDailyReportData(final String field) {
-        if (dailyReportList == null || dailyReportList.size() <= 0) return 0;
-        return dailyReportList.sum {
-            it[field] ?: 0
-        } as Long
-    }
-
-    static void getDailyReportList(Map timebetween) {
-        dailyReportList = finance_dailyReport.find($$(timebetween)).toArray();
-    }
-
-    //初始化充值pay key
-    static void initChargeKeys() {
-        //获得充值类型为代充的方式
-        channel_pay.find($$(charge_type: '2')).toArray().each {
-            String key = it['_id'] as String
-            payKeys[key.toLowerCase()] = it['charge_type'] ?: "1"
+        def last_day = stat_daily.findOne($$(_id: "${ymd}_allcost".toString()))
+        if (last_day != null && last_day['user_remain'] != null) {
+            return last_day['user_remain']['diamond'] as Long
         }
+        return 0L
     }
 
-    @Deprecated
-    /**
-     * 爱玩直播没有这个统计
-     */
-    /*static Long gameInfo(Map timebetween, Map data) {
-        Long game_total = 0;
-        def game = new HashMap();
-        //翻牌柠檬的奖励
-        Long card_total = sumDailyReportData('card_coin')
-        game.put('open_card', card_total)
-        game_total += card_total
-
-        //砸蛋只统计直接获得柠檬的奖励
-        Long egg_total = sumDailyReportData('egg_coin')
-        game.put('open_egg', egg_total)
-        game_total += egg_total
-
-        //砸蛋只统计直接获得柠檬的奖励
-        Long egg_bingo_total = sumDailyReportData('egg_bingo_coin')
-        game.put('open_bingo_egg', egg_bingo_total)
-        game_total += egg_bingo_total
-
-        //点球只统计直接获得柠檬的奖励
-        Long football_total = sumDailyReportData('football_coin')
-        game.put('football_shoot', football_total)
-        game_total += football_total
-
-        data.put('game_total', game_total)
-        data.put('game', game)
-        return game_total
-    }*/
-
-    private static final Integer GIFT_PRICE = 5000
-
-    /*static Long familyAwardCoin(Map timebetween, Map data) {
-        def query = $$(timebetween)
-        def sum = (family_award_log.find(query, $$(count: 1)).toArray().sum {
-            it['count'] ?: 0
-        } as Long ?: 0l)
-        def total = sum * GIFT_PRICE
-        data.put('family_award_price', total)
-        return total
-    }*/
-
-
-    static void getStatDaily(Map timebetween) {
-        statDailyList = stat_daily.find($$(timebetween).append('type', "allcost")).toArray();
-    }
-
-    static Long warpDataFromStatDaily(String field, Map data) {
-        def total = (statDailyList.sum {
-            def fields = (it[field] ?: Collections.emptyMap()) as Map
-            return (fields['cost'] ?: 0) as Long
-        } as Long ?: 0)
-        data.put(field, total)
-        return total;
-    }
-
-
-    private static Calendar getCalendar() {
-        Calendar cal = Calendar.getInstance()//获取当前日期
-        cal.set(Calendar.DAY_OF_MONTH, 1)//设置为1号,当前日期既为本月第一天
-        cal.set(Calendar.HOUR_OF_DAY, 0)
-        cal.set(Calendar.MINUTE, 0)
-        cal.set(Calendar.SECOND, 0)
-        cal.set(Calendar.MILLISECOND, 0)
-        return cal
-    }
-
-
-    public static BasicDBObject $$(String key, Object value) {
-        return new BasicDBObject(key, value);
-    }
-
-    public static BasicDBObject $$(Map map) {
-        return new BasicDBObject(map)
-    }
+    final static Integer day = 0
 
     static void main(String[] args) {
         long l = System.currentTimeMillis()
         //生成历史财务报表
-
-/*        int beginDay = 60
-        def date = Date.parse("yyyy-MM-dd HH:mm:ss" ,"2016-10-20 00:00:00")
-        while(beginDay-- > 0){
-            Long begin = date.getTime()
-            if(begin >= new Date().clearTime().getTime()){
-                break;
-            }
-            financeDayStatic(begin)
-            date = date+1;
-        }*/
-
         Boolean needEmailNotify = financeDayStatic(yesTday)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}:${FinanceDaily.class.getSimpleName()}:finish  cost time: ${System.currentTimeMillis() - l} ms : needEmailNotify:${needEmailNotify}"
     }
 
+    static BasicDBObject $$(String key, Object value) {
+        return new BasicDBObject(key, value)
+    }
+
+    static BasicDBObject $$(Map map) {
+        return new BasicDBObject(map)
+    }
 }

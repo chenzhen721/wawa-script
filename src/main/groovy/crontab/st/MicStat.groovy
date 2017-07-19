@@ -49,28 +49,34 @@ class MicStat {
         def timebetween = getTimeBetween()
         def YMD = new Date(timeBetween.get(BEGIN)).format("yyyyMMdd")
         def mics = micLog.count($$('data.type': 'on_mic', 'timestamp': timebetween)) //总上麦人次
-        def collect = micLog.aggregate([
+        def duration = new Duration()
+        micLog.aggregate([
                 $$('$match', ['timestamp': timebetween]),
                 $$('$project', [roomId: '$room', userId: '$data.mic_user', type: '$data.type', timestamp: '$timestamp']),
-                $$('$group', [_id: [roomId: '$roomId', userId: '$userId'], type: '$type', timestamp: '$timestamp']),
-                $$('$sort', [timestamp: -1])
-        ]).results().collect() as List
-        //判断首尾是否符合要求
-        if (collect.size() > 0) {
-            def obj = collect.get(0) as BasicDBObject
-            if ('close_mic' == obj.get('type')) {
-                collect.add(0, [_id: obj.get('_id'), type: 'on_mic', timestamp: timebetween.get(BEGIN)])
-            }
-            obj = collect.get(collect.size() - 1) as BasicDBObject
-            if ('on_mic' == obj.get('type')) {
-                collect.add(0, [_id: obj.get('_id'), type: 'close_mic', timestamp: (timebetween.get(END) as Long) - 1])
+                $$('$sort', ['timestamp': -1]),
+                $$('$group', [_id: [roomId: '$roomId', userId: '$userId'], type: ['$push': '$type'], timestamp: ['$push': '$timestamp']]),
+        ]).results().each { row ->
+            def types = row['type'] as ArrayList
+            def timestamps = row['timestamp'] as ArrayList
+            if (types != null && timestamps != null && types.size() > 0 && types?.size() == timestamps?.size()) {
+                if ('close_mic' == types[0]) {
+                    types.add(0, 'on_mic')
+                    timestamps.add(0, timebetween.get(BEGIN))
+                }
+                if ('on_mic' == types[types.size() - 1]) {
+                    types.add('close_mic')
+                    timestamps.add((timebetween.get(END) as Long) - 1)
+                }
+                duration.rooms.add(row['_id']['roomId'])
+                duration.users.add(row['_id']['userId'])
+                for (int i = 0; i < types.size() - 1; i++) {
+                    duration.filter([type: types[i], timestamp: timestamps[i]])
+                }
             }
         }
-        def duration = new Duration()
-        collect.collect { duration.filter(it) }
         def result = [total_count: mics, type: 'on_mic', timestamp: timebetween.get(BEGIN)] as Map
         result.putAll(duration.toMap())
-        mic_logs.update($$('_id', "${YMD}_mic"), $$(result), true, false)
+        mic_logs.update($$('_id', "${YMD}_mic".toString()), $$(result), true, false)
     }
 
     static class Duration {
@@ -81,13 +87,6 @@ class MicStat {
         Long begin
 
         void filter(def map) {
-            def id = map['_id']
-            if (id != null && id['roomId'] != null) {
-                rooms.add(id['roomId'])
-            }
-            if (id != null && id['userId'] != null) {
-                users.add(id['userId'])
-            }
             if ('on_mic' == map['type']) {
                 begin = map['timestamp'] as Long
             }

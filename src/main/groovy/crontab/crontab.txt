@@ -20,7 +20,7 @@
 05 02 * * * root source /etc/profile && /empty/crontab/UserAwardDailyStat.groovy >> /empty/crontab/logs/UserAwardDailyStat.log &
 
 ### 统计运营数据
-1 1 * * * root source /etc/profile && /root/crontab/StaticsEveryDay.groovy  >> /empty/crontab/logs/star_StaticsEveryDay.log &
+1 1 * * * root source /etc/profile && /empty/crontab/StaticsEveryDay.groovy  >> /empty/crontab/logs/star_StaticsEveryDay.log &
 
 ### 发言统计
 05 01 * * * root source /etc/profile && /empty/crontab/MicStat.groovy >> /empty/crontab/logs/MicStat.log &
