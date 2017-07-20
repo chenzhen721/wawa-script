@@ -57,6 +57,7 @@ class DailyReport {
         def YMD = new Date(timeBetween.get(BEGIN)).format("yyyyMMdd")
         def remain = userRemainByAggregate()
         def result = [type: 'allcost', timestamp: timeBetween.get(BEGIN), user_remain: remain]
+        println YMD
         award_daily_logs.update($$(_id: "${YMD}_allcost".toString()), $$(result), true, false)
     }
 
@@ -252,7 +253,7 @@ class DailyReport {
             award_daily_logs.update($$('_id', _id), row, true, false)
         }
         result.putAll([user_cost: [cost: costs, user: users.size()]])
-        award_daily_logs.update($$(_id: "${YMD}_allcost".toString()), $$(result), true, false)
+        award_daily_logs.update($$(_id: "${YMD}_allcost".toString()), $$($set: result), true, false)
     }
 
     /**

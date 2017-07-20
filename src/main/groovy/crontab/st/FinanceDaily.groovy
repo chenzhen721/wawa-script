@@ -257,7 +257,7 @@ class FinanceDaily {
         return 0L
     }
 
-    final static Integer day = 0
+    static Integer day = 0
 
     static void main(String[] args) {
         long l = System.currentTimeMillis()
