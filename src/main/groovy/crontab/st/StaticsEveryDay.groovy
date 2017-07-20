@@ -554,7 +554,7 @@ class StaticsEveryDay {
 
         //01.充值的日报表
         l = System.currentTimeMillis()
-        financeStatics()
+        financeStatics(DAY)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   financeStatics, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
