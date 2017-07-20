@@ -217,7 +217,7 @@ class DailyReport {
             row.put("_id", _id)
             row.put("type", type)
             row.put("timestamp", timeBetween.get(BEGIN))
-            row.put("status", 1)
+            row.put("status", 0)
             award_daily_logs.update($$('_id', _id), row, true, false)
         }
     }
@@ -288,11 +288,11 @@ class DailyReport {
     static void statics_cash_apply() {
         def timeBetween = getTimeBetween()
         def YMD = new Date(timeBetween.get(BEGIN)).format('yyyyMMdd')
-        def query = new BasicDBObject(timestamp: timeBetween)
+        def query = new BasicDBObject(status: [$ne: 3], timestamp: timeBetween)
         cash_apply_logs.aggregate([
                 new BasicDBObject('$match', query),
-                new BasicDBObject('$project', [status: '$status', user_id: '$user_id', cash: '$amount', expend: '$income']),
-                new BasicDBObject('$group', [_id: '$status', count: [$sum: 1], ids: [$addToSet: '$user_id'], cash: [$sum: '$cash']])
+                new BasicDBObject('$project', [user_id: '$user_id', cash: '$amount', expend: '$income']),
+                new BasicDBObject('$group', [count: [$sum: 1], ids: [$addToSet: '$user_id'], cash: [$sum: '$cash']])
         ]).results().each { row ->
             def type = 'apply_cash'
             def _id = "${YMD}_${type}".toString()
