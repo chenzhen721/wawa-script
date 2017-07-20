@@ -189,7 +189,7 @@ class FinanceDaily {
         def f = $$("type", 1)
         f.put(field, 1)
         award_daily_logs.find(query, f).toArray().each {BasicDBObject obj ->
-            totalCoin += obj.get(field) as Long
+            totalCoin += (obj.get(field)?:0) as Long
             data.put(obj.get('type'), obj.get(field))
         }
         def incData = $$('total': totalCoin)
@@ -206,7 +206,7 @@ class FinanceDaily {
         def f = $$("type", 1)
         f.put(field, 1)
         award_daily_logs.find(query, f).toArray().each {BasicDBObject obj ->
-            totalCoin += obj.get(field) as Long
+            totalCoin += (obj.get(field)?:0) as Long
             data.put(obj.get('type'), obj.get(field))
         }
         def decData = $$('total': totalCoin)
@@ -220,8 +220,8 @@ class FinanceDaily {
         def query = $$(timebetween)
         query.putAll(type: 'apply_agree')
         award_daily_logs.find(query, $$(type: 1, cash: 1, expand: 1)).toArray().each {BasicDBObject obj ->
-            cash += obj.get('cash') as Long
-            expand += obj.get('expand') as Long
+            cash += (obj.get('cash')?:0) as Long
+            expand += (obj.get('expand')?:0) as Long
         }
         return [total_cash: cash, total_expand: expand]
     }
@@ -252,7 +252,7 @@ class FinanceDaily {
         String ymd = new Date(begin).format("yyyyMMdd")
         def last_day = stat_daily.findOne($$(_id: "${ymd}_allcost".toString()))
         if (last_day != null && last_day['user_remain'] != null) {
-            return last_day['user_remain'][field] as Long
+            return (last_day['user_remain'][field] ?:0) as Long
         }
         return 0L
     }
