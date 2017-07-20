@@ -177,11 +177,11 @@ class FinanceDaily {
         def YMD = timebetween['timestamp'][BEGIN]
         def result = stat_daily.findOne($$(_id: "${YMD}_finance".toString()))
 
-        data.put('charge_cny', result?.get('total'))
-        data.put('cut_charge_cny', result?.get('total_cut'))
-        data.put('charge_coin', result?.get('charge_coin'))
-        data.put('total_coin', result?.get('total_coin'))
-        data.put('hand_coin', result?.get('hand_coin'))
+        data.put('charge_cny', result?.get('total')?:0)
+        data.put('cut_charge_cny', result?.get('total_cut')?:0)
+        data.put('charge_coin', result?.get('charge_coin')?:0)
+        data.put('total_coin', result?.get('total_coin')?:0)
+        data.put('hand_coin', result?.get('hand_coin')?:0)
     }
 
     static Long lastDaySurplus(Long begin) {
