@@ -109,7 +109,7 @@ class FinanceDaily {
         def inc_cash = increase(timebetween, 'cash')
         def inc_total_cash = (inc_cash['total']?:0) as Long
         //消耗现金
-        def dec_cash = decrease(timeBetween, 'cash')
+        def dec_cash = decrease(timebetween, 'cash')
         def dec_total_cash = (dec_cash['total']?:0) as Long
         //当日提现支出（提现审核通过，提现金额，扣税金额，实发（目前取不到））
         def cash_pay = cash_pay()
