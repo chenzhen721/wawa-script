@@ -129,8 +129,10 @@ class StaticsEveryDay {
      * 充值统计
      * @return
      */
-    static financeStatics() {
-        def list = mongo.getDB('xy_admin').getCollection('finance_log').find(new BasicDBObject(timestamp: [$gte: yesTday, $lt: zeroMill]))
+    static financeStatics(int i) {
+        def begin = yesTday - i * DAY_MILLON
+        def end = begin + DAY_MILLON
+        def list = mongo.getDB('xy_admin').getCollection('finance_log').find(new BasicDBObject(timestamp: [$gte: begin, $lt: end]))
                 .toArray()
 
         def total = new BigDecimal(0)
@@ -211,7 +213,7 @@ class StaticsEveryDay {
                 ios_recharge_count: ios_recharge_set.size(),
                 android_recharge_count: android_recharge_set.size(),
                 other_recharge_count: other_recharge_set.size(),
-                timestamp: yesTday
+                timestamp: begin
         )
         pays.each { String key, PayType type -> obj.put(StringUtils.isBlank(key) ? '' : key.toLowerCase(), type.toMap()) }
 
