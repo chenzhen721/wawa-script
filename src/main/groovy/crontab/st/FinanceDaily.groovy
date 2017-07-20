@@ -112,7 +112,7 @@ class FinanceDaily {
         def dec_cash = decrease(timebetween, 'cash')
         def dec_total_cash = (dec_cash['total']?:0) as Long
         //当日提现支出（提现审核通过，提现金额，扣税金额，实发（目前取不到））
-        def cash_pay = cash_pay()
+        def cash_pay = cash_pay(timebetween)
         //本期初结余=上期末结余
         def cash_begin_surplus = lastDaySurplus(begin, CASH_END_SURPLUS)
         //期末现金余额= 上期末节余 + 增加的现金 - 总消费现金
