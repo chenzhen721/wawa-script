@@ -64,7 +64,7 @@ class DailyReport {
         def coin = 0
         def cash = 0
         users.aggregate([
-                new BasicDBObject('$match', $$($or: ['finance.diamond_count': [$gt: 0], 'finance.cash_count': [$gt: 0]])),
+                new BasicDBObject('$match', $$($or: [['finance.diamond_count': [$gt: 0]], ['finance.cash_count': [$gt: 0]]])),
                 new BasicDBObject('$project', [coin: '$finance.diamond_count', cash: '$finance.cash_count']),
                 new BasicDBObject('$group', [_id: null, coin: [$sum: '$coin'], cash: [$sum: '$cash']])
         ]).results().each { BasicDBObject obj ->
@@ -331,7 +331,7 @@ class DailyReport {
         }
     }
 
-    final static Integer day = 0
+    static Integer day = 0
 
     static void main(String[] args) {
         long l = System.currentTimeMillis()
