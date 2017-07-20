@@ -183,8 +183,12 @@ class FinanceDaily {
     static BasicDBObject increase(Map timebetween, String field) {
         Number totalCoin = 0
         Map data = new HashMap()
-        def query = $$(timebetween).putAll(status: 0, "$field".toString(): [$exists: true])
-        award_daily_logs.find(query, $$(type: 1, "$field".toString(): 1)).toArray().each {BasicDBObject obj ->
+        def query = $$(timebetween)
+        query.put("status", 0)
+        query.put(field, [$exists: true])
+        def f = $$("type", 1)
+        f.put(field, 1)
+        award_daily_logs.find(query, f).toArray().each {BasicDBObject obj ->
             totalCoin += obj.get(field) as Long
             data.put(obj.get('type'), obj.get(field))
         }
@@ -197,8 +201,11 @@ class FinanceDaily {
         Number totalCoin = 0
         Map data = new HashMap()
         def query = $$(timebetween)
-        query.putAll(status: 1, "$field".toString(): [$exists: true])
-        award_daily_logs.find(query, $$(type: 1, "$field".toString(): 1)).toArray().each {BasicDBObject obj ->
+        query.put("status", 1)
+        query.put(field, [$exists: true])
+        def f = $$("type", 1)
+        f.put(field, 1)
+        award_daily_logs.find(query, f).toArray().each {BasicDBObject obj ->
             totalCoin += obj.get(field) as Long
             data.put(obj.get('type'), obj.get(field))
         }
