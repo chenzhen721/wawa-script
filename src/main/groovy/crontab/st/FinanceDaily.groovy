@@ -159,7 +159,8 @@ class FinanceDaily {
     static BasicDBObject decrease(Map timebetween) {
         Number totalCoin = 0
         Map data = new HashMap()
-        def query = $$(timebetween).putAll(status: 1, diamond: [$exists: true])
+        def query = $$(timebetween)
+        query.putAll(status: 1, diamond: [$exists: true])
         award_daily_logs.find(query, $$(type: 1, diamond: 1)).toArray().each {BasicDBObject obj ->
             totalCoin += obj.get('diamond') as Long
             data.put(obj.get('type'), obj.get('diamond'))
