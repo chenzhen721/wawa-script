@@ -131,6 +131,7 @@ class StaticsEveryDay {
     static financeStatics(int i) {
         def begin = yesTday - i * DAY_MILLON
         def end = begin + DAY_MILLON
+        def YMD = new Date(begin).format('yyyyMMdd')
         def list = mongo.getDB('xy_admin').getCollection('finance_log').find(new BasicDBObject(timestamp: [$gte: begin, $lt: end]))
                 .toArray()
 

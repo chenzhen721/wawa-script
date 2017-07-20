@@ -78,7 +78,7 @@ class FinanceDaily {
 
         //总消费钻石
         def dec = decrease(timebetween, 'diamond')
-        def dec_total = dec['total'] as Number
+        def dec_total = (dec['total']?:0) as Number
         //运营后台减钻
         def hand_cut_coin = (dec['hand_cut_diamond']?:0) as Number
 
