@@ -292,7 +292,7 @@ class DailyReport {
         cash_apply_logs.aggregate([
                 new BasicDBObject('$match', query),
                 new BasicDBObject('$project', [user_id: '$user_id', cash: '$amount', expend: '$income']),
-                new BasicDBObject('$group', [count: [$sum: 1], ids: [$addToSet: '$user_id'], cash: [$sum: '$cash']])
+                new BasicDBObject('$group', [_id: null, count: [$sum: 1], ids: [$addToSet: '$user_id'], cash: [$sum: '$cash']])
         ]).results().each { row ->
             def type = 'apply_cash'
             def _id = "${YMD}_${type}".toString()
