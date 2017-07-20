@@ -74,7 +74,7 @@ class FinanceDaily {
         //充值新增钻石
         Long charge_coin = (inc['user_pay']?:0) as Long
         //非充值新增钻石 (非充值手段新增的钻石，如玩游戏,手动加币)
-        def inc_coin = (inc['total'] as Number) - charge_coin
+        def inc_coin = ((inc['total']?:0) as Number) - charge_coin
 
         //总消费钻石
         def dec = decrease(timebetween, 'diamond')
@@ -83,7 +83,7 @@ class FinanceDaily {
         def hand_cut_coin = (dec['hand_cut_diamond']?:0) as Number
 
         //总新增钻石= 新增钻石 - 运营后台减钻
-        def inc_total = (inc['total'] as Number) - hand_cut_coin
+        def inc_total = ((inc['total']?:0) as Number) - hand_cut_coin
 
         //本期初结余=上期末结余
         def begin_surplus = lastDaySurplus(begin, END_SURPLUS)

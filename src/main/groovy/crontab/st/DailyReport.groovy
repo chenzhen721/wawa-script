@@ -166,7 +166,7 @@ class DailyReport {
 
     /**
      * 充值得钻石：user_pay
-     * 后台加钻石：hand_coin
+     * 后台加钻石：hand_diamond
      */
     static void statics_pay() {
         def timeBetween = getTimeBetween()
