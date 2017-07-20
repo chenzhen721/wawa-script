@@ -51,7 +51,6 @@ class StaticsEveryDay {
     static String QD_DEFAULT = 'laihou_default'
 
     static DBCollection coll = mongo.getDB('xy_admin').getCollection('stat_daily')
-    static DBCollection room_cost_DB = mongo.getDB("xylog").getCollection("room_cost")
     static DBCollection finance_log_DB = mongo.getDB('xy_admin').getCollection('finance_log')
     static DBCollection users = mongo.getDB('xy').getCollection('users')
     static DBCollection channel_pay_DB = mongo.getDB('xy_admin').getCollection('channel_pay')
@@ -219,41 +218,6 @@ class StaticsEveryDay {
 
         coll.save(obj)
 
-    }
-
-    static userRemainByAggregate() {
-        def coin = 0
-        def bean = 0
-        users.aggregate([
-                new BasicDBObject('$match', new BasicDBObject('finance.diamond_count': [$gt: 0])),
-                new BasicDBObject('$project', [coin: '$finance.diamond_count']),
-                new BasicDBObject('$group', [_id: null, coin: [$sum: '$coin']])
-        ]).results().each { BasicDBObject obj ->
-            coin = obj.get('coin') as Long
-        }
-        /*users.aggregate(
-                new BasicDBObject('$match', new BasicDBObject('finance.bean_count': [$gt: 0])),
-                new BasicDBObject('$project', [bean: '$finance.bean_count']),
-                new BasicDBObject('$group', [_id: null, bean: [$sum: '$bean']])
-        ).results().each { BasicDBObject obj ->
-            bean = obj.get('bean') as Long
-        }*/
-        //println "userRemainByAggregate totalcoin:---->:${coin}"
-        //println "userRemainByAggregate totalbean:---->:${bean}"
-        [coin: coin, bean: bean]
-    }
-
-    //TODO 统计钻石消费
-    static costStatics() {
-        def cost = dayCost() as Map
-        def remain = userRemainByAggregate()
-        cost.putAll([
-                _id        : YMD + '_allcost',
-                type       : 'allcost',
-                user_remain: remain,
-                timestamp  : yesTday
-        ])
-        coll.save(new BasicDBObject(cost))
     }
 
     //充值统计(充值方式划分)
