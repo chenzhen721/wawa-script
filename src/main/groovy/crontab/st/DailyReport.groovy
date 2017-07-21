@@ -266,7 +266,7 @@ class DailyReport {
 
         ops_log.aggregate([
                 new BasicDBObject('$match', query),
-                new BasicDBObject('$project', [user_id: '$data.user_id', diamond: '$coin']),
+                new BasicDBObject('$project', [user_id: '$data.user_id', diamond: '$data.coin']),
                 new BasicDBObject('$group', [_id: null, count: [$sum: 1], ids: [$addToSet: '$user_id'], diamond: [$sum: '$diamond']])
         ]).results().each { row ->
             def type = "hand_cut_diamond"
@@ -337,7 +337,7 @@ class DailyReport {
     static void main(String[] args) {
         long l = System.currentTimeMillis()
         long begin = l
-        user_snapshot()
+        /*user_snapshot()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},user_snapshot cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
@@ -375,14 +375,14 @@ class DailyReport {
         l = System.currentTimeMillis()
         statics_diamond_cost()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_diamond_cost cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
+        Thread.sleep(1000L)*/
 
         l = System.currentTimeMillis()
         statics_hand_cut_diamond()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_hand_cut_diamond cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
-        l = System.currentTimeMillis()
+        /*l = System.currentTimeMillis()
         statics_cash_apply()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_cash_apply cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
@@ -391,7 +391,7 @@ class DailyReport {
         l = System.currentTimeMillis()
         statics_cash_agree()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_cash_agree cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
+        Thread.sleep(1000L)*/
 
         jobFinish(begin)
     }
