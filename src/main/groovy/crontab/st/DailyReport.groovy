@@ -35,7 +35,6 @@ class DailyReport {
     static DBCollection finance_log = mongo.getDB('xy_admin').getCollection('finance_log') //充值日志
     static DBCollection cash_cost_logs = mongo.getDB('xylog').getCollection('cash_cost_logs') //现金花费日志
     static DBCollection diamond_cost_logs = mongo.getDB('xylog').getCollection('diamond_cost_logs') //钻石消耗日志
-    static DBCollection cash_logs = mongo.getDB('xylog').getCollection('cash_logs') //提现操作日志
     static DBCollection cash_apply_logs = mongo.getDB('xy_admin').getCollection('cash_apply_logs') //提现操作日志
     static DBCollection ops_log = mongo.getDB('xy_admin').getCollection('ops') //后台操作日志
     static DBCollection users = mongo.getDB('xy').getCollection('users')
@@ -50,29 +49,6 @@ class DailyReport {
     private static Map getTimeBetween() {
         def gteMill = yesTday - day * DAY_MILLON
         return [$gte: gteMill, $lt: gteMill + DAY_MILLON]
-    }
-
-    static void user_snapshot() {
-        def timeBetween = getTimeBetween()
-        def YMD = new Date(timeBetween.get(BEGIN)).format("yyyyMMdd")
-        def remain = userRemainByAggregate()
-        def result = [type: 'allcost', timestamp: timeBetween.get(BEGIN), user_remain: remain]
-        println YMD
-        award_daily_logs.update($$(_id: "${YMD}_allcost".toString()), $$(result), true, false)
-    }
-
-    static userRemainByAggregate() {
-        def coin = 0
-        def cash = 0
-        users.aggregate([
-                new BasicDBObject('$match', $$($or: [['finance.diamond_count': [$gt: 0]], ['finance.cash_count': [$gt: 0]]])),
-                new BasicDBObject('$project', [coin: '$finance.diamond_count', cash: '$finance.cash_count']),
-                new BasicDBObject('$group', [_id: null, coin: [$sum: '$coin'], cash: [$sum: '$cash']])
-        ]).results().each { BasicDBObject obj ->
-            coin = obj.get('coin') as Long
-            cash = obj.get('cash') as Long
-        }
-        [diamond: coin, cash: cash]
     }
 
     //==========================增加钻石、现金、道具等============================
@@ -337,10 +313,6 @@ class DailyReport {
     static void main(String[] args) {
         long l = System.currentTimeMillis()
         long begin = l
-        /*user_snapshot()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},user_snapshot cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
         l = System.currentTimeMillis()
         statics_award()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_award cost  ${System.currentTimeMillis() - l} ms"
@@ -375,14 +347,14 @@ class DailyReport {
         l = System.currentTimeMillis()
         statics_diamond_cost()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_diamond_cost cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)*/
+        Thread.sleep(1000L)
 
         l = System.currentTimeMillis()
         statics_hand_cut_diamond()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_hand_cut_diamond cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
-        /*l = System.currentTimeMillis()
+        l = System.currentTimeMillis()
         statics_cash_apply()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_cash_apply cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
@@ -391,7 +363,7 @@ class DailyReport {
         l = System.currentTimeMillis()
         statics_cash_agree()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_cash_agree cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)*/
+        Thread.sleep(1000L)
 
         jobFinish(begin)
     }

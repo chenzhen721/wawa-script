@@ -188,7 +188,7 @@ class StaticsEveryDay {
                     other_recharge += cny
                 }
             }
-            def coin = obj.get('coin') as Long
+            def coin = obj.get('diamond') as Long
             if (coin) {
                 totalCoin.addAndGet(coin)
                 payType.coin.addAndGet(coin)
@@ -289,11 +289,11 @@ class StaticsEveryDay {
         Long begin = yesTday - i * DAY_MILLON
         def timeBetween = [$gte: begin, $lt: begin + DAY_MILLON]
         def logMap = new HashMap(), payuids = new HashSet(), qdList = []
-        //查询当天充值的所有用户及充值金额、获得的柠檬数、充值次数
+        //查询当天充值的所有用户及充值金额、获得的钻石数、充值次数
         finance_log.aggregate(
                 new BasicDBObject('$match', [via: [$ne: 'Admin'], timestamp: timeBetween]),
-                new BasicDBObject('$project', [user_id: '$user_id', to_id: '$to_id', coin: '$coin', cny: '$cny', count: '$count', qd: '$qd']),
-                new BasicDBObject('$group', [_id: [fid: '$user_id', tid: '$to_id'], qd: [$first: '$qd'], coin: [$sum: '$coin'], cny: [$sum: '$cny'], count: [$sum: 1]])
+                new BasicDBObject('$project', [user_id: '$user_id', to_id: '$to_id', diamond: '$diamond', cny: '$cny', count: '$count', qd: '$qd']),
+                new BasicDBObject('$group', [_id: [fid: '$user_id', tid: '$to_id'], qd: [$first: '$qd'], coin: [$sum: '$diamond'], cny: [$sum: '$cny'], count: [$sum: 1]])
         ).results().each { BasicDBObject logObj ->
             def id = logObj.remove('_id') as Map
             def fid = id.get('fid') as Integer
