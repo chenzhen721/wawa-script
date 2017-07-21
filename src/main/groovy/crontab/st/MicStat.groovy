@@ -31,7 +31,7 @@ class MicStat {
     }
 
     static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
-    static micLog = mongo.getDB('xylog').getCollection('mic_log')
+    static mic_log = mongo.getDB('xylog').getCollection('mic_log')
     //写log
     static DBCollection mic_logs = mongo.getDB('xy_admin').getCollection('stat_mic')
 
@@ -48,13 +48,13 @@ class MicStat {
     static statics() {
         def timebetween = getTimeBetween()
         def YMD = new Date(timeBetween.get(BEGIN)).format("yyyyMMdd")
-        def mics = micLog.count($$('data.type': 'on_mic', 'timestamp': timebetween)) //总上麦人次
+        def mics = 0 //总上麦人次
         def duration = new Duration()
-        micLog.aggregate([
+        mic_log.aggregate([
                 $$('$match', ['timestamp': timebetween]),
                 $$('$project', [roomId: '$room', userId: '$data.mic_user', type: '$data.type', timestamp: '$timestamp']),
                 $$('$sort', ['timestamp': -1]),
-                $$('$group', [_id: [roomId: '$roomId', userId: '$userId'], type: ['$push': '$type'], timestamp: ['$push': '$timestamp']]),
+                $$('$group', [_id: [roomId: '$roomId', userId: '$userId'], total_count: [$sum: 1], type: ['$push': '$type'], timestamp: ['$push': '$timestamp']]),
         ]).results().each { row ->
             def types = row['type'] as ArrayList
             def timestamps = row['timestamp'] as ArrayList
@@ -73,6 +73,7 @@ class MicStat {
                     duration.filter([type: types[i], timestamp: timestamps[i]])
                 }
             }
+            mics += row['total_count']?:0
         }
         def result = [total_count: mics, type: 'on_mic', timestamp: timebetween.get(BEGIN)] as Map
         result.putAll(duration.toMap())
