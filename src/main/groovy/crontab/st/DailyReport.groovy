@@ -51,12 +51,32 @@ class DailyReport {
         return [$gte: gteMill, $lt: gteMill + DAY_MILLON]
     }
 
+    //对现金日志进行日志补偿
+    static void cash_log_task() {
+        def field = award_logs.getName()
+        users.find($$(field + '.timestamp', [$lt: getTimeBetween().get('$lt')]), $$(field, 1))
+                .limit(50).toArray().each { user ->
+            List logs = user.get(field) as List
+            def uid = new BasicDBObject('_id', user.get('_id'))
+            if (logs) {
+                logs.each { BasicDBObject log ->
+                    def _id = log.get('_id')
+                    if (award_logs.save(log).getN() == 1) {
+                        users.update(uid, new BasicDBObject('$pull', new BasicDBObject(field, [_id: _id])))
+                        println "clean ${field} : ${log}"
+                    }
+                }
+            }
+        }
+    }
+
     //==========================增加钻石、现金、道具等============================
     /**
      * 翻牌统计：open_card
      * 寻宝（挖矿）统计: family_event
      * 道具使用统计：use_item
      * 新人奖励统计（目前只有现金奖励）：new_user
+     * 新手引导奖励（目前只有现金奖励）: user_guide
      */
     static void statics_award() {
         def timeBetween = getTimeBetween()
@@ -313,6 +333,11 @@ class DailyReport {
     static void main(String[] args) {
         long l = System.currentTimeMillis()
         long begin = l
+        l = System.currentTimeMillis()
+        cash_log_task()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},cash_log_task cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
         l = System.currentTimeMillis()
         statics_award()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_award cost  ${System.currentTimeMillis() - l} ms"
