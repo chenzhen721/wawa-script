@@ -46,37 +46,15 @@ class StaticsEveryDay {
     static Long yesTday = zeroMill - DAY_MILLON
     static String YMD = new Date(yesTday).format("yyyyMMdd")
 
+    //手续费比例
+    static Map<String, Double> PAY_RATES = ['itunes': 0.7]
+    static String QD_DEFAULT = 'laihou_default'
+
     static DBCollection coll = mongo.getDB('xy_admin').getCollection('stat_daily')
-    static DBCollection room_cost_DB = mongo.getDB("xylog").getCollection("room_cost")
     static DBCollection finance_log_DB = mongo.getDB('xy_admin').getCollection('finance_log')
     static DBCollection users = mongo.getDB('xy').getCollection('users')
     static DBCollection channel_pay_DB = mongo.getDB('xy_admin').getCollection('channel_pay')
     static DBCollection channels = mongo.getDB('xy_admin').getCollection('channels')
-    static DBCollection games_DB = mongo.getDB('xy_admin').getCollection('games')
-    static DBCollection unlock_red_packet_DB = mongo.getDB('game_log').getCollection('unlock_logs')
-    static DBCollection user_bet_DB = mongo.getDB('game_log').getCollection('user_bet')
-    static DBCollection user_lottery_DB = mongo.getDB('game_log').getCollection('user_lottery')
-    static DBCollection game_round_DB = mongo.getDB('game_log').getCollection('game_round')
-    static String DEFAULT_QD = 'aiwan_default'
-
-    static giftStatics() {
-
-        def res = room_cost_DB.aggregate(
-                new BasicDBObject('$match', [type: "send_gift", timestamp: [$gte: yesTday, $lte: zeroMill]]),
-                new BasicDBObject('$project', [_id: '$session.data._id', name: '$session.data.name', count: '$session.data.count', cost: '$cost']),
-                new BasicDBObject('$group', [_id: '$_id', name: [$first: '$name'], count: [$sum: '$count'], cost: [$sum: '$cost']])
-        )
-        Iterator records = res.results().iterator();
-        while (records.hasNext()) {
-            def obj = records.next()
-            obj.gift_id = obj._id
-            obj.type = "gift_detail"
-            obj._id = "${YMD}_gift_detail_${obj._id}".toString()
-            obj.timestamp = yesTday
-            coll.save(obj)
-        }
-    }
-
 
     static loginStatics(int i) {
         // yesTday 昨天凌晨 - 1天 = 前天凌晨
@@ -150,12 +128,18 @@ class StaticsEveryDay {
      * 充值统计
      * @return
      */
-    static financeStatics() {
-        def list = mongo.getDB('xy_admin').getCollection('finance_log').find(new BasicDBObject(timestamp: [$gte: yesTday, $lt: zeroMill]))
+    static financeStatics(int i) {
+        def begin = yesTday - i * DAY_MILLON
+        def end = begin + DAY_MILLON
+        def YMD = new Date(begin).format('yyyyMMdd')
+        def list = mongo.getDB('xy_admin').getCollection('finance_log').find(new BasicDBObject(timestamp: [$gte: begin, $lt: end]))
                 .toArray()
 
         def total = new BigDecimal(0)
+        def total_cut = new BigDecimal(0)
         def totalCoin = new AtomicLong()
+        def charge_coin = new AtomicLong()
+        def hand_coin = new AtomicLong()
 
         def pays = MapWithDefault.<String, PayType> newInstance(new HashMap()) { new PayType() }
         Double android_recharge = 0d
@@ -174,7 +158,7 @@ class StaticsEveryDay {
             if (user == null) {
                 return
             }
-            def qd = user.containsField('qd') ? user['qd'] : 'aiwan_default'
+            def qd = user.containsField('qd') ? user['qd'] : QD_DEFAULT
             // client = 2 android 4 ios
             def channel = channels.findOne($$('_id': qd), $$('client': 1))
             def client = channel.containsField('client') ? channel['client'] as Integer : 2
@@ -193,6 +177,7 @@ class StaticsEveryDay {
             if (cny != null) {
                 cny = new BigDecimal(cny)
                 total = total.add(cny)
+                total_cut = total_cut.add(cny.multiply(PAY_RATES.get(via) ?: 1))
                 payType.cny = payType.cny.add(cny)
                 // 统计android和ios的充值金额
                 if (client == 2) {
@@ -203,16 +188,24 @@ class StaticsEveryDay {
                     other_recharge += cny
                 }
             }
-            def coin = obj.get('coin') as Long
+            def coin = obj.get('diamond') as Long
             if (coin) {
                 totalCoin.addAndGet(coin)
                 payType.coin.addAndGet(coin)
+                if (!via.equals('Admin')) {
+                    charge_coin.addAndGet(coin)
+                } else {
+                    hand_coin.addAndGet(coin)
+                }
             }
         }
         def obj = new BasicDBObject(
                 _id: "${YMD}_finance".toString(),
-                total: total.doubleValue(),
-                total_coin: totalCoin,
+                total: total.doubleValue(), //总充值额度
+                total_cut: total_cut.doubleValue(), //预收款
+                total_coin: totalCoin, //总钻石
+                charge_coin: charge_coin, //充值加钻
+                hand_coin: hand_coin, //手动加钻
                 type: 'finance',
                 android_recharge: android_recharge,
                 ios_recharge: ios_recharge,
@@ -220,156 +213,12 @@ class StaticsEveryDay {
                 ios_recharge_count: ios_recharge_set.size(),
                 android_recharge_count: android_recharge_set.size(),
                 other_recharge_count: other_recharge_set.size(),
-                timestamp: yesTday
+                timestamp: begin
         )
         pays.each { String key, PayType type -> obj.put(StringUtils.isBlank(key) ? '' : key.toLowerCase(), type.toMap()) }
 
         coll.save(obj)
 
-    }
-    static Set dianXin = ['SZX-NET', 'UNICOM-NET', 'TELECOM-NET '] as HashSet
-
-    static String getCat(Map obj) {
-        String via = obj.get('via')
-        String shop
-        if ('Admin'.equals(via)) {
-            return "1"
-        } else if ('ali_pc'.equals(via)) {
-            return '5'
-        } else if ('Ipay'.equals(via) || 'ali_m'.equals(via)) {
-            return '7'
-        } else if ((shop = obj.get('shop')) != null) {
-            if (shop.endsWith('-B2C')) {//银行 2
-                return "2"
-            } else if (dianXin.contains(shop)) { // 电信卡3
-                return "3"
-            } else if (shop.endsWith('-NET')) {//4.游戏点卡
-                return "4"
-            }
-        }
-
-        return '7'
-    }
-
-    public static BasicDBObject $$(String key, Object value) {
-        return new BasicDBObject(key, value);
-    }
-
-    public static BasicDBObject $$(Map map) {
-        return new BasicDBObject(map)
-    }
-
-    static weekstarStatic(int i) {
-        def gteMill = yesTday - i * DAY_MILLON
-        def YMD = new Date(gteMill).format("yyyyMMdd")
-        def timestamp = [$gte: gteMill, $lt: gteMill + DAY_MILLON]
-        //获取周星礼物
-        room_cost_DB.aggregate(
-                new BasicDBObject('$match', [type: 'send_gift', 'session.data.category_id': 210, timestamp: timestamp]),
-                new BasicDBObject('$project', [_id: '$session.data._id', name: '$session.data.name', count: '$session.data.count', cost: '$cost']),
-                new BasicDBObject('$group', [_id: '$_id', name: [$first: '$name'], count: [$sum: '$count'], cost: [$sum: '$cost']])
-        ).results().each { BasicDBObject obj ->
-            def _id = obj.remove('_id') as Integer
-            obj.put('gift_id', _id)
-            obj.put('type', 'week_stars')
-            obj.put('timestamp', gteMill)
-            obj.put('_id', "${YMD}_${_id}_week_stars".toString())
-            coll.save(obj)
-        }
-    }
-
-    static userRemainByAggregate() {
-        def coin = 0
-        def bean = 0
-        users.aggregate(
-                new BasicDBObject('$match', new BasicDBObject('finance.coin_count': [$gt: 0])),
-                new BasicDBObject('$project', [coin: '$finance.coin_count']),
-                new BasicDBObject('$group', [_id: null, coin: [$sum: '$coin']])
-        ).results().each { BasicDBObject obj ->
-            coin = obj.get('coin') as Long
-        }
-        users.aggregate(
-                new BasicDBObject('$match', new BasicDBObject('finance.bean_count': [$gt: 0])),
-                new BasicDBObject('$project', [bean: '$finance.bean_count']),
-                new BasicDBObject('$group', [_id: null, bean: [$sum: '$bean']])
-        ).results().each { BasicDBObject obj ->
-            bean = obj.get('bean') as Long
-        }
-        //println "userRemainByAggregate totalcoin:---->:${coin}"
-        //println "userRemainByAggregate totalbean:---->:${bean}"
-        [coin: coin, bean: bean]
-    }
-
-    static costStatics() {
-        def cost = dayCost() as Map
-        def remain = userRemainByAggregate()
-        cost.putAll([
-                _id        : YMD + '_allcost',
-                type       : 'allcost',
-                user_remain: remain,
-                timestamp  : yesTday
-        ])
-        coll.save(new BasicDBObject(cost))
-    }
-
-    /**
-     * 日虚拟币消耗
-     * @return
-     */
-    static dayCost() {
-        def q = new BasicDBObject('type': 'send_gift', 'timestamp': [$gte: yesTday, $lt: zeroMill])
-        def result = [:], costs = 0L, users = new HashSet()
-        room_cost_DB.aggregate(
-                new BasicDBObject('$match', q),
-                new BasicDBObject('$project', [type: '$type', cost: '$cost', user: '$session._id']),
-                new BasicDBObject('$group', [_id: '$type', cost: [$sum: '$cost'], user: [$addToSet: '$user']])
-        ).results().each { BasicDBObject obj ->
-            def type = obj.get('_id')
-            def cost = obj.get('cost') as Integer
-            cost = cost ?: 0
-            costs += cost
-            def user = obj.get('user') as Set
-            users.addAll(user)
-            result.put(type, [cost: cost, user: user.size()])
-        }
-
-        // 加入游戏下注的逻辑
-        def gameList = games_DB.find()
-        gameList.each {
-            def id = it._id as Integer
-            def game_cost = 0L
-            def query = $$('timestamp': [$gte: yesTday, $lt: zeroMill], 'game_id': id)
-            def field = $$('cost': 1, 'user_id': 1)
-            def list = user_bet_DB.find(query, field).toArray()
-            def game_user = new HashSet()
-            list.each {
-                BasicDBObject obj ->
-                    game_cost += obj['cost'] as Long
-                    users.add(obj['user_id'] as Integer)
-                    game_user.add(obj['user_id'] as Integer)
-            }
-            costs += game_cost
-            result.put(id.toString(), [cost: game_cost, user: game_user.size()])
-        }
-
-        // 加入解锁红包的逻辑
-        def query = $$('timestamp': [$gte: yesTday, $lt: zeroMill])
-        def unlock_cost = 0L
-        def unlock_user = new HashSet()
-        unlock_red_packet_DB.find(query).each {
-            DBObject obj ->
-                def userId = obj['user_id'] as Integer
-                unlock_cost += obj['coin_count'] as Long
-                unlock_user.add(userId)
-                users.add(userId)
-        }
-        result.put('unlock', [cost: unlock_cost, user: unlock_user.size()])
-        costs += unlock_cost
-        // 对游戏和送礼加起来统计
-
-        result.put('user_cost', [cost: costs, user: users.size()])
-
-        return result
     }
 
     //充值统计(充值方式划分)
@@ -397,12 +246,12 @@ class StaticsEveryDay {
             PayStat all = new PayStat()
             PayStat delta = new PayStat()
             def cursor = finance_log_DB.find($$([timestamp: time, via: [$in: v.toArray()]]),
-                    new BasicDBObject(user_id: 1, cny: 1, coin: 1, timestamp: 1)).batchSize(50000)
+                    new BasicDBObject(user_id: 1, cny: 1, diamond: 1, timestamp: 1)).batchSize(50000)
             while (cursor.hasNext()) {
                 def obj = cursor.next()
                 def user_id = obj['user_id'] as String
                 def cny = new BigDecimal(((Number) obj.get('cny')).doubleValue())
-                def coin = obj.get('coin') as Long
+                def coin = obj.get('diamond') as Long
                 all.add(user_id, cny, coin)
                 total.add(user_id, cny, coin)
                 //该用户之前无充值记录或首冲记录为当天则算为当天新增用户
@@ -440,11 +289,11 @@ class StaticsEveryDay {
         Long begin = yesTday - i * DAY_MILLON
         def timeBetween = [$gte: begin, $lt: begin + DAY_MILLON]
         def logMap = new HashMap(), payuids = new HashSet(), qdList = []
-        //查询当天充值的所有用户及充值金额、获得的柠檬数、充值次数
+        //查询当天充值的所有用户及充值金额、获得的钻石数、充值次数
         finance_log.aggregate(
                 new BasicDBObject('$match', [via: [$ne: 'Admin'], timestamp: timeBetween]),
-                new BasicDBObject('$project', [user_id: '$user_id', to_id: '$to_id', coin: '$coin', cny: '$cny', count: '$count', qd: '$qd']),
-                new BasicDBObject('$group', [_id: [fid: '$user_id', tid: '$to_id'], qd: [$first: '$qd'], coin: [$sum: '$coin'], cny: [$sum: '$cny'], count: [$sum: 1]])
+                new BasicDBObject('$project', [user_id: '$user_id', to_id: '$to_id', diamond: '$diamond', cny: '$cny', count: '$count', qd: '$qd']),
+                new BasicDBObject('$group', [_id: [fid: '$user_id', tid: '$to_id'], qd: [$first: '$qd'], coin: [$sum: '$diamond'], cny: [$sum: '$cny'], count: [$sum: 1]])
         ).results().each { BasicDBObject logObj ->
             def id = logObj.remove('_id') as Map
             def fid = id.get('fid') as Integer
@@ -622,122 +471,6 @@ class StaticsEveryDay {
     }
 
     /**
-     * 统计每日签到人数和奖励信息（按渠道和版本划分）
-     * todo 爱玩只有签到日志 没有抽奖目前
-     * @param i
-     */
-//    static staticSign(int i) {
-//        long l = System.currentTimeMillis()
-//        def gteMill = yesTday - i * DAY_MILLON
-//        def date = new Date(gteMill)//
-//        def coll = mongo.getDB('xy_admin').getCollection('stat_sign')
-//        def day_login = mongo.getDB('xylog').getCollection('day_login')
-//        def lotterylog = mongo.getDB('xylog').getCollection('lottery_logs')
-//        def users = mongo.getDB('xy').getCollection('users')
-//        //查询签到抽奖情况
-//        def award_map = new HashMap()
-//        lotterylog.find(new BasicDBObject(active_name: 'sign_chest', timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON]))
-//                .toArray().each { BasicDBObject obj ->
-//            award_map.put(obj.get('user_id') as Integer, obj.get('award_name'))
-//        }
-//        def map = new HashMap<String, SignType>()
-//        day_login.find(new BasicDBObject($or: [[sign: true, sign_time: [$gte: gteMill, $lt: gteMill + DAY_MILLON]], [award: true, award_time: [$gte: gteMill, $lt: gteMill + DAY_MILLON]]]))
-//                .toArray().each { BasicDBObject obj ->
-//            def userId = obj.get('user_id') as Integer
-//            def user = users.findOne(new BasicDBObject(_id: userId), new BasicDBObject(app_ver: 1, qd: 1))
-//            def version = (user?.get('app_ver') ?: '0.0.0') as String
-//            def qd = (user?.get('qd') ?: 'MM') as String//default official
-//            def awardName = award_map.get(userId) as String
-//            def _id = "${qd}_${version}".toString()
-//            SignType signType = map.get(_id)
-//            if (signType == null) {
-//                signType = new SignType(qd, version)
-//                map.put(_id, signType)
-//            }
-//            signType.add(userId, awardName)
-//        }
-//        map.each { String k, SignType signType ->
-//            coll.update(new BasicDBObject(_id: "${date.format('yyyyMMdd')}_${k}".toString()),
-//                    new BasicDBObject(signType.toMap()).append('timestamp', gteMill), true, false)
-//        }
-//    }
-
-    /**
-     * 爱玩签到
-     * @param i
-     * @return
-     */
-    static staticSign(int i) {
-        def gteMill = yesTday - i * DAY_MILLON
-        def date = new Date(gteMill).format('yyyyMMdd')
-//        def coll = mongo.getDB('xy_admin').getCollection('stat_sign')
-        def sign_log = mongo.getDB('xylog').getCollection('sign_logs')
-        def map = new HashMap()
-        def total_count = 0
-        def total_coin = 0L
-        sign_log.aggregate(
-                $$('$match': $$('timestamp': [$gte: gteMill, $lt: gteMill + DAY_MILLON])),
-                $$('$project': $$('coin': '$coin', qd: '$qd', 'user_id': '$user_id')),
-                $$('$group': $$('_id': '$qd', 'coin': $$('$sum': '$coin'), 'users': $$('$addToSet': '$user_id')))
-        ).results().each {
-            BasicDBObject obj ->
-                def tmp = new HashMap()
-                def qd = obj['_id'] as String
-                // 如果渠道是null就算在aiwan_default上
-                if (StringUtils.isBlank(qd)) {
-                    qd = DEFAULT_QD
-                }
-                def users = obj['users'] as HashSet
-                def user_count = users.size()
-                def coin = obj['coin'] as Long
-                total_coin += coin
-                total_count += user_count
-                tmp.put('qd', qd)
-                tmp.put('user_count', user_count)
-                tmp.put('coin', coin)
-                // 将null的渠道归并到aiwan_default
-                if (map.containsKey(qd.toString())) {
-                    def v = map.get(qd.toString()) as Map
-                    def current_coin = v['coin'] as Long
-                    def current_count = v['user_count'] as Integer
-                    coin += current_coin
-                    user_count += current_count
-                    tmp.put('user_count', user_count)
-                    tmp.put('coin', coin)
-                }
-                map.put(qd.toString(), tmp)
-        }
-        def id = date + '_check_in'
-        def row = ['_id': id, 'timestamp': gteMill, 'qd': map, 'total_count': total_count, 'total_coin': total_coin, 'type': 'check_in']
-        coll.save($$(row))
-    }
-
-    static class SignType {
-        final String qd
-        final String version
-        def userList = new HashSet()
-        def awardMap = new HashMap<String, Integer>()
-
-        def SignType(String qd, String version) {
-            this.qd = qd
-            this.version = version
-        }
-
-        def add(Integer userId, String awardName) {
-            userList.add(userId)
-            if (StringUtils.isNotBlank(awardName)) {
-                Integer num = awardMap.get(awardName) ?: 0
-                num++
-                awardMap.put(awardName, num)
-            }
-        }
-
-        def toMap() {
-            [qd: qd, version: version, user_count: userList.size(), award: awardMap]
-        }
-    }
-
-    /**
      * 统计运营数据总表
      * @param i
      * @return
@@ -749,13 +482,13 @@ class StaticsEveryDay {
         def prefix = date.format('yyyyMMdd_')
         //运营统计报表
         def stat_report = mongo.getDB('xy_admin').getCollection('stat_report')
-        // 查询充值信息
+        // 查询充值渠道、人数等信息
         def pay = coll.findOne(new BasicDBObject(_id: "${prefix}allpay".toString()))
-        // 查询充值柠檬
+        // 查询充值额度信息
         def pay_coin = coll.findOne(new BasicDBObject(_id: "${prefix}finance".toString()))
         // 查询注册人数
         def regs = users.count(new BasicDBObject(timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON]))
-        // 查询消费信息
+        // 查询消费人数
         def cost = coll.findOne(new BasicDBObject(_id: "${prefix}allcost".toString()))
         def map = new HashMap()
         map.put('type', 'allreport')
@@ -777,306 +510,47 @@ class StaticsEveryDay {
         stat_report.update(new BasicDBObject(_id: "${prefix}allreport".toString()), new BasicDBObject(map), true, false)
     }
 
-    /**
-     * 特殊用户消费统计，该用户送礼物的主播及主播获得的维C
-     * 消费类型有：send_gift,grab_sofa,song,buy_guard,send_treasure,level_up,nest_send_gift等
-     * @param i
-     */
-    static staticMvp(int i) {
-        def begin = yesTday - i * DAY_MILLON
-        def timebetween = [$gte: begin, $lt: begin + DAY_MILLON]
-        def mvp = mongo.getDB('xy_admin').getCollection('mvps')
-        def stat_mvp = mongo.getDB('xy_admin').getCollection('stat_mvps')
-        def YMD = new Date(begin).format('yyyyMMdd_')
-        def ids = []
-        mvp.find(new BasicDBObject(type: 1), new BasicDBObject(timestamp: 0))
-                .toArray().each { BasicDBObject obj ->
-            ids.add(obj.get('user_id') as String)
-        }
-        if (ids.size() == 0) return
-        room_cost_DB.aggregate(
-                new BasicDBObject('$match', ['session._id'            : [$in: ids],
-                                             'session.data.xy_star_id': [$ne: null],
-                                             timestamp                : timebetween]),
-                new BasicDBObject('$project', [id    : '$session._id',
-                                               star  : '$session.data.xy_star_id',
-                                               cost  : '$star_cost',
-                                               earned: '$session.data.earned']),
-                new BasicDBObject('$group', [_id   : [id: '$id', star: '$star'],
-                                             cost  : ['$sum': '$cost'],
-                                             earned: ['$sum': '$earned']])
-        ).results().each { BasicDBObject obj ->
-            def id = obj.get('_id')['id'] as Integer
-            def star = obj.get('_id')['star'] as Integer
-            def cost = obj.get('cost') as Integer
-            def earned = obj.get('earned') as Integer
-            def update = new BasicDBObject()
-            update.putAll(user_id: id, star_id: star, cost: cost, star_earned: earned, type: 'mvp_cost', timestamp: begin)
-            stat_mvp.update(new BasicDBObject(_id: "${YMD}${id}_${star}".toString()), update, true, false)
-        }
-
-        //每日消费大于1000的用户
-        finance_log_DB.aggregate(
-                new BasicDBObject('$match', [via: [$ne: 'Admin'], timestamp: timebetween]),
-                new BasicDBObject('$project', [_id: '$user_id', cny: '$cny', coin: '$coin']),
-                new BasicDBObject('$group', [_id: '$_id', cny: [$sum: '$cny'], coin: [$sum: '$coin']]),
-                new BasicDBObject('$match', [cny: [$gte: 1000]]),
-                new BasicDBObject('$sort', [cny: -1])
-        ).results().each { BasicDBObject obj ->
-            def id = obj.removeField('_id') as Integer
-            def update = new BasicDBObject()
-            def cny = obj.get('cny')
-            def coin = obj.get('coin')
-            update.putAll(user_id: id, cny: cny, coin: coin, type: 'mvp_pay_most', timestamp: begin)
-            stat_mvp.update(new BasicDBObject(_id: "${YMD}${id}_vip".toString()), update, true, false)
-        }
-    }
-
-    /**
-     * 任务统计
-     * @param i
-     * @return
-     */
-    static missionStatic(int i) {
-        def begin = yesTday - i * DAY_MILLON
-        def YMD = new Date(begin).format('yyyyMMdd_')
-        def timebetween = [$gte: begin, $lt: begin + DAY_MILLON]
-        def mission = mongo.getDB('xylog').getCollection('mission_logs')
-        def row = new BasicDBObject()
-        mission.aggregate(
-                new BasicDBObject('$match', [timestamp: timebetween]),
-                new BasicDBObject('$project', [mission_id: '$mission_id', coin: '$coin']),
-                new BasicDBObject('$group', [_id: '$mission_id', count: [$sum: 1], coin: [$sum: '$coin']])
-        ).results().each { BasicDBObject obj ->
-            row.put(obj.removeField('_id').toString(), obj)
-        }
-        row._id = "${YMD}_mission".toString()
-        row.timestamp = begin
-        row.type = "mission"
-
-        coll.save(row)
-    }
-
-    /**
-     * 统计红包每天领取获得的阳光和现金 + 兑换换的阳光
-     * @param i
-     * @return
-     */
-    static redPacketStatic(int i) {
-        def begin = yesTday - i * DAY_MILLON
-        def YMD = new Date(begin).format('yyyyMMdd_')
-        def timebetween = [$gte: begin, $lt: begin + DAY_MILLON]
-        def red_packet_logs = mongo.getDB('game_log').getCollection('red_packet_logs')
-        def row = new BasicDBObject('system': ['coin_count': 0, 'cash_count': 0, users: 0], 'newcomer': ['coin_count': 0, 'cash_count': 0, users: 0], 'friend': ['coin_count': 0, 'cash_count': 0, users: 0], 'unlock': ['coin_count': 0, 'cash_count': 0, users: 0], 'exchange': ['coin_count': 0, 'cash_count': 0, users: 0],'apply':['coin_count': 0, 'cash_count': 0, users: 0])
-        red_packet_logs.aggregate(
-                new BasicDBObject('$match', [timestamp: timebetween]),
-                new BasicDBObject('$project', [type: '$type', coin_count: '$coin_count', cash_count: '$cash_count', user_id: '$user_id']),
-                new BasicDBObject('$group', [_id: '$type', coin_count: [$sum: '$coin_count'], cash_count: [$sum: '$cash_count'], users: [$addToSet: '$user_id']])
-        ).results().each { BasicDBObject obj ->
-            println("obj is ${obj}")
-            def type = obj.removeField('_id').toString()
-            Set<Integer> userList = obj['users'] as Set<Integer>
-            obj.put('users', userList.size())
-            row.put(type, obj)
-        }
-        println("row is ${row}")
-
-        // 兑换阳光
-        def red_packet_cost_logs = mongo.getDB('game_log').getCollection('red_packet_cost_logs')
-        red_packet_cost_logs.aggregate(
-                new BasicDBObject('$match', [timestamp: timebetween]),
-                new BasicDBObject('$project', [type: '$type', coin_count: '$coin_count', cash_count: '$cash_count', user_id: '$user_id']),
-                new BasicDBObject('$group', [_id: '$type', coin_count: [$sum: '$coin_count'], cash_count: [$sum: '$cash_count'], users: [$addToSet: '$user_id']])
-        ).results().each { BasicDBObject obj ->
-            def type = obj.removeField('_id').toString()
-            Set<Integer> userList = obj['users'] as Set<Integer>
-            obj.put('users', userList.size())
-            row.put(type, obj)
-        }
-
-        // 解锁阳光
-        def unlock_logs = mongo.getDB('game_log').getCollection('red_packet_unlock_logs')
-        unlock_logs.aggregate(
-                new BasicDBObject('$match', [timestamp: timebetween]),
-                new BasicDBObject('$project', [coin_count: '$coin_count', user_id: '$user_id']),
-                new BasicDBObject('$group', [_id: null, coin_count: [$sum: '$coin_count'], users: [$addToSet: '$user_id']])
-        ).results().each { BasicDBObject obj ->
-            Set<Integer> userList = obj['users'] as Set<Integer>
-            obj.put('users', userList.size())
-            row.put('unlock', obj)
-        }
-
-        // 好友数
-        def red_packet_friend_logs = mongo.getDB('game_log').getCollection('red_packet_friend_logs')
-        def count = red_packet_friend_logs.distinct('user_id', $$('timestamp': timebetween)).size()
-        row.put('friend_count', count)
-
-        // 提现
-        def red_packet_apply_logs = mongo.getDB('game_log').getCollection('red_packet_apply_logs')
-        red_packet_apply_logs.aggregate(
-                new BasicDBObject('$match', ['last_modify': timebetween, 'status': 2]),
-                new BasicDBObject('$project', [income: '$income', user_id: '$user_id']),
-                new BasicDBObject('$group', [_id: null, cash_count: [$sum: '$income'], users: [$addToSet: '$user_id']])
-        ).results().each { BasicDBObject obj ->
-            Set<Integer> userList = obj['users'] as Set<Integer>
-            obj.put('users', userList.size())
-            obj.remove('_id')
-            obj.put('coin_count',0)
-            row.put('apply', obj)
-        }
-
-        row.timestamp = begin
-        row.type = "red_packet"
-        coll.update(new BasicDBObject("_id", "${YMD}_red_packet".toString()), new BasicDBObject('$set', row), true, false)
-    }
-
-    /**
-     * 统计每个游戏每天有多少人玩过
-     * 统计每个有效游戏的局数
-     * 统计每个游戏每天下注金额
-     * 统计玩家输赢的总金额
-     */
-    static gameStatic() {
-        def timebetween = [$gte: yesTday, $lt: zeroMill]
-        def YMD = new Date(yesTday).format('yyyyMMdd_')
-        def gameList = games_DB.find()
-        def row = new BasicDBObject()
-        def playerTotal = new HashMap()
-        def roundTotal = new HashMap()
-        def betsTotal = new HashMap()
-        def lotteryTotal = new HashMap()
-        gameList.each {
-            it ->
-                def gameId = it._id as Integer
-                // 统计游戏参与人数
-                def query = $$('game_id': gameId, 'timestamp': timebetween)
-                def player_total = user_bet_DB.distinct('user_id', query)
-                def count = player_total.size()
-                playerTotal.put(gameId.toString(), count)
-
-                // 统计每个游戏下注情况
-                def list = user_bet_DB.find(query)
-                def bets_coin_total = 0
-                while (list.hasNext()) {
-                    def obj = list.next()
-                    def cost = obj['cost'] as Integer
-                    bets_coin_total += cost
-                }
-                betsTotal.put(gameId.toString(), bets_coin_total)
-
-                // 统计玩家赢得情况
-                def userLottery = user_lottery_DB.find(query)
-                def win = 0
-                while (userLottery.hasNext()) {
-                    def obj = userLottery.next()
-                    def coin = obj['coin'] as Integer
-                    if (coin >= 0) {
-                        win += coin
-                    }
-                }
-                lotteryTotal.put(gameId.toString(), win)
-
-                // 统计有效局数
-                def rounds = game_round_DB.find(query)
-                def total_player = 0
-                while (rounds.hasNext()) {
-                    def obj = rounds.next()
-                    if (obj.containsField('total_user_count')) {
-                        total_player += obj['total_user_count'] as Integer
-                    }
-                }
-                roundTotal.put(gameId.toString(), total_player)
-        }
-        row.player_total = playerTotal
-        row.round_total = roundTotal
-        row.bet_total = betsTotal
-        row.lottery_total = lotteryTotal
-        row._id = "${YMD}_game".toString()
-        row.timestamp = yesTday
-        row.type = "game"
-        coll.save(row)
-    }
 
     static Integer DAY = 0;
 
     static void main(String[] args) { //待优化，可以到历史表查询记录
         long l = System.currentTimeMillis()
-        //01.送礼日报表
         long begin = l
 
-        // 游戏统计
-        gameStatic()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   gameStatic, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-        giftStatics()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   giftStatics, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-        //04.充值的日报表
+        //01.充值的日报表
         l = System.currentTimeMillis()
-        financeStatics()
+        financeStatics(DAY)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   financeStatics, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
-        //05.登录的日报表
+        //02.登录的日报表
         l = System.currentTimeMillis()
         loginStatics(DAY)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   loginStatics, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
-        //10.房间消费日报表
-        l = System.currentTimeMillis()
-        costStatics()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   costStatics, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-        //14.用户充值日报表（充值方式划分）
+        //03.用户充值日报表（充值方式划分）
         l = System.currentTimeMillis()
         payStatics(DAY)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   payStatics, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
-        //15.用户登录活跃度统计
+        //04.用户登录活跃度统计
         l = System.currentTimeMillis()
         activeStatics(DAY)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   activeStatics, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
-        //17.用户充值日报表（用户注册渠道划分）
+        //05.用户充值日报表（用户注册渠道划分）
         l = System.currentTimeMillis()
         payStaticsByUserChannel(DAY)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   payStaticsByUserChannel, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
-        //18.签到统计
-        l = System.currentTimeMillis()
-        staticSign(DAY)
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   staticSign, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-        //19.运营数据总表
+        //06.运营数据总表
         l = System.currentTimeMillis()
         staticTotalReport(DAY)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   staticTotalReport, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-        //21.特殊用户统计,运营监控用户
-        l = System.currentTimeMillis()
-        staticMvp(DAY)
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   staticMvp, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-        //新手任务统计
-        l = System.currentTimeMillis()
-        missionStatic(DAY)
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   missionStatic, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-        // 红包获得统计
-        l = System.currentTimeMillis()
-        redPacketStatic(DAY)
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   redPacketStatic, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         //落地定时执行的日志
@@ -1101,6 +575,14 @@ class StaticsEveryDay {
         def id = timerName + "_" + new Date().format("yyyyMMdd")
         def update = new BasicDBObject(timer_name: timerName, cost_total: totalCost, cat: 'day', unit: 'ms', timestamp: tmp)
         timerLogsDB.findAndModify(new BasicDBObject('_id', id), null, null, false, new BasicDBObject('$set', update), true, true)
+    }
+
+    static BasicDBObject $$(String key, Object value) {
+        return new BasicDBObject(key, value);
+    }
+
+    static BasicDBObject $$(Map map) {
+        return new BasicDBObject(map)
     }
 
 }

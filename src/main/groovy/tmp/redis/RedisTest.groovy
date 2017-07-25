@@ -130,8 +130,7 @@ class RedisTest{
         mainRedis.hset('room:recommend:list:user', '2912313', '25974419_0')
         println mainRedis.hgetAll('room:recommend:list:user')*/
         //printZset('2016NianDuStar:race:star:rank:3', mainRedis)
-        println mainRedis.get("laihou:family:ack:1254788")
-        println mainRedis.ttl("laihou:family:ack:1254788")
+        println mainRedis.smembers("user:1201255:following")
     }
 
     static String[] keys = ['2016XuebiRace:race:user:rank:total']

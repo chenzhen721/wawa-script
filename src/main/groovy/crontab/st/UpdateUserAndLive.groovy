@@ -67,6 +67,7 @@ class UpdateUserAndLive {
     static users = mongo.getCollection("users")
     static orders = M.getDB("shop").getCollection('orders')
     static room_cost_coll = M.getDB('xylog').getCollection('room_cost')
+    static mic_log = M.getDB('xylog').getCollection('mic_log')
     static DBCollection familyDB = M.getDB('xyactive').getCollection('familys')
 
     static final String api_domain = getProperties("api.domain", "http://test-aiapi.memeyule.com/")
@@ -214,6 +215,7 @@ class UpdateUserAndLive {
             Integer mic_sec = (room?.get("mic_sec") ?: 0) as Integer
             println "room : ${roomId}, mic_first : ${mic_first}, mic_sec: ${mic_sec}".toString()
             Boolean isOffLive = Boolean.FALSE
+            def userId = null
             //检查是否心跳存在和推流状态
             def set = new BasicDBObject()
             def query = new BasicDBObject(_id:roomId as Integer)
@@ -221,15 +223,18 @@ class UpdateUserAndLive {
                 query.append('mic_first', mic_first)
                 set.append('mic_first', null)
                 isOffLive = Boolean.TRUE
+                userId = mic_first
             }
             if (mic_sec > 0 && !isLive(roomId.toString(), mic_sec)) {
                 query.append('mic_sec', mic_sec)
                 set.append('mic_sec', null)
                 isOffLive = Boolean.TRUE
+                userId = mic_sec
             }
             if(isOffLive){
                 rooms.update(query, new BasicDBObject('$set', set))
-
+                def obj = new BasicDBObject([timestamp: System.currentTimeMillis(), room: roomId, data: [type: 'close_mic', mic_user: userId], createdAt: new Date()])
+                mic_log.save(obj)
             }
 
         }
