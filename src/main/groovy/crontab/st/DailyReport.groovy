@@ -51,7 +51,10 @@ class DailyReport {
         return [$gte: gteMill, $lt: gteMill + DAY_MILLON]
     }
 
-    //对现金日志进行日志补偿
+    /**
+     * 对现金日志进行日志补偿, 首次翻卡发放奖励用到此补偿机制
+     * 参考： http://aiapi.memeyule.com/card/first_open
+     */
     static void cash_log_task() {
         def field = award_logs.getName()
         users.find($$(field + '.timestamp', [$lt: getTimeBetween().get('$lt')]), $$(field, 1))
