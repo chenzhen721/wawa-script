@@ -16,6 +16,8 @@ import groovy.json.JsonBuilder
 ])
 import groovy.json.JsonSlurper
 import org.apache.commons.lang.StringUtils
+
+import java.math.RoundingMode
 import java.security.MessageDigest
 
 class TongjiActive {
@@ -55,7 +57,8 @@ class TongjiActive {
     static String AUTH_TOKEN = 'yudDFxUp8ZmLlyP9gfnv'
 
     //友盟秘钥
-    static final String APP_KEY = '592fd9bbc62dca09280015ec'
+    static final String IOS_APP_KEY = '592fd9bbc62dca09280015ec'
+    static final String ANDROID_APP_KEY = '592fd1fdaed179249200043d'
 
     static String request(String url) {
         HttpURLConnection conn = null;
@@ -114,7 +117,7 @@ class TongjiActive {
         def channelDB = mongo.getDB('xy_admin').getCollection('channels')
         def qdlist = channelDB.find(new BasicDBObject(is_close: false), new BasicDBObject(_id: 1))*._id
 
-        [APP_KEY].each { String appkey ->
+        [IOS_APP_KEY, ANDROID_APP_KEY].each { String appkey ->
             def page = 1, per_page = 100
             def hasMore = true
             while (hasMore) {
@@ -666,14 +669,16 @@ class TongjiActive {
                 new BasicDBObject($set: pc_map), true, false)
         //新增激活，激活用户
         def new_active = 0, active = 0
-        try {
-            def content = new URL("http://api.umeng.com/base_data?appkey=${APP_KEY}&auth_token=${AUTH_TOKEN}" +
-                    "&date=${date.format('yyyy-MM-dd')}").getText("UTF-8")
-            def obj = new JsonSlurper().parseText(content) as Map
-            new_active = obj.get('new_users') as Integer
-            active = obj.get('active_users') as Integer
-        } catch (Exception e) {
-            println e
+        [IOS_APP_KEY, ANDROID_APP_KEY].each { String appkey ->
+            try {
+                def content = new URL("http://api.umeng.com/base_data?appkey=${appkey}&auth_token=${AUTH_TOKEN}" +
+                        "&date=${date.format('yyyy-MM-dd')}").getText("UTF-8")
+                def obj = new JsonSlurper().parseText(content) as Map
+                new_active += obj.get('new_users') as Integer
+                active += obj.get('active_users') as Integer
+            } catch (Exception e) {
+                println e
+            }
         }
         mobile_map.put('type', 'mobilereport')
         mobile_map.put('timestamp', gteMill)
@@ -719,27 +724,29 @@ class TongjiActive {
         def pc_retention = day_login.count(new BasicDBObject(user_id: [$in: pc_reg], timestamp: [$gte: gteMill + DAY_MILLON, $lt: gteMill + 2 * DAY_MILLON]))
         def mobile_retention = day_login.count(new BasicDBObject(user_id: [$in: mobile_reg], timestamp: [$gte: gteMill + DAY_MILLON, $lt: gteMill + 2 * DAY_MILLON]))
         def beforeStr = date.format('yyyy-MM-dd')
-        def rate = 0 as Double
-        try {
-            def content = new URL("http://api.umeng.com/retentions?appkey=${APP_KEY}&auth_token=${AUTH_TOKEN}" +
-                    "&start_date=${beforeStr}&end_date=${beforeStr}&period_type=daily").getText("UTF-8")
-            if (StringUtils.isNotBlank(content)) {
-                def listObj = new JsonSlurper().parse(new StringReader(content)) as List
-                if (listObj != null && listObj.size() > 0) {
-                    def obj = listObj[0] as Map
-                    def retentionList = obj.get('retention_rate') as List
-                    if (retentionList != null && retentionList.size() > 0) {
-                        rate = new BigDecimal(retentionList[0] as String).toDouble()
+        def rate = 0 as BigDecimal
+        [IOS_APP_KEY, ANDROID_APP_KEY].each { String appkey ->
+            try {
+                def content = new URL("http://api.umeng.com/retentions?appkey=${appkey}&auth_token=${AUTH_TOKEN}" +
+                        "&start_date=${beforeStr}&end_date=${beforeStr}&period_type=daily").getText("UTF-8")
+                if (StringUtils.isNotBlank(content)) {
+                    def listObj = new JsonSlurper().parse(new StringReader(content)) as List
+                    if (listObj != null && listObj.size() > 0) {
+                        def obj = listObj[0] as Map
+                        def retentionList = obj.get('retention_rate') as List
+                        if (retentionList != null && retentionList.size() > 0) {
+                            rate = new BigDecimal(retentionList[0] as String).add(rate)
+                        }
                     }
                 }
+            } catch (Exception e) {
+                println e
             }
-        } catch (Exception e) {
-            println e
         }
         stat_report.update(new BasicDBObject(_id: "${prefix}pcreport".toString()),
                 new BasicDBObject($set: [reg_retention: pc_retention]))
         stat_report.update(new BasicDBObject(_id: "${prefix}mobilereport".toString()),
-                new BasicDBObject($set: [reg_retention: mobile_retention, active_retention: rate]))
+                new BasicDBObject($set: [reg_retention: mobile_retention, active_retention: rate.divide(2, 2, RoundingMode.HALF_UP)]))
     }
     static Integer day = 0;
 

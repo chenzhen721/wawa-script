@@ -11,8 +11,9 @@
 
 ##################################后台统计数据###########################################
 ### 道具数据统计
-0 0 * * * root source /etc/profile && /empty/crontab/DailyReport.groovy  >> /empty/crontab/logs/DailyReport.log &
 0 0 * * * root source /etc/profile && /empty/crontab/DailyReportSnapshot.groovy  >> /empty/crontab/logs/DailyReportSnapshot.log &
+
+30 0 * * * root source /etc/profile && /empty/crontab/DailyReport.groovy  >> /empty/crontab/logs/DailyReport.log &
 
 ### 渠道数据统计
 21 1 * * * root source /etc/profile && /empty/crontab/QdStat.groovy  >> /empty/crontab/logs/star_Qd.log &
