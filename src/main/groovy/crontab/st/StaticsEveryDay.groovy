@@ -161,7 +161,7 @@ class StaticsEveryDay {
             def qd = user.containsField('qd') ? user['qd'] : QD_DEFAULT
             // client = 2 android 4 ios
             def channel = channels.findOne($$('_id': qd), $$('client': 1))
-            def client = channel.containsField('client') ? channel['client'] as Integer : 2
+            def client = channel?.containsField('client') ? channel['client'] as Integer : 2
             def via = obj.containsField('via') ? obj['via'] : ''
             if (via != 'Admin') {
                 // 统计android和ios的充值人数，去重

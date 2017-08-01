@@ -64,10 +64,9 @@ class DailyReport {
             if (logs) {
                 logs.each { BasicDBObject log ->
                     def _id = log.get('_id')
-                    if (award_logs.save(log).getN() == 1) {
-                        users.update(uid, new BasicDBObject('$pull', new BasicDBObject(field, [_id: _id])))
-                        println "clean ${field} : ${log}"
-                    }
+                    award_logs.save(log)
+                    users.update(uid, new BasicDBObject('$pull', new BasicDBObject(field, [_id: _id])))
+                    println "clean ${field} : ${log}"
                 }
             }
         }
