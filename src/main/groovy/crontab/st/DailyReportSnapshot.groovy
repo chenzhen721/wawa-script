@@ -74,7 +74,7 @@ class DailyReportSnapshot {
         long l = System.currentTimeMillis()
         long begin = l
         user_snapshot()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},user_snapshot cost  ${System.currentTimeMillis() - l} ms"
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReportSnapshot.class.getSimpleName()},user_snapshot cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         jobFinish(begin)
