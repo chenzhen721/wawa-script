@@ -53,7 +53,7 @@ class MicStat {
         mic_log.aggregate([
                 $$('$match', ['timestamp': timebetween]),
                 $$('$project', [roomId: '$room', userId: '$data.mic_user', type: '$data.type', timestamp: '$timestamp']),
-                $$('$sort', ['timestamp': -1]),
+                $$('$sort', ['timestamp': 1]),
                 $$('$group', [_id: [roomId: '$roomId', userId: '$userId'], total_count: [$sum: 1], type: ['$push': '$type'], timestamp: ['$push': '$timestamp']]),
         ]).results().each { row ->
             def types = row['type'] as ArrayList
