@@ -115,7 +115,7 @@ class MicStat {
         }
 
         Map toMap() {
-            [room_count: rooms.size(), user_count: users.size(), duration: duration]
+            [room_count: rooms.size(), user_count: users.size(), duration: duration, total_count: total_count]
         }
     }
 
