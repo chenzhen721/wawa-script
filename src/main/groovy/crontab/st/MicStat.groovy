@@ -74,7 +74,7 @@ class MicStat {
                 }
                 durations.rooms.add(roomId)
                 durations.users.add(userId)
-                for (int i = 0; i < types.size() - 1; i++) {
+                for (int i = 0; i < types.size(); i++) {
                     durations.filter([type: types[i], timestamp: timestamps[i]])
                     duration.filter([type: types[i], timestamp: timestamps[i]])
                 }
