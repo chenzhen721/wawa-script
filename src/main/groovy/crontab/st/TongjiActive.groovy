@@ -746,7 +746,7 @@ class TongjiActive {
         stat_report.update(new BasicDBObject(_id: "${prefix}pcreport".toString()),
                 new BasicDBObject($set: [reg_retention: pc_retention]))
         stat_report.update(new BasicDBObject(_id: "${prefix}mobilereport".toString()),
-                new BasicDBObject($set: [reg_retention: mobile_retention, active_retention: rate.divide(2, 2, RoundingMode.HALF_UP)]))
+                new BasicDBObject($set: [reg_retention: mobile_retention, active_retention: rate.divide(2, 2, RoundingMode.HALF_UP).doubleValue()]))
     }
     static Integer day = 0;
 
