@@ -82,7 +82,7 @@ class MicStat {
                     }
                     if ('close_mic' == types[i]) {
                         if (start != null) {
-                            def update = $$(type: 'on_mic_user_log', user_id: userId, family_id: roomId, timestamp: timebetween.get(BEGIN))
+                            def update = $$(type: 'on_mic_user_log', user_id: userId, family_id: roomId, timestamp: start)
                             update.putAll([start_mic: start, end_mic: timestamps[i], duration: timestamps[i] - start])
                             mic_logs.update($$('_id', "${YMD}_mic_${userId}_${roomId}_${start}".toString()), update, true, false)
                         }
