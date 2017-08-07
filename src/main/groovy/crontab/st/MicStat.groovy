@@ -48,7 +48,6 @@ class MicStat {
     static statics() {
         def timebetween = getTimeBetween()
         def YMD = new Date(timeBetween.get(BEGIN)).format("yyyyMMdd")
-        //def mics = 0 //总上麦人次
         def durations = new Duration()
         mic_log.aggregate([
                 $$('$match', ['timestamp': timebetween]),
@@ -74,9 +73,21 @@ class MicStat {
                 }
                 durations.rooms.add(roomId)
                 durations.users.add(userId)
+                def start = null
                 for (int i = 0; i < types.size(); i++) {
                     durations.filter([type: types[i], timestamp: timestamps[i]])
                     duration.filter([type: types[i], timestamp: timestamps[i]])
+                    if ('on_mic' ==  types[i]) {
+                        start = timestamps[i]
+                    }
+                    if ('close_mic' == types[i]) {
+                        if (start != null) {
+                            def update = $$(type: 'on_mic_user_log', user_id: userId, family_id: roomId, timestamp: timebetween.get(BEGIN))
+                            update.putAll([start_mic: start, end_mic: timestamps[i], duration: timestamps[i] - start])
+                            mic_logs.update($$('_id', "${YMD}_mic_${userId}_${roomId}_${start}".toString()), update, true, false)
+                        }
+                        start = null
+                    }
                 }
             }
             //mics += row['total_count']?:0
