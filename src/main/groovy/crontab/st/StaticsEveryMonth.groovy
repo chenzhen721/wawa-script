@@ -458,10 +458,6 @@ class StaticsEveryMonth {
     static void main(String[] args) {
         try{
             long l = System.currentTimeMillis()
-            loginStatics(DAY)
-            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   StaticsEveryMonth:loginMonthStatic, cost  ${System.currentTimeMillis() - l} ms"
-            Thread.sleep(1000L)
-            l = System.currentTimeMillis()
             loginMonthStatic(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   StaticsEveryMonth:loginMonthStatic, cost  ${System.currentTimeMillis() - l} ms"
             Thread.sleep(1000L)
