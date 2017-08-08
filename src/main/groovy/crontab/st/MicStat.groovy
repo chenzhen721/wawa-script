@@ -48,16 +48,20 @@ class MicStat {
     static statics() {
         def timebetween = getTimeBetween()
         def YMD = new Date(timeBetween.get(BEGIN)).format("yyyyMMdd")
-        def mics = 0 //总上麦人次
-        def duration = new Duration()
+        def durations = new Duration()
         mic_log.aggregate([
                 $$('$match', ['timestamp': timebetween]),
                 $$('$project', [roomId: '$room', userId: '$data.mic_user', type: '$data.type', timestamp: '$timestamp']),
-                $$('$sort', ['timestamp': -1]),
+                $$('$sort', ['timestamp': 1]),
                 $$('$group', [_id: [roomId: '$roomId', userId: '$userId'], total_count: [$sum: 1], type: ['$push': '$type'], timestamp: ['$push': '$timestamp']]),
         ]).results().each { row ->
             def types = row['type'] as ArrayList
             def timestamps = row['timestamp'] as ArrayList
+            def userId = row['_id']['userId'] as Integer
+            def roomId = row['_id']['roomId'] as Integer
+            def duration = new Duration()
+            duration.rooms.add(roomId)
+            duration.users.add(userId)
             if (types != null && timestamps != null && types.size() > 0 && types?.size() == timestamps?.size()) {
                 if ('close_mic' == types[0]) {
                     types.add(0, 'on_mic')
@@ -67,16 +71,34 @@ class MicStat {
                     types.add('close_mic')
                     timestamps.add((timebetween.get(END) as Long) - 1)
                 }
-                duration.rooms.add(row['_id']['roomId'])
-                duration.users.add(row['_id']['userId'])
-                for (int i = 0; i < types.size() - 1; i++) {
+                durations.rooms.add(roomId)
+                durations.users.add(userId)
+                def start = null
+                for (int i = 0; i < types.size(); i++) {
+                    durations.filter([type: types[i], timestamp: timestamps[i]])
                     duration.filter([type: types[i], timestamp: timestamps[i]])
+                    if ('on_mic' ==  types[i]) {
+                        start = timestamps[i]
+                    }
+                    if ('close_mic' == types[i]) {
+                        if (start != null) {
+                            def update = $$(type: 'on_mic_user_log', user_id: userId, family_id: roomId, timestamp: start)
+                            update.putAll([start_mic: start, end_mic: timestamps[i], duration: timestamps[i] - start])
+                            mic_logs.update($$('_id', "${YMD}_mic_${userId}_${roomId}_${start}".toString()), update, true, false)
+                        }
+                        start = null
+                    }
                 }
             }
-            mics += row['total_count']?:0
+            //mics += row['total_count']?:0
+            durations.addTotalCount(row['total_count'] as Integer)
+            duration.addTotalCount(row['total_count'] as Integer)
+            def result = [type: 'on_mic_user', user_id: userId, family_id: roomId, timestamp: timebetween.get(BEGIN)] as Map
+            result.putAll(duration.toMap())
+            mic_logs.update($$('_id', "${YMD}_mic_${userId}_${roomId}".toString()), $$(result), true, false)
         }
-        def result = [total_count: mics, type: 'on_mic', timestamp: timebetween.get(BEGIN)] as Map
-        result.putAll(duration.toMap())
+        def result = [type: 'on_mic', timestamp: timebetween.get(BEGIN)] as Map
+        result.putAll(durations.toMap())
         mic_logs.update($$('_id', "${YMD}_mic".toString()), $$(result), true, false)
     }
 
@@ -84,6 +106,7 @@ class MicStat {
         def rooms = [] as Set
         def users = [] as Set
         def duration = 0 as Long
+        def total_count = 0
 
         Long begin
 
@@ -98,8 +121,12 @@ class MicStat {
             }
         }
 
+        void addTotalCount(Integer count) {
+            total_count = total_count + count?:0
+        }
+
         Map toMap() {
-            [room_count: rooms.size(), user_count: users.size(), duration: duration]
+            [room_count: rooms.size(), user_count: users.size(), duration: duration, total_count: total_count]
         }
     }
 
