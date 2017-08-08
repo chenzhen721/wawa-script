@@ -46,15 +46,15 @@ class StaticsEveryMonth {
 
     private static BATCH_SIZE = 50000
 
-    static loginStatics() {
+    static loginStatics(int i) {
         Map<Integer, Integer> total_map = new HashMap<Integer, Integer>(2500000)
         Map<Integer, Integer> mobile_map = new HashMap<Integer, Integer>(800000)
         def dayLog = mongo.getDB("xylog").getCollection("day_login");
 
         Calendar cal = getCalendar()
+        cal.add(Calendar.MONTH, -i)
         long firstDayOfCurrentMonth = cal.getTimeInMillis()  //当月第一天
-
-        cal.add(Calendar.MONTH, -1);
+        cal.add(Calendar.MONTH, -1)
         long firstDayOfLastMonth = cal.getTimeInMillis()  //上月第一天
         String ym = new Date(firstDayOfLastMonth).format("yyyyMM")
         def query = new BasicDBObject(timestamp: [$gte: firstDayOfLastMonth, $lt: firstDayOfCurrentMonth])
@@ -453,19 +453,28 @@ class StaticsEveryMonth {
         return new BasicDBObject(key, value);
     }
 
+    static Integer DAY = 0
+
     static void main(String[] args) {
         try{
             long l = System.currentTimeMillis()
-            loginMonthStatic(0)
+            loginStatics(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   StaticsEveryMonth:loginMonthStatic, cost  ${System.currentTimeMillis() - l} ms"
             Thread.sleep(1000L)
-            payMonthStatic(0)
+            l = System.currentTimeMillis()
+            loginMonthStatic(DAY)
+            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   StaticsEveryMonth:loginMonthStatic, cost  ${System.currentTimeMillis() - l} ms"
+            Thread.sleep(1000L)
+            l = System.currentTimeMillis()
+            payMonthStatic(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   StaticsEveryMonth:payMonthStatic, cost  ${System.currentTimeMillis() - l} ms"
             Thread.sleep(1000L)
-            qdMonthStatic(0)
+            l = System.currentTimeMillis()
+            qdMonthStatic(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   StaticsEveryMonth:qdMonthStatic, cost  ${System.currentTimeMillis() - l} ms"
             Thread.sleep(1000L)
-            parentQdMonthStatic(0)
+            l = System.currentTimeMillis()
+            parentQdMonthStatic(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   StaticsEveryMonth:parentQdMonthStatic, cost  ${System.currentTimeMillis() - l} ms"
         }catch (Exception e){
             println "Exception : " + e
