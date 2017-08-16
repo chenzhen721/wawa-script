@@ -33,18 +33,19 @@ class RedisTest{
     }
 
     static final String jedis_host = getProperties("main_jedis_host", "192.168.31.246")
-    static final String chat_jedis_host = getProperties("chat_jedis_host", "192.168.31.246")
+    static final String login_jedis_host = getProperties("login_jedis_host", "192.168.31.246")
     static final String live_jedis_host = getProperties("live_jedis_host", "192.168.31.246")
     static final String user_jedis_host = getProperties("user_jedis_host", "192.168.31.246")
 
     static final Integer main_jedis_port = getProperties("main_jedis_port",6379) as Integer
-    static final Integer chat_jedis_port = getProperties("chat_jedis_port",6379) as Integer
+    static final Integer login_jedis_port = getProperties("login_jedis_port",6382) as Integer
     static final Integer live_jedis_port = getProperties("live_jedis_port",6379) as Integer
     static final Integer user_jedis_port = getProperties("user_jedis_port",6379) as Integer
 
     static mainRedis = new Jedis(jedis_host, main_jedis_port, 50000)
     static liveRedis = new Jedis(live_jedis_host, live_jedis_port, 50000)
     static userRedis = new Jedis(user_jedis_host, user_jedis_port, 50000)
+    static loginRedis = new Jedis(login_jedis_host, login_jedis_port, 50000)
 
     static Map<String, String> userCounts = Collections.emptyMap();
     static Map<String, String> userTimes = Collections.emptyMap();
@@ -85,7 +86,8 @@ class RedisTest{
         //printZset('race:star:rank:app_meme_luck_gift:1', mainRedis)
         //userRedis.sadd("room:guarder:24275864", "29735214");
         //println userRedis.smembers("room:guarder:24275864")
-        //String key = "authcode:smsmobile:85254149858"
+        String key = "authcode:smsmobile:18634094805"
+        println loginRedis.get(key)
         //liveRedis.del(key)
         /*println liveRedis.get(key)
         println liveRedis.ttl(key)
@@ -130,7 +132,7 @@ class RedisTest{
         mainRedis.hset('room:recommend:list:user', '2912313', '25974419_0')
         println mainRedis.hgetAll('room:recommend:list:user')*/
         //printZset('2016NianDuStar:race:star:rank:3', mainRedis)
-        println mainRedis.smembers("user:1201255:following")
+        //println mainRedis.smembers("user:1201255:following")
     }
 
     static String[] keys = ['2016XuebiRace:race:user:rank:total']
