@@ -41,8 +41,8 @@ class FamilyRank {
 
     static family_rank() {
         def api_url = api_domain + "job/family_rank_snapshot".toString()
-        def params = [key: '53cae7e7224a08885a7153058122647e']
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')} result : ${request_post(api_url, JSON.serialize(params))}"
+        api_url = api_url + "?key=53cae7e7224a08885a7153058122647e"
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')} result : ${request_post(api_url, null)}"
     }
 
     private static BasicDBObject $$(String key, Object value) {
