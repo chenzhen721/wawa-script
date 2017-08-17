@@ -36,3 +36,6 @@
 30 04 01 */1 * root source /etc/profile && /empty/crontab/StaticsEveryMonth.groovy >> /empty/crontab/logs/StaticsEveryMonth.log &
 
 
+*/1 * * * * root source /etc/profile && /empty/crontab/FamilyRobot.groovy >> /empty/crontab/logs/FamilyRobot.log
+
+
