@@ -58,16 +58,19 @@ class FamilyRobot{
     static xy_users = mongo.getDB("xy_user").getCollection("users");
     static final Integer familyId = 1203503
     static Map<Integer,String> tokens = new HashMap<>();
-
-    static List<Integer> robots = [1202354];
+    static Integer currHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+    static List<Integer> robots = [1202354,1202470,1202486,1202464,1202441,1202431,1202428,1202348,1201075,1201081,1201136,1201139,1201127,1201164,1201154];
 
     static void main(String[] args) {
         goRobot()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')} ".toString()
     }
 
     static goRobot(){
         getToken(robots)
         tokens.each {Integer uid, String token ->
+            //申请家族
+            applyFamily(token);
             //翻卡
             openCard(uid, token);
             //升级
@@ -77,6 +80,10 @@ class FamilyRobot{
         }
     }
 
+    static applyFamily(String token){
+        new URL("${api_url}/member/apply/${token}/${familyId}").getText("utf-8")
+
+    }
     static getToken(List robots){
         robots.each {Integer id ->
             def user = xy_users.findOne($$("mm_no":id.toString()), $$(token:1));
@@ -92,18 +99,23 @@ class FamilyRobot{
         cards.each {Map card ->
             String sign = MD5("${userId}${card['_id']}${card['timestamp']}${KEY}".toString())
             String api_req = "${api_url}card/open/${token}/${card['_id']}?s=${sign}".toString()
-            println new URL(api_req).getText("utf-8")
+            new URL(api_req).getText("utf-8")
         }
 
     }
 
     static levelup(String token){
-        println new URL("${api_url}user/level_up/${token}").getText("utf-8")
+        new URL("${api_url}user/level_up/${token}").getText("utf-8")
     }
 
     static coin(String token){
-        Long coin = RandomUtils.nextInt(10000)
-        println new URL("${api_url}familygame/donate_coin/${token}/${familyId}?coin=${coin}").getText("utf-8")
+        if(currHour >= 9 && currHour < 23) {
+            Long coin = RandomUtils.nextInt(1200)
+            if (coin > 300) {
+                coin *= 10
+                println new URL("${api_url}familygame/donate_coin/${token}/${familyId}?coin=${coin}").getText("utf-8")
+            }
+        }
     }
 
     public static BasicDBObject $$(String key, Object value) {
