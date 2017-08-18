@@ -227,8 +227,7 @@ class DailyReport {
      * 家族争霸房间奖励钻石（active_family_redpack）
      */
     static void statics_family_rank() {
-        def between = getTimeBetween()
-        def timeBetween = between
+        def timeBetween = getTimeBetween()
         def YMD = new Date(timeBetween.get(BEGIN)).format('yyyyMMdd')
         def query = $$(type: 'active_family_redpack', timestamp: timeBetween)
         active_logs.aggregate([
