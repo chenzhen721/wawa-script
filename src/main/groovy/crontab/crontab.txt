@@ -35,4 +35,7 @@
 ### 月付费登录统计
 30 04 01 */1 * root source /etc/profile && /empty/crontab/StaticsEveryMonth.groovy >> /empty/crontab/logs/StaticsEveryMonth.log &
 
+### 家族活动统计
+30 22 * * * root source /etc/profile && /empty/crontab/FamilyRank.groovy >> /empty/crontab/logs/FamilyRank.log &
+
 
