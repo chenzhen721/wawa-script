@@ -233,7 +233,7 @@ class DailyReport {
         active_logs.aggregate([
                 new BasicDBObject('$match', query),
                 new BasicDBObject('$project', [user_id: '$user_id', family_id: '$family_id', diamond: '$diamond']),
-                new BasicDBObject('group', [_id: null, count: [$sum: 1], ids: [$addToSet: '$user_id'], fids: [$addToSet: '$family_id'], diamond: [$sum: '$diamond']])
+                new BasicDBObject('$group', [_id: null, count: [$sum: 1], ids: [$addToSet: '$user_id'], fids: [$addToSet: '$family_id'], diamond: [$sum: '$diamond']])
         ]).results().each { row ->
             def type = 'active_family_redpack'
             def _id = "${YMD}_${type}".toString()
@@ -243,6 +243,7 @@ class DailyReport {
             row.put("family_count", fids.size())
             row.put("total_count", row['count'])
             row.put("type", type)
+            row.put("_id", _id)
             row.put("timestamp", timeBetween.get(BEGIN))
             row.put("status", 0)
             award_daily_logs.update($$(_id: _id), row, true, false)
