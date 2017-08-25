@@ -38,6 +38,7 @@ class DailyReport {
     static DBCollection cash_apply_logs = mongo.getDB('xy_admin').getCollection('cash_apply_logs') //提现操作日志
     static DBCollection ops_log = mongo.getDB('xy_admin').getCollection('ops') //后台操作日志
     static DBCollection users = mongo.getDB('xy').getCollection('users')
+    static DBCollection active_logs = mongo.getDB('xylog').getCollection('active_logs')
 
     //写log
     static DBCollection award_daily_logs = mongo.getDB('xy_admin').getCollection('stat_daily')
@@ -80,6 +81,7 @@ class DailyReport {
      * 道具使用统计：use_item
      * 新人奖励统计（目前只有现金奖励）：new_user
      * 新手引导奖励（目前只有现金奖励）: user_guide
+     * 家族争霸奖励（族长奖励现金，族员奖励钻石）：family_rank
      */
     static void statics_award() {
         def timeBetween = getTimeBetween()
@@ -219,6 +221,34 @@ class DailyReport {
             row.put("status", 0)
             award_daily_logs.update($$('_id', _id), row, true, false)
         }
+    }
+
+    /**
+     * 家族争霸房间奖励钻石（active_family_redpack）
+     */
+    static void statics_family_rank() {
+        def timeBetween = getTimeBetween()
+        def YMD = new Date(timeBetween.get(BEGIN)).format('yyyyMMdd')
+        def query = $$(type: 'active_family_redpack', timestamp: timeBetween)
+        active_logs.aggregate([
+                new BasicDBObject('$match', query),
+                new BasicDBObject('$project', [user_id: '$user_id', family_id: '$family_id', diamond: '$diamond']),
+                new BasicDBObject('$group', [_id: null, count: [$sum: 1], ids: [$addToSet: '$user_id'], fids: [$addToSet: '$family_id'], diamond: [$sum: '$diamond']])
+        ]).results().each { row ->
+            def type = 'active_family_redpack'
+            def _id = "${YMD}_${type}".toString()
+            def ids = row.removeField("ids") as List
+            def fids = row.removeField("fids") as List
+            row.put("user_count", ids.size())
+            row.put("family_count", fids.size())
+            row.put("total_count", row['count'])
+            row.put("type", type)
+            row.put("_id", _id)
+            row.put("timestamp", timeBetween.get(BEGIN))
+            row.put("status", 0)
+            award_daily_logs.update($$(_id: _id), row, true, false)
+        }
+
     }
 
     //=================================消耗=================================
@@ -369,6 +399,11 @@ class DailyReport {
         l = System.currentTimeMillis()
         statics_refuse_cash()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_refuse_cash cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
+        l = System.currentTimeMillis()
+        statics_family_rank()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_family_rank cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         //===============减=================
