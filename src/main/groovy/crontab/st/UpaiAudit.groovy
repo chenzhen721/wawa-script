@@ -137,8 +137,15 @@ class UpaiAudit {
                     }
                     params.put('Authorization', 'Basic ' + AUTHORIZATION)
                     Response response = doRequest(httpClient, httpGetFolder, params)
+                    if (response == null || HttpStatus.SC_OK != response.httpResponse.getStatusLine().getStatusCode()) {
+                        if (StringUtils.isNotBlank(response.content) && !response.content.contains('40400001')) {
+                            deleteAll = false
+                        }
+                        println 'read failed. path:' + "${folderPath}".toString() + 'response: ' + response.content
+                        break
+                    }
                     //处理content
-                    if (response != null && StringUtils.isNotBlank(response.content)) {
+                    if (StringUtils.isNotBlank(response.content)) {
                         response.content.split('\n').each {String line ->
                             String[] item = line.split('\t')
                             if (item.size() >=2 && 'N' == item[1]) { //F : folder
@@ -150,8 +157,8 @@ class UpaiAudit {
                             }
                         }
                     }
-                    if (response == null || response.getHeader(NEXT_PAGE_KEY) == null) {
-                        println 'some exception happened unwanted.'
+                    if (response.getHeader(NEXT_PAGE_KEY) == null) {
+                        println 'none page info: ' + NEXT_PAGE_KEY
                         deleteAll = false
                         break
                     }
@@ -215,13 +222,15 @@ class UpaiAudit {
         def params = [:]
         params.put('Authorization', 'Basic ' + AUTHORIZATION)
         Response response = doRequest(httpClient, httpDelete, params)
-        if (response != null) {
+        def code = response.httpResponse.getStatusLine().getStatusCode()
+        if(code == HttpStatus.SC_OK){
             return '0'
         }
         return null
     }
 
     static class Response {
+        HttpResponse httpResponse
         String content
         Header[] headers
 
@@ -253,22 +262,23 @@ class UpaiAudit {
             @Override
             Response handleResponse(HttpResponse response) throws IOException {
                 def code = response.getStatusLine().getStatusCode()
-                if(code != HttpStatus.SC_OK){
-                    return null
-                }
-                Response resp = handle(response.getEntity())
+                Response resp = new Response()
+                resp.httpResponse = response
+                /*if(code != HttpStatus.SC_OK){
+                    return resp
+                }*/
+                resp.content = handle(response.getEntity())
                 resp.headers = response.getAllHeaders()
                 return resp
             }
 
-            Response handle(HttpEntity entity) throws IOException {
+            String handle(HttpEntity entity) throws IOException {
                 byte[] content = EntityUtils.toByteArray(entity)
                 if(forceCharset != null){
                     Response resp = new Response()
                     resp.content = new String(content,forceCharset)
                     return resp
                 }
-                String html
                 Charset charset =null
                 ContentType contentType = ContentType.get(entity)
                 if(contentType !=null){
@@ -277,10 +287,7 @@ class UpaiAudit {
                 if(charset ==null){
                     charset = Charset.forName("GB18030")
                 }
-                html = new String(content,charset)
-                Response resp = new Response()
-                resp.content = html
-                return resp
+                return new String(content,charset)
             }
         })
     }
