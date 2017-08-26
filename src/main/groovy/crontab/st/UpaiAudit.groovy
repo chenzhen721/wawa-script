@@ -232,7 +232,7 @@ class UpaiAudit {
         Response response = doRequest(httpClient, httpDelete, params)
         println response
         if (response != null) {
-            return response.content
+            return '0'
         }
         return null
     }
@@ -272,6 +272,7 @@ class UpaiAudit {
                 if(code != HttpStatus.SC_OK){
                     return null
                 }
+                println 'code=================>' + code
                 Response resp = handle(response.getEntity())
                 resp.headers = response.getAllHeaders()
                 return resp
