@@ -142,10 +142,10 @@ class UpaiAudit {
                         response.content.split('\n').each {String line ->
                             String[] item = line.split('\t')
                             if (item.size() >=2 && 'N' == item[1]) { //F : folder
-                                println 'do delete pic:' + "${folderPath}${item[0]}".toString()
-                                String res = deletePic("${folderPath}${item[0]}".toString())
+                                println 'do delete pic:' + "${folderPath}/${item[0]}".toString()
+                                String res = deletePic("${folderPath}/${item[0]}".toString())
                                 if (res == null || res.trim() != '0') {
-                                    println 'delete failed. path:' + "${folderPath}${item[0]}".toString()
+                                    println 'delete failed. path:' + "${folderPath}/${item[0]}".toString()
                                     deleteAll = false
                                 }
                             }
