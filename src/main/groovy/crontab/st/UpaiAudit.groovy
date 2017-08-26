@@ -61,13 +61,15 @@ class UpaiAudit {
     public static final HttpClient httpClient = new DefaultHttpClient()
     public static final String URI = 'http://v0.api.upyun.com/laihou-chat/'
     public static final String NEXT_PAGE_KEY = 'x-upyun-list-iter'
+    public static final String UPAI_PAGE_SIZE = '10' //TODO
     public static final String FINAL_PAGE_FLAG = 'g2gCZAAEbmV4dGQAA2VvZg'
     static final String jedis_host = getProperties("main_jedis_host", "192.168.31.236")
     static final Integer main_jedis_port = getProperties("main_jedis_port", 6379) as Integer
     static redis = new Jedis(jedis_host, main_jedis_port)
 
     static audit_pic() {
-        def start = new Date().getTime() - 7 * 60 * 1000
+//        def start = new Date().getTime() - 7 * 60 * 1000
+        def start = new Date().getTime() - DAY_MILLON //TODO
         def end = new Date().getTime() - 1 * 60 * 1000
         def startMonth = new Date(start).format('yyyy_M')
         def endMonth = new Date(end).format('yyyy_M')
@@ -129,7 +131,7 @@ class UpaiAudit {
                 String folderPath = "${URI}uploads/${ym}".toString()
                 while(true) {
                     HttpGet httpGetFolder = new HttpGet(folderPath)
-                    def params = ['x-list-limit': '100']
+                    def params = ['x-list-limit': UPAI_PAGE_SIZE]
                     if (xListLimit != null) {
                         params.put('x-list-iter', xListLimit)
                     }
