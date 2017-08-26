@@ -5,23 +5,22 @@ package crontab.st
         @Grab('org.mongodb:mongo-java-driver:2.14.2'),
         @Grab('commons-lang:commons-lang:2.6'),
         @Grab('redis.clients:jedis:2.1.0'),
-        @Grab('com.ttpod:ttpod-rest:1.0.4')
 ])
 import com.mongodb.BasicDBObject
 import com.mongodb.DBObject
 import com.mongodb.Mongo
 import com.mongodb.MongoURI
-import com.ttpod.rest.common.util.http.HttpClientUtil
-import com.ttpod.rest.common.util.http.HttpEntityHandler
 import groovy.json.JsonSlurper
 import org.apache.commons.lang.StringUtils
 import org.apache.http.Header
 import org.apache.http.HttpEntity
 import org.apache.http.HttpResponse
 import org.apache.http.HttpStatus
+import org.apache.http.client.ResponseHandler
 import org.apache.http.client.methods.HttpDelete
 import org.apache.http.client.methods.HttpGet
 import org.apache.http.client.methods.HttpRequestBase
+import org.apache.http.conn.ConnectTimeoutException
 import org.apache.http.entity.ContentType
 import org.apache.http.impl.client.DefaultHttpClient
 import org.apache.http.util.EntityUtils
@@ -29,6 +28,7 @@ import org.apache.http.client.HttpClient
 import redis.clients.jedis.Jedis
 
 import java.nio.charset.Charset
+import java.util.concurrent.TimeUnit
 
 /**
  *  家族排行发放奖励，每晚8:30
@@ -253,7 +253,7 @@ class UpaiAudit {
 
     static Response doRequest(HttpClient httpClient, HttpRequestBase request, Map<String, String> params) {
         final String forceCharset = 'UTF-8'
-        return HttpClientUtil.http(httpClient, request, params, new HttpEntityHandler<Response>() {
+        return http(httpClient, request, params, new ResponseHandler<Response>() {
 
             @Override
             Response handleResponse(HttpResponse response) throws IOException {
@@ -266,7 +266,6 @@ class UpaiAudit {
                 return resp
             }
 
-            @Override
             Response handle(HttpEntity entity) throws IOException {
                 byte[] content = EntityUtils.toByteArray(entity)
                 if(forceCharset != null){
@@ -287,11 +286,6 @@ class UpaiAudit {
                 Response resp = new Response()
                 resp.content = html
                 return resp
-            }
-
-            @Override
-            String getName() {
-                return null
             }
         })
     }
@@ -343,6 +337,26 @@ class UpaiAudit {
         def id = timerName + "_" + new Date().format("yyyyMMdd")
         def update = new BasicDBObject(timer_name: timerName, cost_total: totalCost, cat: 'day', unit: 'ms', timestamp: tmp)
         timerLogsDB.findAndModify(new BasicDBObject('_id', id), null, null, false, new BasicDBObject('$set', update), true, true)
+    }
+
+    static <T> T  http(HttpClient  client,HttpRequestBase request,Map<String,String> headers, ResponseHandler<T> handler)
+            throws IOException {
+        if(headers !=null &&  ! headers.isEmpty()){
+            for (Map.Entry<String,String> kv : headers.entrySet()){
+                request.addHeader(kv.getKey(),kv.getValue())
+            }
+        }
+        long begin = System.currentTimeMillis()
+        try{
+            return client.execute(request,handler,null)
+        }catch (ConnectTimeoutException e){
+            println " catch ConnectTimeoutException ,closeExpiredConnections &  closeIdleConnections for 30 s. " + e
+            client.getConnectionManager().closeExpiredConnections()
+            client.getConnectionManager().closeIdleConnections(30, TimeUnit.SECONDS)
+        }finally {
+            println "${request.getURI()},cost ${System.currentTimeMillis() - begin} ms"
+        }
+        return null
     }
 
 }
