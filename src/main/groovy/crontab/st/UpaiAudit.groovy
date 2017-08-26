@@ -100,14 +100,14 @@ class UpaiAudit {
                                     String response = deletePic("${URI}${url}".toString())
                                     if (response == null || response.trim() == '0') {
                                         is_audit = Boolean.FALSE
+                                        println 'false audit:' + obj
                                     }
                                 }
                             }
                         }
                         if (is_audit) {
-                            //TODO collection.update($$(_id: obj['_id']), $$($set: [is_audit: true]), false, false)
+                            collection.update($$(_id: obj['_id']), $$($set: [is_audit: true]), false, false)
                         }
-                        println 'is_audit:' + is_audit + ' obj:' + obj
                     }
                 }
             }
@@ -137,19 +137,17 @@ class UpaiAudit {
                     }
                     params.put('Authorization', 'Basic ' + AUTHORIZATION)
                     Response response = doRequest(httpClient, httpGetFolder, params)
-                    println response
                     //处理content
                     if (response != null && StringUtils.isNotBlank(response.content)) {
                         response.content.split('\n').each {String line ->
                             String[] item = line.split('\t')
                             if (item.size() >=2 && 'N' == item[1]) { //F : folder
-                                // TODO
                                 println 'do delete pic:' + "${folderPath}${item[0]}".toString()
-                                /*String res = deletePic("${folderPath}${item[0]}".toString())
+                                String res = deletePic("${folderPath}${item[0]}".toString())
                                 if (res == null || res.trim() != '0') {
                                     println 'delete failed. path:' + "${folderPath}${item[0]}".toString()
                                     deleteAll = false
-                                }*/
+                                }
                             }
                         }
                     }
@@ -159,17 +157,15 @@ class UpaiAudit {
                         break
                     }
                     xListLimit = response.getHeader(NEXT_PAGE_KEY)
-                    println 'next page:' + xListLimit
                     if (xListLimit.equals(FINAL_PAGE_FLAG)) {
                         break
                     }
                 }
                 if (deleteAll) {
-                    println 'del folder' //TODO
-                    /*String response = deletePic(folderPath)
+                    String response = deletePic(folderPath)
                     if (response != null && response.trim() == '0') {
                         return
-                    }*/
+                    }
                 }
                 redis.del(key)
             }
