@@ -329,7 +329,7 @@ class UpaiAudit {
         def timerName = 'LiveStat'
         Long totalCost = System.currentTimeMillis() - begin
         saveTimerLogs(timerName, totalCost)
-        println "${new Date().format('yyyy-MM-dd')}:${Audit.class.getSimpleName()}:finish  cost  ${System.currentTimeMillis() - begin} ms"
+        println "${new Date().format('yyyy-MM-dd')}:${UpaiAudit.class.getSimpleName()}:finish  cost  ${System.currentTimeMillis() - begin} ms"
     }
 
     //落地定时执行的日志
