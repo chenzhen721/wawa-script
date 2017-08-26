@@ -97,7 +97,7 @@ class UpaiAudit {
                                 if (identifyIsIllegalPic(url)) { //删除又拍云上的图片
                                     url = url.replaceAll(/^https?:\/\/[^\/]*\//, '')
                                     String response = deletePic("${uri}${url}".toString())
-                                    if (response == null || response.trim() == '0') {
+                                    if (response == null || response.trim() != '0') {
                                         is_audit = Boolean.FALSE
                                         println 'false audit:' + obj
                                     }
