@@ -5,6 +5,8 @@ package crontab.st
         @Grab('org.mongodb:mongo-java-driver:2.14.2'),
         @Grab('commons-lang:commons-lang:2.6'),
         @Grab('redis.clients:jedis:2.1.0'),
+        @Grab('org.apache.httpcomponents:httpclient:4.2.3'),
+        @Grab('org.apache.httpcomponents:httpcore:4.2.2'),
 ])
 import com.mongodb.BasicDBObject
 import com.mongodb.DBObject
