@@ -365,7 +365,7 @@ class UpaiAudit {
             client.getConnectionManager().closeExpiredConnections()
             client.getConnectionManager().closeIdleConnections(30, TimeUnit.SECONDS)
         }finally {
-            println "${request.getURI()},cost ${System.currentTimeMillis() - begin} ms"
+            //println "${request.getURI()},cost ${System.currentTimeMillis() - begin} ms"
         }
         return null
     }
