@@ -180,7 +180,6 @@ class UpaiAudit {
     static Boolean identifyIsIllegalPic(String pic_url){
         try{
             String resp = request(IMG_API_URL+"?url="+pic_url, null)
-            println resp
             def json = new JsonSlurper().parseText(resp) as Map
             String data = json['data'] as String
             if(ILLAGE_CODE.equals(data)){
@@ -230,7 +229,7 @@ class UpaiAudit {
         def params = [:]
         params.put('Authorization', 'Basic ' + AUTHORIZATION)
         Response response = doRequest(httpClient, httpDelete, params)
-        println response
+        println 'del pic' + response
         if (response != null) {
             return '0'
         }
@@ -272,7 +271,6 @@ class UpaiAudit {
                 if(code != HttpStatus.SC_OK){
                     return null
                 }
-                println 'code=================>' + code
                 Response resp = handle(response.getEntity())
                 resp.headers = response.getAllHeaders()
                 return resp
