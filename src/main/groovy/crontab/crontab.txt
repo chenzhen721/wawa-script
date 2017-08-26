@@ -41,4 +41,6 @@
 
 */1 * * * * root source /etc/profile && /empty/crontab/FamilyRobot.groovy >> /empty/crontab/logs/FamilyRobot.log
 
+###又拍云图片审核，定期删除
+*/3 * * * * root source /etc/profile && /empty/crontab/UpaiAudit.groovy >> /empty/crontab/logs/UpaiAudit.log
 

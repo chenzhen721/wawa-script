@@ -61,15 +61,14 @@ class UpaiAudit {
     public static final HttpClient httpClient = new DefaultHttpClient()
     public static final String uri = 'http://v0.api.upyun.com/laihou-chat/'
     public static final String NEXT_PAGE_KEY = 'x-upyun-list-iter'
-    public static final String UPAI_PAGE_SIZE = '10' //TODO
+    public static final String UPAI_PAGE_SIZE = '50'
     public static final String FINAL_PAGE_FLAG = 'g2gCZAAEbmV4dGQAA2VvZg'
     static final String jedis_host = getProperties("main_jedis_host", "192.168.31.236")
     static final Integer main_jedis_port = getProperties("main_jedis_port", 6379) as Integer
     static redis = new Jedis(jedis_host, main_jedis_port)
 
     static audit_pic() {
-//        def start = new Date().getTime() - 7 * 60 * 1000
-        def start = new Date().getTime() - DAY_MILLON //TODO
+        def start = new Date().getTime() - 7 * 60 * 1000
         def end = new Date().getTime() - 1 * 60 * 1000
         def startMonth = new Date(start).format('yyyy_M')
         def endMonth = new Date(end).format('yyyy_M')
@@ -115,14 +114,15 @@ class UpaiAudit {
     }
 
     static empty_folder() {
-        def ym = new Date(zeroMill - 2 * DAY_MILLON).format('yyyyMdd') //TODO
+        int n = 7
+        def ym = new Date(zeroMill - n * DAY_MILLON).format('yyyyMMdd')
         String key = "laihou-chat:folder:uploads:${ym}"
         if (StringUtils.isNotBlank(redis.get(key))) {
             return
         }
         redis.set(key, '1')
-        redis.expireAt(key, zeroMill - 6 * DAY_MILLON)
-        println key
+        redis.expireAt(key, zeroMill - (n - 1) * DAY_MILLON)
+
         new Thread(new Runnable() {
             @Override
             void run() {
@@ -142,7 +142,6 @@ class UpaiAudit {
                         response.content.split('\n').each {String line ->
                             String[] item = line.split('\t')
                             if (item.size() >=2 && 'N' == item[1]) { //F : folder
-                                println 'do delete pic:' + "${folderPath}/${item[0]}".toString()
                                 String res = deletePic("${folderPath}/${item[0]}".toString())
                                 if (res == null || res.trim() != '0') {
                                     println 'delete failed. path:' + "${folderPath}/${item[0]}".toString()
@@ -164,6 +163,7 @@ class UpaiAudit {
                 if (deleteAll) {
                     String response = deletePic(folderPath)
                     if (response != null && response.trim() == '0') {
+                        println 'empty folder, path:' + folderPath
                         return
                     }
                 }
@@ -215,7 +215,6 @@ class UpaiAudit {
         def params = [:]
         params.put('Authorization', 'Basic ' + AUTHORIZATION)
         Response response = doRequest(httpClient, httpDelete, params)
-        println 'del pic' + response
         if (response != null) {
             return '0'
         }
