@@ -94,7 +94,7 @@ class UpaiAudit {
                         boolean is_audit = Boolean.TRUE
                         if (obj['data'] != null) {
                             def url = obj['data']['url'] as String
-                            if (url != null && url.isNotEmpty()) {
+                            if (StringUtils.isNotEmpty(url)) {
                                 if (identifyIsIllegalPic(url)) { //删除又拍云上的图片
                                     url = url.replaceAll(/^https?:\/\/[^\/]*\//, '')
                                     String response = deletePic("${URI}${url}".toString())
