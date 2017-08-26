@@ -59,7 +59,7 @@ class UpaiAudit {
     private static final String ILLAGE_CODE = "1"
     public static final String AUTHORIZATION = 'bGFpaG91OmxhaWhvdTEyMw==' //Base64(operator:password)
     public static final HttpClient httpClient = new DefaultHttpClient()
-    public static final String URI = 'http://v0.api.upyun.com/laihou-chat/'
+    public static final String uri = 'http://v0.api.upyun.com/laihou-chat/'
     public static final String NEXT_PAGE_KEY = 'x-upyun-list-iter'
     public static final String UPAI_PAGE_SIZE = '10' //TODO
     public static final String FINAL_PAGE_FLAG = 'g2gCZAAEbmV4dGQAA2VvZg'
@@ -97,7 +97,7 @@ class UpaiAudit {
                             if (StringUtils.isNotEmpty(url)) {
                                 if (identifyIsIllegalPic(url)) { //删除又拍云上的图片
                                     url = url.replaceAll(/^https?:\/\/[^\/]*\//, '')
-                                    String response = deletePic("${URI}${url}".toString())
+                                    String response = deletePic("${uri}${url}".toString())
                                     if (response == null || response.trim() == '0') {
                                         is_audit = Boolean.FALSE
                                         println 'false audit:' + obj
@@ -128,7 +128,7 @@ class UpaiAudit {
             void run() {
                 boolean deleteAll = true
                 String xListLimit = null
-                String folderPath = "${URI}uploads/${ym}".toString()
+                String folderPath = "${uri}uploads/${ym}".toString()
                 while(true) {
                     HttpGet httpGetFolder = new HttpGet(folderPath)
                     def params = ['x-list-limit': UPAI_PAGE_SIZE]
@@ -230,6 +230,7 @@ class UpaiAudit {
         def params = [:]
         params.put('Authorization', 'Basic ' + AUTHORIZATION)
         Response response = doRequest(httpClient, httpDelete, params)
+        println response
         if (response != null) {
             return response.content
         }
