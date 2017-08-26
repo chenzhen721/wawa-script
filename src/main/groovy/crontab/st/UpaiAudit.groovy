@@ -115,7 +115,7 @@ class UpaiAudit {
     }
 
     static empty_folder() {
-        def ym = new Date(zeroMill - 3 * DAY_MILLON).format('yyyyMMdd') //TODO
+        def ym = new Date(zeroMill - 2 * DAY_MILLON).format('yyyyMdd') //TODO
         String key = "laihou-chat:folder:uploads:${ym}"
         if (StringUtils.isNotBlank(redis.get(key))) {
             return
@@ -197,20 +197,6 @@ class UpaiAudit {
 
     private static BasicDBObject $$(Map map) {
         return new BasicDBObject(map)
-    }
-
-
-
-    static void main(String[] args) {
-        long l = System.currentTimeMillis()
-        long begin = l
-        audit_pic()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  audit_pic cost  ${System.currentTimeMillis() - l} ms"
-        l = System.currentTimeMillis()
-        empty_folder()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  empty_folder cost  ${System.currentTimeMillis() - l} ms"
-
-        jobFinish(begin)
     }
 
     private static long getFirstMonthDay(long time) {
@@ -324,6 +310,18 @@ class UpaiAudit {
             }
         }
         return jsonText
+    }
+
+    static void main(String[] args) {
+        long l = System.currentTimeMillis()
+        long begin = l
+        audit_pic()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  audit_pic cost  ${System.currentTimeMillis() - l} ms"
+        l = System.currentTimeMillis()
+        empty_folder()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  empty_folder cost  ${System.currentTimeMillis() - l} ms"
+
+        jobFinish(begin)
     }
 
     /**
