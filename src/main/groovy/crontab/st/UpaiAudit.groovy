@@ -142,7 +142,7 @@ class UpaiAudit {
                             deleteAll = false
                         }
                         println 'read failed. path:' + "${folderPath}".toString() + 'response: ' + response.content
-                        break
+                        return
                     }
                     //处理content
                     if (StringUtils.isNotBlank(response.content)) {
