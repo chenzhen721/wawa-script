@@ -113,14 +113,14 @@ class UpaiAudit {
     }
 
     static empty_folder() {
-        def ym = new Date(zeroMill - 4 * DAY_MILLON).format('yyyyMMdd')
+        def ym = new Date(zeroMill - 3 * DAY_MILLON).format('yyyyMMdd') //TODO
         String key = "laihou-chat:folder:uploads:${ym}"
         if (StringUtils.isNotBlank(redis.get(key))) {
             return
         }
         redis.set(key, '1')
         redis.expireAt(key, zeroMill - 6 * DAY_MILLON)
-
+        println key
         new Thread(new Runnable() {
             @Override
             void run() {
@@ -135,8 +135,9 @@ class UpaiAudit {
                     }
                     params.put('Authorization', 'Basic ' + AUTHORIZATION)
                     Response response = doRequest(httpClient, httpGetFolder, params)
+                    println response
                     //处理content
-                    if (StringUtils.isNotBlank(response.content)) {
+                    if (response != null && StringUtils.isNotBlank(response.content)) {
                         response.content.split('\n').each {String line ->
                             String[] item = line.split('\t')
                             if (item.size() >=2 && 'N' == item[1]) { //F : folder
@@ -250,6 +251,14 @@ class UpaiAudit {
                 }
             }
             return null
+        }
+
+        @Override
+        public String toString() {
+            return "Response{" +
+                    "content='" + content + '\'' +
+                    ", headers=" + Arrays.toString(headers) +
+                    '}';
         }
     }
 
