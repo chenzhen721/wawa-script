@@ -36,7 +36,7 @@
 30 04 01 */1 * root source /etc/profile && /empty/crontab/StaticsEveryMonth.groovy >> /empty/crontab/logs/StaticsEveryMonth.log &
 
 ### 家族活动统计
-0 3,22 * * * root source /etc/profile && /empty/crontab/FamilyRank.groovy >> /empty/crontab/logs/FamilyRank.log &
+0 15,22 * * * root source /etc/profile && /empty/crontab/FamilyRank.groovy >> /empty/crontab/logs/FamilyRank.log &
 
 
 */1 * * * * root source /etc/profile && /empty/crontab/FamilyRobot.groovy >> /empty/crontab/logs/FamilyRobot.log
