@@ -65,7 +65,7 @@ class Goblin {
     static DAY_MILLON = 24 * 3600 * 1000L
     static long zeroMill = new Date().clearTime().getTime()
     static final String api_domain = getProperties("api.domain", "http://test-aiapi.memeyule.com/")
-    private static HttpClient httpClient = null;
+    public static final HttpClient httpClient = new DefaultHttpClient()
     static final String USER_AGENT = "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.4 (KHTML, like Gecko) Safari/537.4";
     public static final Charset UTF8 =Charset.forName("UTF-8");
 
@@ -74,7 +74,7 @@ class Goblin {
      * @return
      */
     static goblin_action() {
-        initHttpClient()
+        //initHttpClient()
         def goblin_action = api_domain + "job/goblin_action".toString()
         HttpGet httpGet = new HttpGet(goblin_action)
         println "job/goblin_action:" + doRequest(httpClient, httpGet, null)
@@ -220,7 +220,7 @@ class Goblin {
 
         HttpClient client = new DefaultHttpClient(cm, defaultParams)
         client = new DecompressingHttpClient(client)
-        httpClient = client
+        //httpClient = client
     }
 
     private static SchemeRegistry createSchemeRegistry() {
