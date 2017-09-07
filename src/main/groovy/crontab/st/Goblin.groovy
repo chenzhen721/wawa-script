@@ -74,6 +74,7 @@ class Goblin {
      * @return
      */
     static goblin_action() {
+        initHttpClient()
         HttpClient httpClient = initHttpClient()
         def goblin_action = api_domain + "job/goblin_action".toString()
         HttpGet httpGet = new HttpGet(goblin_action)
