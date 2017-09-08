@@ -86,7 +86,7 @@ class Goblin {
             void run() {
                 String goblin_action = api_domain + "job/goblin_action".toString()
                 HttpGet httpGet = new HttpGet(goblin_action)
-                println "job/goblin_action:" + doRequest(httpClient, httpGet, null)
+                println "job/goblin_action:" + doRequest(httpClient, httpGet, null).content
             }
         }).start()
     }
@@ -94,12 +94,12 @@ class Goblin {
     static goblin_rank() {
         def start = System.currentTimeMillis() - 40 * 60 * 1000L
         def end = System.currentTimeMillis() - 20 * 60 * 1000L
-        def query = $$(type: 'goblin_ack', status: 1, is_rank: [$ne: true], timestamp: [$gt: start, $lte: end])
+        def query = $$(type: 'goblin_ack', status: 1, is_rank: [$ne: true], timestamp: [$lte: end])
         def batchIds = award_logs.distinct('batch_id', query)
         for(String id : batchIds) {
             def users = []
             def familyId = null
-            def update = $$()
+            def update = new BasicDBObject()
             Integer count = 0, cash = 0
             award_logs.aggregate([
                     $$($match: [type: 'goblin_ack', status: 1, batch_id: id]),
@@ -127,7 +127,7 @@ class Goblin {
             update.put('users', users)
             update.put('count', count)
             update.put('cash', cash)
-            update.put('timestamp', id.split('_')[1])
+            update.put('timestamp', Long.parseLong(id.split('_')[1]))
             update.put('create_at', System.currentTimeMillis())
             update.put('family', xy_family.findOne($$(_id: familyId), $$(name: 1, pic: 1)))
             stat_goblin.update($$(_id: _id), update, true, false)
