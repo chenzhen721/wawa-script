@@ -13,7 +13,6 @@ import com.mongodb.DBCollection
 import com.mongodb.DBObject
 import com.mongodb.Mongo
 import com.mongodb.MongoURI
-import org.apache.commons.collections.CollectionUtils
 import org.apache.http.Header
 import org.apache.http.HttpEntity
 import org.apache.http.HttpResponse
@@ -116,7 +115,7 @@ class Goblin {
                 cash = cash + (obj['cash'] as Integer)
             }
             award_logs.updateMulti($$(batch_id: id), $$($set: [is_rank: true]))
-            if (CollectionUtils.isNotEmpty(users)) {
+            if (users != null && !users.isEmpty()) {
                 for(Map user : users) {
                     DBObject obj = xy_users.findOne(user['user_id'] as Integer, $$(nick_name: 1, level: 1, pic: 1, 'family.family_priv': 1))
                     obj.removeField('_id')
