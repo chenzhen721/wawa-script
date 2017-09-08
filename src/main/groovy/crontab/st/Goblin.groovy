@@ -127,7 +127,7 @@ class Goblin {
             update.put('users', users)
             update.put('count', count)
             update.put('cash', cash)
-            update.put('timestamp', id.split('_')[1])
+            update.put('timestamp', Long.parseLong(id.split('_')[1]))
             update.put('create_at', System.currentTimeMillis())
             update.put('family', xy_family.findOne($$(_id: familyId), $$(name: 1, pic: 1)))
             stat_goblin.update($$(_id: _id), update, true, false)
@@ -216,14 +216,14 @@ class Goblin {
         goblin_rank()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  goblin_rank cost  ${System.currentTimeMillis() - l} ms"
 
-        //jobFinish(begin)
+        jobFinish(begin)
     }
 
     /**
      * 标记任务完成  用于运维监控
      * @return
      */
-    /*private static jobFinish(Long begin) {
+    private static jobFinish(Long begin) {
         def timerName = 'LiveStat'
         Long totalCost = System.currentTimeMillis() - begin
         saveTimerLogs(timerName, totalCost)
@@ -237,7 +237,7 @@ class Goblin {
         def id = timerName + "_" + new Date().format("yyyyMMdd")
         def update = new BasicDBObject(timer_name: timerName, cost_total: totalCost, cat: 'day', unit: 'ms', timestamp: tmp)
         timerLogsDB.findAndModify(new BasicDBObject('_id', id), null, null, false, new BasicDBObject('$set', update), true, true)
-    }*/
+    }
 
     static <T> T  http(HttpClient  client, HttpRequestBase request, Map<String,String> headers, ResponseHandler<T> handler)
             throws IOException {
