@@ -94,12 +94,12 @@ class Goblin {
     static goblin_rank() {
         def start = System.currentTimeMillis() - 40 * 60 * 1000L
         def end = System.currentTimeMillis() - 20 * 60 * 1000L
-        def query = $$(type: 'goblin_ack', status: 1, is_rank: [$ne: true], timestamp: [$gt: start, $lte: end])
+        def query = $$(type: 'goblin_ack', status: 1, is_rank: [$ne: true], timestamp: [$lte: end])
         def batchIds = award_logs.distinct('batch_id', query)
         for(String id : batchIds) {
             def users = []
             def familyId = null
-            def update = $$()
+            def update = new BasicDBObject()
             Integer count = 0, cash = 0
             award_logs.aggregate([
                     $$($match: [type: 'goblin_ack', status: 1, batch_id: id]),
@@ -209,21 +209,21 @@ class Goblin {
     static void main(String[] args) {
         long l = System.currentTimeMillis()
         long begin = l
-        goblin_action()
+        //goblin_action()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  goblin_action cost  ${System.currentTimeMillis() - l} ms"
 
         l = System.currentTimeMillis()
         goblin_rank()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  goblin_rank cost  ${System.currentTimeMillis() - l} ms"
 
-        jobFinish(begin)
+        //jobFinish(begin)
     }
 
     /**
      * 标记任务完成  用于运维监控
      * @return
      */
-    private static jobFinish(Long begin) {
+    /*private static jobFinish(Long begin) {
         def timerName = 'LiveStat'
         Long totalCost = System.currentTimeMillis() - begin
         saveTimerLogs(timerName, totalCost)
@@ -237,7 +237,7 @@ class Goblin {
         def id = timerName + "_" + new Date().format("yyyyMMdd")
         def update = new BasicDBObject(timer_name: timerName, cost_total: totalCost, cat: 'day', unit: 'ms', timestamp: tmp)
         timerLogsDB.findAndModify(new BasicDBObject('_id', id), null, null, false, new BasicDBObject('$set', update), true, true)
-    }
+    }*/
 
     static <T> T  http(HttpClient  client, HttpRequestBase request, Map<String,String> headers, ResponseHandler<T> handler)
             throws IOException {
