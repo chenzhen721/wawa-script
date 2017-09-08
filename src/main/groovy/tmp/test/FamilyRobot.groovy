@@ -121,10 +121,12 @@ class FamilyRobot{
     }
 
     static steal(String token){
-        def ids =  users.find($$("finance.coin_count":[$gt:50000]), $$(_id:1)).sort($$("finance.coin_count":-1)).limit(50)*._id
-        Collections.shuffle(ids);
-        ids.subList(0, 5).each {Integer id ->
-            println "steal: "+new URL("${api_url}useritem/steal/${token}/3/${id}").getText("utf-8")
+        if(new Random().nextInt(3).equals(3)){
+            def ids =  users.find($$("finance.coin_count":[$gt:50000]), $$(_id:1)).sort($$("finance.coin_count":-1)).limit(1000)*._id
+            Collections.shuffle(ids);
+            ids.subList(0, 3).each {Integer id ->
+                println "steal: "+new URL("${api_url}useritem/steal/${token}/3/${id}").getText("utf-8")
+            }
         }
     }
 
