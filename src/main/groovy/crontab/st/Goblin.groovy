@@ -115,6 +115,7 @@ class Goblin {
                 count = count + (obj['count'] as Integer)
                 cash = cash + (obj['cash'] as Integer)
             }
+            award_logs.updateMulti($$(batch_id: id), $$($set: [is_rank: true]))
             if (CollectionUtils.isNotEmpty(users)) {
                 for(Map user : users) {
                     DBObject obj = xy_users.findOne(user['user_id'] as Integer, $$(nick_name: 1, level: 1, pic: 1, 'family.family_priv': 1))
