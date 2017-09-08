@@ -1,5 +1,5 @@
 #!/usr/bin/env groovy
-
+import com.mongodb.DBObject
 @GrabResolver(name = 'restlet', root = 'http://192.168.31.253:8081/nexus/content/groups/public')
 @Grapes([
         @Grab('org.mongodb:mongo-java-driver:2.14.2'),
@@ -55,11 +55,16 @@ class FamilyRobot{
     final static String KEY = "wJfSNrsVM1HoU5zx8PY2OzFzr3N8dIyt"
     static users = mongo.getDB("xy").getCollection("users");
     static rooms = mongo.getDB("xy").getCollection("rooms");
+    static familys = mongo.getDB("xy_family").getCollection("familys");
     static xy_users = mongo.getDB("xy_user").getCollection("users");
     static final Integer familyId = 1203503
+    static String leaderToken;
+    static final Integer leaderId = 1202354
     static Map<Integer,String> tokens = new HashMap<>();
     static Integer currHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-    static List<Integer> robots = [1202354,1202470,1202486,1202464,1202441,1202431,1202428,1202348,1201075,1201081,1201136,1201139,1201127,1201164,1201154];
+    static List<Integer> robots = [1202354,1202470,1202486,1202464,1202441,1202431,1202428,
+                                   1202348,1201075,1201081,1201136,1201139,1201127,1201164,1201154
+                                  ];
 
     static void main(String[] args) {
         goRobot()
@@ -68,16 +73,23 @@ class FamilyRobot{
 
     static goRobot(){
         getToken(robots)
+        leaderToken = tokens.get(leaderId)
         tokens.each {Integer uid, String token ->
             //申请家族
-            applyFamily(token);
+            //applyFamily(token);
             //翻卡
             openCard(uid, token);
             //升级
             levelup(token);
+            //偷窃
+            steal(token);
             //捐献金币
             coin(token);
         }
+        initRank();
+        build();
+        ack();
+
     }
 
     static applyFamily(String token){
@@ -108,16 +120,59 @@ class FamilyRobot{
         new URL("${api_url}user/level_up/${token}").getText("utf-8")
     }
 
+    static steal(String token){
+        def ids =  users.find($$("finance.coin_count":[$gt:50000]), $$(_id:1)).sort($$("finance.coin_count":-1)).limit(50)*._id
+        Collections.shuffle(ids);
+        ids.subList(0, 5).each {Integer id ->
+            println "steal: "+new URL("${api_url}useritem/steal/${token}/3/${id}").getText("utf-8")
+        }
+    }
+
     static coin(String token){
         if(currHour >= 9 && currHour < 23) {
             Long coin = RandomUtils.nextInt(1200)
             if (coin > 300) {
                 coin *= 10
-                println new URL("${api_url}familygame/donate_coin/${token}/${familyId}?coin=${coin}").getText("utf-8")
+                println "donate: " + new URL("${api_url}familygame/donate_coin/${token}/${familyId}?coin=${coin}").getText("utf-8")
             }
         }
     }
 
+    static build(){
+        (108..101).each { Integer ackId ->
+            println new URL("${api_url}familygame/build_equipment/${leaderToken}/${ackId}").getText("utf-8")
+        }
+        (208..201).each{Integer defId ->
+           println new URL("${api_url}familygame/build_equipment/${leaderToken}/${defId}").getText("utf-8")
+        }
+    }
+
+    static ack(){
+        if(currHour >= 10 && currHour < 22) {
+            Integer count = familys.findOne(familyId).get("weapon_count") as Integer
+            if(count > 8){
+                (108..101).each{Integer ackId ->
+                    Integer topFamilyId = top1Family()
+                    if(topFamilyId != familyId ){
+                        new URL("${api_url}familygame/ack/${leaderToken}/${ackId}/${topFamilyId}").getText("utf-8")
+                        Thread.sleep(3*1000l);
+                    }
+                }
+            }
+        }
+    }
+
+    static String rediskey = "family:prestige:rank:list"
+    static Integer top1Family(){
+        Set<String> tops = mainRedis.zrevrange(rediskey, 0 ,0) as Set
+        return tops[0] as Integer
+    }
+
+    static initRank(){
+        familys.find($$(_id:[$gt:0]), $$(prestige:1)).toArray().each {DBObject data ->
+            mainRedis.zadd(rediskey, data['prestige'] as Double, data["_id"] as String)
+        }
+    }
     public static BasicDBObject $$(String key, Object value) {
         return new BasicDBObject(key, value);
     }
