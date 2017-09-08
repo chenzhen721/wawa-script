@@ -86,7 +86,7 @@ class Goblin {
             void run() {
                 String goblin_action = api_domain + "job/goblin_action".toString()
                 HttpGet httpGet = new HttpGet(goblin_action)
-                println "job/goblin_action:" + doRequest(httpClient, httpGet, null)
+                println "job/goblin_action:" + doRequest(httpClient, httpGet, null).content
             }
         }).start()
     }
