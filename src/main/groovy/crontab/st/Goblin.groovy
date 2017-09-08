@@ -209,7 +209,7 @@ class Goblin {
     static void main(String[] args) {
         long l = System.currentTimeMillis()
         long begin = l
-        //goblin_action()
+        goblin_action()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  goblin_action cost  ${System.currentTimeMillis() - l} ms"
 
         l = System.currentTimeMillis()
