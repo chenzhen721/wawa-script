@@ -9,8 +9,11 @@ package crontab.st
         @Grab('org.apache.httpcomponents:httpcore:4.2.2'),
 ])
 import com.mongodb.BasicDBObject
+import com.mongodb.DBCollection
+import com.mongodb.DBObject
 import com.mongodb.Mongo
 import com.mongodb.MongoURI
+import org.apache.commons.collections.CollectionUtils
 import org.apache.http.Header
 import org.apache.http.HttpEntity
 import org.apache.http.HttpResponse
@@ -67,17 +70,68 @@ class Goblin {
     static final String api_domain = getProperties("api.domain", "http://test-aiapi.memeyule.com/")
     public static final HttpClient httpClient = new DefaultHttpClient()
     static final String USER_AGENT = "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.4 (KHTML, like Gecko) Safari/537.4";
-    public static final Charset UTF8 =Charset.forName("UTF-8");
+    public static final Charset UTF8 =Charset.forName("UTF-8")
+
+    static DBCollection xy_users = mongo.getDB("xy").getCollection("users")
+    static DBCollection xy_family = mongo.getDB("xy_family").getCollection("familys")
+    static DBCollection award_logs = mongo.getDB('xylog').getCollection('user_award_logs') //道具奖励日志
+    static DBCollection stat_goblin = mongo.getDB('xy_admin').getCollection('stat_goblin') //哥布林统计
 
     /**
      * params: start/min/max/period/times
      * @return
      */
     static goblin_action() {
-        //initHttpClient()
-        def goblin_action = api_domain + "job/goblin_action".toString()
-        HttpGet httpGet = new HttpGet(goblin_action)
-        println "job/goblin_action:" + doRequest(httpClient, httpGet, null)
+        new Thread(new Runnable() {
+            @Override
+            void run() {
+                String goblin_action = api_domain + "job/goblin_action".toString()
+                HttpGet httpGet = new HttpGet(goblin_action)
+                println "job/goblin_action:" + doRequest(httpClient, httpGet, null)
+            }
+        }).start()
+    }
+
+    static goblin_rank() {
+        def start = System.currentTimeMillis() - 40 * 60 * 1000L
+        def end = System.currentTimeMillis() - 20 * 60 * 1000L
+        def query = $$(type: 'goblin_ack', status: 1, is_rank: [$ne: true], timestamp: [$gt: start, $lte: end])
+        def batchIds = award_logs.distinct('batch_id', query)
+        for(String id : batchIds) {
+            def users = []
+            def familyId = null
+            def update = $$()
+            Integer count = 0, cash = 0
+            award_logs.aggregate([
+                    $$($match: [type: 'goblin_ack', status: 1, batch_id: id]),
+                    $$($project: [user_id: '$user_id', family_id: '$family_id', batch_id: '$batch_id', dual: '$dual', cash: '$award.cash']),
+                    $$($group: [_id: '$user_id', count: [$sum: '$dual'], family_id: [$first: '$family_id'], cash: [$sum: '$cash'], batch_id: [$first: '$batch_id']]),
+                    $$($sort: [count: -1])
+            ]).results().each {BasicDBObject obj ->
+                if (familyId == null) {
+                    familyId = obj['family_id'] as Integer
+                }
+                users.add([user_id: obj['_id'], count: obj['count'], cash: obj['cash']])
+                count = count + (obj['count'] as Integer)
+                cash = cash + (obj['cash'] as Integer)
+            }
+            if (CollectionUtils.isNotEmpty(users)) {
+                for(Map user : users) {
+                    DBObject obj = xy_users.findOne(user['user_id'] as Integer, $$(nick_name: 1, level: 1, pic: 1, 'family.family_priv': 1))
+                    obj.removeField('_id')
+                    user.putAll(obj.toMap())
+                }
+            }
+            def _id = "${id}_${System.currentTimeMillis()}".toString()
+            update.put('_id', _id)
+            update.put('users', users)
+            update.put('count', count)
+            update.put('cash', cash)
+            update.put('timestamp', id.split('_')[1])
+            update.put('create_at', System.currentTimeMillis())
+            update.put('family', xy_family.findOne($$(_id: familyId), $$(name: 1, pic: 1)))
+            stat_goblin.update($$(_id: _id), update, true, false)
+        }
     }
 
 
@@ -157,6 +211,10 @@ class Goblin {
         long begin = l
         goblin_action()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  goblin_action cost  ${System.currentTimeMillis() - l} ms"
+
+        l = System.currentTimeMillis()
+        goblin_rank()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  goblin_rank cost  ${System.currentTimeMillis() - l} ms"
 
         jobFinish(begin)
     }
