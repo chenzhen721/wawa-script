@@ -100,7 +100,7 @@ class Goblin {
                         redisUids = mainRedis.zrange(goblin_fucked_users, 0, count)
                     }
                 }
-                def delQuery = $$(via: [$ne: 'robot'], 'finance.cash_count': [$gt: 0], _id: [$in: redisUids])
+                def delQuery = $$(via: [$ne: 'robot'], 'finance.cash_count': [$lte: 0], _id: [$in: redisUids])
                 def delUids = xy_users.distinct('_id', delQuery)
                 if (delUids.size() > 0) {
                     for (def uid : delUids) {
