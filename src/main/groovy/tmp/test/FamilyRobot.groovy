@@ -63,8 +63,8 @@ class FamilyRobot{
     static Map<Integer,String> tokens = new HashMap<>();
     static Integer currHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     static List<Integer> robots = [1202354,1202470,1202486,1202464,1202441,1202431,1202428,
-                                   1202348,1201075,1201081,1201136,1201139,1201127,1201164,1201154
-                                  ];
+                                   1202348,1201075,1201081,1201136,1201139,1201127,1201164,1201154,
+                                   1201083];
 
     static void main(String[] args) {
         goRobot()
@@ -81,12 +81,14 @@ class FamilyRobot{
             openCard(uid, token);
             //升级
             levelup(token);
-            //偷窃
-            steal(token);
-            //捐献金币
-            coin(token);
+            if(!uid.equals(1201083)){
+                //偷窃
+                steal(token);
+                //捐献金币
+                coin(token);
+            }
         }
-        initRank();
+        //initRank();
         build();
         ack();
 
@@ -121,7 +123,7 @@ class FamilyRobot{
     }
 
     static steal(String token){
-        if(new Random().nextInt(3).equals(3)){
+        if(new Random().nextInt(2).equals(6)){
             def ids =  users.find($$("finance.coin_count":[$gt:50000]), $$(_id:1)).sort($$("finance.coin_count":-1)).limit(1000)*._id
             Collections.shuffle(ids);
             ids.subList(0, 3).each {Integer id ->
