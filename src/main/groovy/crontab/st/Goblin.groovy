@@ -84,14 +84,15 @@ class Goblin {
         new Thread(new Runnable() {
             @Override
             void run() {
-                String goblin_action = api_domain + "job/goblin_action".toString()
+                String goblin_action = api_domain + "job/goblin_action?max=30&period=1&times=1".toString()
                 for (int i = 0; i < 10; i++) {
                     HttpGet httpGet = new HttpGet(goblin_action)
                     def params = [max: 30, period: 1, times: 1] as Map
                     println "job/goblin_action:" + doRequest(httpClient, httpGet, params).content
                 }
 
-                HttpGet httpGet = new HttpGet(goblin_action)
+                String goblin_action1 = api_domain + "job/goblin_action".toString()
+                HttpGet httpGet = new HttpGet(goblin_action1)
                 println "job/goblin_action:" + doRequest(httpClient, httpGet, null).content
 
             }
