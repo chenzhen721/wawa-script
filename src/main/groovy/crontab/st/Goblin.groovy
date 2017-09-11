@@ -35,6 +35,7 @@ import org.apache.http.params.CoreConnectionPNames
 import org.apache.http.params.CoreProtocolPNames
 import org.apache.http.params.HttpParams
 import org.apache.http.util.EntityUtils
+import redis.clients.jedis.Jedis
 
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
@@ -43,6 +44,8 @@ import java.nio.charset.Charset
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
+
+import static com.ttpod.rest.common.util.WebUtils.$$
 
 /**
  *  哥布林
@@ -71,26 +74,52 @@ class Goblin {
     static final String USER_AGENT = "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.4 (KHTML, like Gecko) Safari/537.4";
     public static final Charset UTF8 =Charset.forName("UTF-8")
 
+    static final String jedis_host = getProperties("main_jedis_host", "192.168.31.246")
+    static final Integer main_jedis_port = getProperties("main_jedis_port",6379) as Integer
+    static mainRedis = new Jedis(jedis_host, main_jedis_port, 50000)
     static DBCollection xy_users = mongo.getDB("xy").getCollection("users")
     static DBCollection xy_family = mongo.getDB("xy_family").getCollection("familys")
     static DBCollection award_logs = mongo.getDB('xylog').getCollection('user_award_logs') //道具奖励日志
     static DBCollection stat_goblin = mongo.getDB('xy_admin').getCollection('stat_goblin') //哥布林统计
+    static String goblin_fucked_users = "active:active_goblin:goblin:stolen:users"
 
     /**
      * params: start/min/max/period/times
      * @return
      */
     static goblin_action() {
+        final Long yesterday = new Date().clearTime().getTime() - DAY_MILLON
         new Thread(new Runnable() {
             @Override
             void run() {
-                String goblin_action = api_domain + "job/goblin_action?max=30&period=1&times=1".toString()
-                for (int i = 0; i < 10; i++) {
-                    HttpGet httpGet = new HttpGet(goblin_action)
-                    println "job/goblin_action:" + doRequest(httpClient, httpGet, null).content
+                //偷取活跃用户
+                def redisUids = [] as Set
+                def count = 0
+                if (mainRedis.exists(goblin_fucked_users)) {
+                    count = mainRedis.zcard(goblin_fucked_users) as Long
+                    if (count > 0) {
+                        redisUids = mainRedis.zrange(goblin_fucked_users, 0, count)
+                    }
+                }
+                def query = $$(via: [$ne: 'robot'], 'finance.cash_count': [$gt: 0], last_login: [$gte: yesterday], '_id': [$nin: redisUids])
+                def uids = xy_users.distinct('_id', query)
+                for (def uid : uids) {
+                    mainRedis.zincrby(goblin_fucked_users, 0d, String.valueOf(uid))
+                }
+                //找三十个用户
+                count = count + uids.size()
+                def members = mainRedis.zrangeByScore(goblin_fucked_users, 0, (count > 30 ? 30 : count) - 1)
+                for (String user_id : members) {
+                    mainRedis.zincrby(goblin_fucked_users, 1d, user_id)
+                    String goblin_action_single = api_domain + "job/goblin_action_single?max=30&user_id=${user_id}".toString()
+                    for (int i = 0; i < 10; i++) {
+                        HttpGet httpGet = new HttpGet(goblin_action_single)
+                        println "job/goblin_action_single:" + doRequest(httpClient, httpGet, null).content
+                    }
                 }
 
-                String goblin_action1 = api_domain + "job/goblin_action".toString()
+                //偷取非活跃用户
+                String goblin_action1 = api_domain + "job/goblin_action?start=1&max=30".toString()
                 HttpGet httpGet = new HttpGet(goblin_action1)
                 println "job/goblin_action:" + doRequest(httpClient, httpGet, null).content
 
