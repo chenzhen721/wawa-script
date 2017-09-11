@@ -119,9 +119,10 @@ class Goblin {
                 }
                 //找三十个用户
                 count = count + uids.size()
-                def members = mainRedis.zrangeByScore(goblin_fucked_users, 0, (count > 30 ? 30 : count) - 1)
-                for (String user_id : members) {
-                    mainRedis.zincrby(goblin_fucked_users, 1d, user_id)
+                def members = mainRedis.zrangeByScore(goblin_fucked_users, 0, count - 1) as List
+                for (int i = 0; i < 30; i++) {
+                    def user_id = members.get(i)
+                    mainRedis.zincrby(goblin_fucked_users, 1d, String.valueOf(user_id))
                     String goblin_action_single = api_domain + "job/goblin_action_single?max=30&user_id=${user_id}".toString()
                     HttpGet httpGet = new HttpGet(goblin_action_single)
                     println "job/goblin_action_single:" + doRequest(httpClient, httpGet, null).content
