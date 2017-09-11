@@ -45,7 +45,6 @@ import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
 
-import static com.ttpod.rest.common.util.WebUtils.$$
 
 /**
  *  哥布林
