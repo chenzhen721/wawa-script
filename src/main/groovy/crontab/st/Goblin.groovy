@@ -104,8 +104,8 @@ class Goblin {
                 def delQuery = $$(via: [$ne: 'robot'], 'finance.cash_count': [$lte: 0], _id: [$in: ids])
                 def delUids = xy_users.distinct('_id', delQuery)
                 if (delUids.size() > 0) {
-                    for (def uid : delUids) {
-                        ids.remove(uid)
+                    for (int i = 0; i < delUids.size(); i++) {
+                        def uid = ids.remove(i)
                         mainRedis.zrem(goblin_fucked_users, String.valueOf(uid))
                     }
                 }
