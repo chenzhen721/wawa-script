@@ -111,10 +111,8 @@ class Goblin {
                 for (String user_id : members) {
                     mainRedis.zincrby(goblin_fucked_users, 1d, user_id)
                     String goblin_action_single = api_domain + "job/goblin_action_single?max=30&user_id=${user_id}".toString()
-                    for (int i = 0; i < 10; i++) {
-                        HttpGet httpGet = new HttpGet(goblin_action_single)
-                        println "job/goblin_action_single:" + doRequest(httpClient, httpGet, null).content
-                    }
+                    HttpGet httpGet = new HttpGet(goblin_action_single)
+                    println "job/goblin_action_single:" + doRequest(httpClient, httpGet, null).content
                 }
 
                 //偷取非活跃用户
