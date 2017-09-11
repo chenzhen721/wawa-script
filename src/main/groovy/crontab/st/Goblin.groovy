@@ -104,6 +104,10 @@ class Goblin {
                 def uids = xy_users.distinct('_id', query)
                 for (def uid : uids) {
                     mainRedis.zincrby(goblin_fucked_users, 0d, String.valueOf(uid))
+                    if (mainRedis.ttl(goblin_fucked_users) < 0) {
+                        int seconds = (int) ((new Date().clearTime().getTime() + DAY_MILLON - new Date().getTime()).intValue() / 1000)
+                        mainRedis.expire(goblin_fucked_users, seconds)
+                    }
                 }
                 //找三十个用户
                 count = count + uids.size()
