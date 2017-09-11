@@ -87,8 +87,7 @@ class Goblin {
                 String goblin_action = api_domain + "job/goblin_action?max=30&period=1&times=1".toString()
                 for (int i = 0; i < 10; i++) {
                     HttpGet httpGet = new HttpGet(goblin_action)
-                    def params = [max: 30, period: 1, times: 1] as Map
-                    println "job/goblin_action:" + doRequest(httpClient, httpGet, params).content
+                    println "job/goblin_action:" + doRequest(httpClient, httpGet, null).content
                 }
 
                 String goblin_action1 = api_domain + "job/goblin_action".toString()
