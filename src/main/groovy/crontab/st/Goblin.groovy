@@ -100,7 +100,7 @@ class Goblin {
                         redisUids = mainRedis.zrange(goblin_fucked_users, 0, count)
                     }
                 }
-                def delQuery = $$(via: [$ne: 'robot'], 'finance.cash_count': [$gt: 0], _id: [$in: redisUids])
+                def delQuery = $$(via: [$ne: 'robot'], 'finance.cash_count': [$lte: 0], _id: [$in: redisUids])
                 def delUids = xy_users.distinct('_id', delQuery)
                 if (delUids.size() > 0) {
                     for (def uid : delUids) {
@@ -119,9 +119,11 @@ class Goblin {
                 }
                 //找三十个用户
                 count = count + uids.size()
-                def members = mainRedis.zrangeByScore(goblin_fucked_users, 0, (count > 30 ? 30 : count) - 1)
-                for (String user_id : members) {
-                    mainRedis.zincrby(goblin_fucked_users, 1d, user_id)
+                def members = mainRedis.zrangeByScore(goblin_fucked_users, 0, count - 1) as List
+                int c = members.size() > 30 ? 30 : members.size()
+                for (int i = 0; i < c; i++) {
+                    def user_id = members.get(i)
+                    mainRedis.zincrby(goblin_fucked_users, 1d, String.valueOf(user_id))
                     String goblin_action_single = api_domain + "job/goblin_action_single?max=30&user_id=${user_id}".toString()
                     HttpGet httpGet = new HttpGet(goblin_action_single)
                     println "job/goblin_action_single:" + doRequest(httpClient, httpGet, null).content
