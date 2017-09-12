@@ -106,7 +106,7 @@ class Goblin {
                 def delUids = xy_users.distinct('_id', delQuery)
                 if (delUids.size() > 0) {
                     for (int i = 0; i < delUids.size(); i++) {
-                        def uid = ids.remove(i)
+                        def uid = delUids.get(i)
                         mainRedis.zrem(goblin_fucked_users, String.valueOf(uid))
                     }
                 }
