@@ -91,7 +91,7 @@ class Goblin {
      * @return
      */
     static goblin_action() {
-        final Long yesterday = new Date().clearTime().getTime() - DAY_MILLON
+        final Long before_yesterday = new Date().clearTime().getTime() - 2 * DAY_MILLON
         new Thread(new Runnable() {
             @Override
             void run() {
@@ -113,7 +113,7 @@ class Goblin {
                         mainRedis.zrem(goblin_fucked_users, String.valueOf(uid))
                     }
                 }
-                def query = $$(via: [$ne: 'robot'], 'finance.cash_count': [$gt: 0], last_login: [$gte: yesterday], '_id': [$nin: ids])
+                def query = $$(via: [$ne: 'robot'], 'finance.cash_count': [$gt: 0], last_login: [$gte: before_yesterday], '_id': [$nin: ids])
                 def uids = xy_users.distinct('_id', query)
                 def score = 0d
                 if (count > 0) {
