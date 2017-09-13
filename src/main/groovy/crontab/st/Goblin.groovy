@@ -147,7 +147,7 @@ class Goblin {
                 //偷取非活跃用户
                 String goblin_action1 = api_domain + "job/goblin_action?start=1&max=30".toString()
                 HttpGet httpGet = new HttpGet(goblin_action1)
-                println "job/goblin_action:" + doRequest(httpClient, httpGet, null).content
+                //println "job/goblin_action:" + doRequest(httpClient, httpGet, null).content
 
             }
         }).start()
