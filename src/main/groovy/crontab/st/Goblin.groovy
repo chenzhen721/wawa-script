@@ -82,6 +82,9 @@ class Goblin {
     static DBCollection stat_goblin = mongo.getDB('xy_admin').getCollection('stat_goblin') //哥布林统计
     static String goblin_fucked_users = "active:active_goblin:goblin:stolen:users"
     static Random random = new Random()
+    static final int single_min = 2 //min cash
+    static final int single_max = 10  //max cash
+    static final int single_count = 20 //users
 
     /**
      * params: start/min/max/period/times
@@ -113,9 +116,11 @@ class Goblin {
                 def query = $$(via: [$ne: 'robot'], 'finance.cash_count': [$gt: 0], last_login: [$gte: yesterday], '_id': [$nin: ids])
                 def uids = xy_users.distinct('_id', query)
                 def score = 0d
-                def members = mainRedis.zrange(goblin_fucked_users, 0, count - 1) as List
-                if (members.size() > 0) {
-                    score = mainRedis.zscore(goblin_fucked_users, members.get(0)) //起始次数
+                if (count > 0) {
+                    def members = mainRedis.zrange(goblin_fucked_users, 0, count - 1) as List
+                    if (members.size() > 0) {
+                        score = mainRedis.zscore(goblin_fucked_users, members.get(0)) //起始次数
+                    }
                 }
                 for (def uid : uids) {
                     mainRedis.zadd(goblin_fucked_users, score, String.valueOf(uid))
@@ -125,16 +130,18 @@ class Goblin {
                     }
                 }
                 //在最小的score范围内找三十个用户
-                members = mainRedis.zrangeByScore(goblin_fucked_users, score, score) as List
-                int c = members.size() > 30 ? 30 : members.size()
-                //循环三十次，随机三十个用户
-                for (int i = 0; i < c; i++) {
-                    int index = random.nextInt(members.size())
-                    def user_id = members.remove(index) as String
-                    mainRedis.zincrby(goblin_fucked_users, 1d, user_id)
-                    String goblin_action_single = api_domain + "job/goblin_action_single?max=30&user_id=${user_id}".toString()
-                    HttpGet httpGet = new HttpGet(goblin_action_single)
-                    println "job/goblin_action_single:" + doRequest(httpClient, httpGet, null).content
+                def members = mainRedis.zrangeByScore(goblin_fucked_users, score, score) as List
+                if (members.size() > 0) {
+                    int c = members.size() > single_count ? single_count : members.size()
+                    //循环三十次，随机三十个用户
+                    for (int i = 0; i < c; i++) {
+                        int index = random.nextInt(members.size())
+                        def user_id = members.remove(index) as String
+                        mainRedis.zincrby(goblin_fucked_users, 1d, user_id)
+                        String goblin_action_single = api_domain + "job/goblin_action_single?min=${single_min}&max=${single_max}&user_id=${user_id}".toString()
+                        HttpGet httpGet = new HttpGet(goblin_action_single)
+                        println "job/goblin_action_single:" + doRequest(httpClient, httpGet, null).content
+                    }
                 }
 
                 //偷取非活跃用户
