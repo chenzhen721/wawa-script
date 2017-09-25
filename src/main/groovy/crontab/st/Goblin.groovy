@@ -84,7 +84,7 @@ class Goblin {
     static Random random = new Random()
     static final int single_min = 2 //min cash
     static final int single_max = 10  //max cash
-    static final int single_count = 20 //users
+    static final int single_count_rate = 0.1d //users
 
     /**
      * params: start/min/max/period/times
@@ -131,6 +131,7 @@ class Goblin {
                 }
                 //在最小的score范围内找三十个用户
                 def members = mainRedis.zrangeByScore(goblin_fucked_users, score, score) as List
+                def single_count = (count * single_count_rate).intValue()
                 if (members.size() > 0) {
                     int c = members.size() > single_count ? single_count : members.size()
                     //循环三十次，随机三十个用户
