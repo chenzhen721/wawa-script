@@ -38,8 +38,11 @@
 ### 家族活动统计
 ##0 15,22 * * * root source /etc/profile && /empty/crontab/FamilyRank.groovy >> /empty/crontab/logs/FamilyRank.log &
 
-
+###家族机器人
 */1 * * * * root source /etc/profile && /empty/crontab/FamilyRobot.groovy >> /empty/crontab/logs/FamilyRobot.log
+
+## YY 抓娃娃数据统计
+*/1 * * * * root source /etc/profile && /empty/crontab/YYgrabData.groovy >> /empty/crontab/logs/YYgrabData.log
 
 ###又拍云图片审核，定期删除
 */3 * * * * root source /etc/profile && /empty/crontab/UpaiAudit.groovy >> /empty/crontab/logs/UpaiAudit.log
