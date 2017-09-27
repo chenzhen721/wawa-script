@@ -9,6 +9,8 @@ import com.mongodb.DBObject
 import com.mongodb.Mongo
 import com.mongodb.MongoURI
 import com.mongodb.BasicDBObject
+import groovy.json.JsonOutput
+
 import java.security.MessageDigest
 import groovy.json.JsonSlurper
 import org.apache.commons.lang.math.RandomUtils
@@ -75,7 +77,8 @@ class FamilyRobot{
         def modules = (result.get("data") as Map).get("modules") as List
         def data =  (modules[0] as Map).get('data') as List
         Map<String, String> counts = mainRedis.hgetAll(redisRoomKey)
-        println counts
+        //println counts
+        println "mechine size : ${counts.size()}";
         data.each {
             Integer linkMic = it["linkMic"] as Integer
             String uid = it["uid"] as String
@@ -87,9 +90,10 @@ class FamilyRobot{
             }
             mainRedis.hset(redisRoomKey, uid.toString(), linkMic.toString())
         }
-        println "${redisKey} : " + mainRedis.get(redisKey)
-    }
 
+        println "${new Date().format('yyyy-MM-dd HH:mm')} total : " + mainRedis.get(redisKey)
+        println "${new Date().format('yyyy-MM-dd HH:mm')} total : " + mainRedis.get(redisKey)
+    }
 
     public static BasicDBObject $$(String key, Object value) {
         return new BasicDBObject(key, value);
