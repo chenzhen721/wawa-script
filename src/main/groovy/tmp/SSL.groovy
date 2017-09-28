@@ -1,3 +1,4 @@
+#!/usr/bin/env groovy
 package tmp
 
 import javax.net.ssl.*
@@ -8,7 +9,7 @@ HttpsURLConnection.setDefaultHostnameVerifier(
         new HostnameVerifier(){
             public boolean verify(String hostname,
                                   SSLSession sslSession) {
-                if (hostname.equals("test.ws.dongting.com")) {
+                if (hostname.equals("service.wawa.rgbvr.com")) {
                     return true;
                 }
                 return sslSession.isValid();
@@ -37,4 +38,4 @@ HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
 
 
 //OK
-println new URL("https://test.ws.dongting.com/").getText()
+println new URL("https://service.wawa.rgbvr.com/wawaServer/rest/room/last/clawed/record/").getText()
