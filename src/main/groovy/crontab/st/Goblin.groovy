@@ -84,7 +84,7 @@ class Goblin {
     static Random random = new Random()
     static final int single_min = 2 //min cash
     static final int single_max = 10  //max cash
-    static final int single_count_rate = 0.1d //users
+    static final double single_count_rate = 0.1d //users
 
     /**
      * params: start/min/max/period/times
