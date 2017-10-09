@@ -131,6 +131,11 @@ class UpdateUserAndLive {
         task.vipCheck()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  vipCheck---->cost:  ${System.currentTimeMillis() - l} ms"
 
+        //钻石红包超时检测
+        l = System.currentTimeMillis()
+        task.diamondPacketCheck()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  diamondPacketCheck---->cost:  ${System.currentTimeMillis() - l} ms"
+
         Long totalCost = System.currentTimeMillis() - begin
         //落地定时执行的日志
         l = System.currentTimeMillis()
@@ -300,6 +305,11 @@ class UpdateUserAndLive {
     def vipCheck(){
         users.updateMulti(new BasicDBObject('vip_expires',[$lt:System.currentTimeMillis()]),
                 new BasicDBObject('$unset',[vip_expires:1,vip:1]))
+    }
+
+    def diamondPacketCheck() {
+        def api_url = api_domain + "redpacket/refund".toString()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')} result : ${request(api_url)}"
     }
 
     static String request(String url) {
