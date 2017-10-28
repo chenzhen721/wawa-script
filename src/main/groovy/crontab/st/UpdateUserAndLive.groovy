@@ -101,9 +101,7 @@ class UpdateUserAndLive {
         l = System.currentTimeMillis()
         def trans = [
                 room_cost      : room_cost_coll,
-                finance_log    : M.getDB('xy_admin').getCollection('finance_log'),
-                diamond_logs   : M.getDB('xy_admin').getCollection('diamond_logs'),
-                diamond_cost_logs   : M.getDB('xy_admin').getCollection('diamond_cost_logs')
+                finance_log    : M.getDB('xy_admin').getCollection('finance_log')
         ]
         trans.each { k, v ->
             long lc = System.currentTimeMillis()
@@ -122,7 +120,7 @@ class UpdateUserAndLive {
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  delayOrderCheck---->cost:  ${System.currentTimeMillis() - l} ms"
 
         //家族活动
-        l = System.currentTimeMillis()
+        /*l = System.currentTimeMillis()
         task.familyEventAward()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  familyEventAward---->cost:  ${System.currentTimeMillis() - l} ms"
 
@@ -135,7 +133,7 @@ class UpdateUserAndLive {
         l = System.currentTimeMillis()
         task.diamondPacketCheck()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  diamondPacketCheck---->cost:  ${System.currentTimeMillis() - l} ms"
-
+*/
         Long totalCost = System.currentTimeMillis() - begin
         //落地定时执行的日志
         l = System.currentTimeMillis()
