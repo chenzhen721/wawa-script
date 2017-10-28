@@ -1,5 +1,6 @@
 #!/usr/bin/env groovy
-import com.mongodb.DBObject
+package tmp.test
+import com.mongodb.BasicDBObject
 @GrabResolver(name = 'restlet', root = 'http://192.168.31.253:8081/nexus/content/groups/public')
 @Grapes([
         @Grab('org.mongodb:mongo-java-driver:2.14.2'),
@@ -8,14 +9,8 @@ import com.mongodb.DBObject
 ])
 import com.mongodb.Mongo
 import com.mongodb.MongoURI
-import com.mongodb.BasicDBObject
-import groovy.json.JsonOutput
-
-import java.security.MessageDigest
 import groovy.json.JsonSlurper
-import org.apache.commons.lang.math.RandomUtils
 import redis.clients.jedis.Jedis
-
 
 /**
  * 家族机器人
