@@ -101,7 +101,9 @@ class UpdateUserAndLive {
         l = System.currentTimeMillis()
         def trans = [
                 room_cost      : room_cost_coll,
-                finance_log    : M.getDB('xy_admin').getCollection('finance_log')
+                finance_log    : M.getDB('xy_admin').getCollection('finance_log'),
+                diamond_cost_logs    : M.getDB('xy_log').getCollection('diamond_cost_logs'),
+                diamond_add_logs    : M.getDB('xy_log').getCollection('diamond_add_logs')
         ]
         trans.each { k, v ->
             long lc = System.currentTimeMillis()
