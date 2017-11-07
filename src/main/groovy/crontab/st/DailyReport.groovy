@@ -33,9 +33,9 @@ class DailyReport {
     static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
     static DBCollection award_logs = mongo.getDB('xylog').getCollection('user_award_logs') //道具奖励日志
     static DBCollection finance_log = mongo.getDB('xy_admin').getCollection('finance_log') //充值日志
-    static DBCollection cash_cost_logs = mongo.getDB('xylog').getCollection('cash_cost_logs') //现金花费日志
+//    static DBCollection cash_cost_logs = mongo.getDB('xylog').getCollection('cash_cost_logs') //现金花费日志
     static DBCollection diamond_cost_logs = mongo.getDB('xylog').getCollection('diamond_cost_logs') //钻石消耗日志
-    static DBCollection cash_apply_logs = mongo.getDB('xy_admin').getCollection('cash_apply_logs') //提现操作日志
+//    static DBCollection cash_apply_logs = mongo.getDB('xy_admin').getCollection('cash_apply_logs') //提现操作日志
     static DBCollection ops_log = mongo.getDB('xy_admin').getCollection('ops') //后台操作日志
     static DBCollection users = mongo.getDB('xy').getCollection('users')
     static DBCollection active_logs = mongo.getDB('xylog').getCollection('active_logs')
@@ -52,118 +52,11 @@ class DailyReport {
         return [$gte: gteMill, $lt: gteMill + DAY_MILLON]
     }
 
-    /**
-     * 对现金日志进行日志补偿, 首次翻卡发放奖励用到此补偿机制
-     * 参考： http://aiapi.memeyule.com/card/first_open
-     */
-    static void cash_log_task() {
-        def field = award_logs.getName()
-        users.find($$(field + '.timestamp', [$lt: getTimeBetween().get('$lt')]), $$(field, 1))
-                .limit(50).toArray().each { user ->
-            List logs = user.get(field) as List
-            def uid = new BasicDBObject('_id', user.get('_id'))
-            if (logs) {
-                logs.each { BasicDBObject log ->
-                    def _id = log.get('_id')
-                    award_logs.save(log)
-                    users.update(uid, new BasicDBObject('$pull', new BasicDBObject(field, [_id: _id])))
-                    println "clean ${field} : ${log}"
-                }
-            }
-        }
-    }
 
     //status说明： 0为道具增加， 1为道具减少
     //==========================增加钻石、现金、道具等============================
-    /**
-     * 翻牌统计：open_card
-     * 寻宝（挖矿）统计: family_event
-     * 道具使用统计：use_item
-     * 新人奖励统计（目前只有现金奖励）：new_user
-     * 新手引导奖励（目前只有现金奖励）: user_guide
-     * 家族争霸奖励（族长奖励现金，族员奖励钻石）：family_rank
-     */
-    static void statics_award() {
-        def timeBetween = getTimeBetween()
-        def YMD = new Date(timeBetween.get(BEGIN)).format("yyyyMMdd")
 
-        def query = new BasicDBObject([type: [$ne: 'family_award'], timestamp: getTimeBetween()])
-        award_logs.aggregate([
-                new BasicDBObject('$match', query),
-                new BasicDBObject('$project', [type: '$type', user_id: '$user_id', defense: '$award.defense', steal: '$award.steal', exp: '$award.exp', coin: '$award.coin', diamond: '$award.diamond', cash: '$award.cash', attack: '$award.attack']),
-                new BasicDBObject('$group', [_id: '$type', count: [$sum: 1], ids: [$addToSet: '$user_id'], defense: [$sum: '$defense'], steal: [$sum: '$steal'], exp: [$sum: '$exp'], coin: [$sum: '$coin'], diamond: [$sum: '$diamond'], cash: [$sum: '$cash'], attack: [$sum: '$attack']]) //top N 算法
-        ]).results().each { row ->
-            def type = row['_id']
-            def _id = "${YMD}_${type}".toString()
-            def ids = row.removeField("ids") as List
-            row.put("user_count", ids.size())
-            row.put("total_count", row['count'])
-            row.put("_id", _id)
-            row.put("type", type)
-            row.put("timestamp", timeBetween.get(BEGIN))
-            row.put("status", 0)
-            award_daily_logs.update($$('_id', _id), row, true, false)
-        }
-    }
 
-    /**
-     * 家族贡献领奖：family_award
-     */
-    static void statics_family_award() {
-        def timeBetween = getTimeBetween()
-        def YMD = new Date(timeBetween.get(BEGIN)).format("yyyyMMdd")
-        def _id = YMD + "_family_award"
-        def query = $$([type: 'family_award', "timestamp": getTimeBetween()])
-        award_logs.aggregate([
-                new BasicDBObject('$match', query),
-                new BasicDBObject('$project', [user_id: '$user_id', award: '$award']),
-                new BasicDBObject('$group', [_id: null, count: [$sum: 1], ids: [$addToSet: '$user_id'], diamond: [$sum: '$award']]) //top N 算法
-        ]).results().each { row ->
-            def ids = row.removeField("ids") as List
-            row.put("user_count", ids.size())
-            row.put("total_count", row['count'])
-            row.put("_id", _id)
-            row.put("type", "family_award")
-            row.put("timestamp", timeBetween.get(BEGIN))
-            row.put("status", 0)
-            award_daily_logs.update($$('_id', _id), row, true, false)
-        }
-    }
-
-    /**
-     * 现金兑换钻石统计
-     * +钻石 cash_exchange_add_diamond
-     * -现金 cash_exchange_decrease_cash
-     *
-     */
-    static void statics_exchange_diamond() {
-        def timeBetween = getTimeBetween()
-        def YMD = new Date(timeBetween.get(BEGIN)).format("yyyyMMdd")
-        def type = 'cash_exchange'
-        def _id = "${YMD}_${type}".toString()
-        def query = $$([type: type, "timestamp": getTimeBetween()])
-        cash_cost_logs.aggregate([
-                new BasicDBObject('$match', query),
-                new BasicDBObject('$project', [user_id: '$session._id', cost: '$cost']),
-                new BasicDBObject('$group', [_id: null, count: [$sum: 1], ids: [$addToSet: '$user_id'], diamond: [$sum: '$cost']])
-        ]).results().each { row ->
-            //钻石增加
-            def ids = row.removeField("ids") as List
-            row.put("user_count", ids.size())
-            row.put("total_count", row['count'])
-            row.put("_id", _id + "_add_diamond")
-            row.put("type", type + "_add_diamond")
-            row.put("timestamp", timeBetween.get(BEGIN))
-            row.put("status", 0)
-            award_daily_logs.update($$('_id', _id + "_add_diamond"), row, true, false)
-            //现金减少
-            row.put("_id", _id + "_decrease_cash")
-            row.put("type", type + "_decrease_cash")
-            row.put("cash", row.removeField('diamond'))
-            row.put("status", 1)
-            award_daily_logs.update($$('_id', _id + "_decrease_cash"), row, true, false)
-        }
-    }
 
     /**
      * 充值得钻石：user_pay
@@ -198,92 +91,7 @@ class DailyReport {
         }
     }
 
-    /**
-     * 拒绝提现: apply_refuse
-     */
-    static void statics_refuse_cash() {
-        def timeBetween = getTimeBetween()
-        def YMD = new Date(timeBetween.get(BEGIN)).format('yyyyMMdd')
-        def query = $$(status: 3, last_modify: timeBetween)
-        cash_apply_logs.aggregate([
-                new BasicDBObject('$match', query),
-                new BasicDBObject('$project', [user_id: '$user_id', cash: '$amount']),
-                new BasicDBObject('$group', [_id: null, count: [$sum: 1], ids: [$addToSet: '$user_id'], cash: [$sum: '$cash']])
-        ]).results().each { row ->
-            def type = 'apply_refuse'
-            def _id = "${YMD}_${type}".toString()
-            def ids = row.removeField("ids") as List
-            row.put("user_count", ids.size())
-            row.put("total_count", row['count'])
-            row.put("_id", _id)
-            row.put("type", type)
-            row.put("timestamp", timeBetween.get(BEGIN))
-            row.put("status", 0)
-            award_daily_logs.update($$('_id', _id), row, true, false)
-        }
-    }
-
-    /**
-     * 家族争霸房间奖励钻石（active_family_redpack）
-     */
-    static void statics_family_rank() {
-        def timeBetween = getTimeBetween()
-        def YMD = new Date(timeBetween.get(BEGIN)).format('yyyyMMdd')
-        def query = $$(type: 'active_family_redpack', timestamp: timeBetween)
-        active_logs.aggregate([
-                new BasicDBObject('$match', query),
-                new BasicDBObject('$project', [user_id: '$user_id', family_id: '$family_id', diamond: '$diamond']),
-                new BasicDBObject('$group', [_id: null, count: [$sum: 1], ids: [$addToSet: '$user_id'], fids: [$addToSet: '$family_id'], diamond: [$sum: '$diamond']])
-        ]).results().each { row ->
-            def type = 'active_family_redpack'
-            def _id = "${YMD}_${type}".toString()
-            def ids = row.removeField("ids") as List
-            def fids = row.removeField("fids") as List
-            row.put("user_count", ids.size())
-            row.put("family_count", fids.size())
-            row.put("total_count", row['count'])
-            row.put("type", type)
-            row.put("_id", _id)
-            row.put("timestamp", timeBetween.get(BEGIN))
-            row.put("status", 0)
-            award_daily_logs.update($$(_id: _id), row, true, false)
-        }
-
-    }
-
     //=================================消耗=================================
-    /**
-     * 开家族: apply_family
-     * 翻牌: open_card
-     */
-    static void statics_diamond_cost() {
-        def timeBetween = getTimeBetween()
-        def YMD = new Date(timeBetween.get(BEGIN)).format("yyyyMMdd")
-        def query = new BasicDBObject(["timestamp": getTimeBetween()])
-        def result = [:], costs = 0L, users = new HashSet()
-        diamond_cost_logs.aggregate([
-                new BasicDBObject('$match', query),
-                new BasicDBObject('$project', [type: '$type', user_id: '$session._id', diamond: '$cost']),
-                new BasicDBObject('$group', [_id: '$type', count: [$sum: 1], ids: [$addToSet: '$user_id'], diamond: [$sum: '$diamond']])
-        ]).results().each { row ->
-            def type = row['_id'] + "_decrease"
-            def _id = "${YMD}_${type}".toString()
-            def ids = row.removeField("ids") as List
-            row.put("user_count", ids.size())
-            row.put("total_count", row['count'])
-            row.put("_id", _id)
-            row.put("type", type)
-            row.put("timestamp", timeBetween.get(BEGIN))
-            row.put("status", 1)
-
-            costs += row['diamond']?:0
-            users.addAll(ids)
-
-            award_daily_logs.update($$('_id', _id), row, true, false)
-        }
-        result.putAll([user_cost: [cost: costs, user: users.size()]])
-        award_daily_logs.update($$(_id: "${YMD}_allcost".toString()), $$($set: result), true, false)
-    }
 
     /**
      * 手动减钻：hand_cut_diamond
@@ -311,122 +119,26 @@ class DailyReport {
         }
     }
 
-    /**
-     * 申请提现: apply_cash cash减少
-     */
-    static void statics_cash_apply() {
-        def timeBetween = getTimeBetween()
-        def YMD = new Date(timeBetween.get(BEGIN)).format('yyyyMMdd')
-        def query = new BasicDBObject(status: [$ne: 3], timestamp: timeBetween)
-        cash_apply_logs.aggregate([
-                new BasicDBObject('$match', query),
-                new BasicDBObject('$project', [user_id: '$user_id', cash: '$amount', expend: '$income']),
-                new BasicDBObject('$group', [_id: null, count: [$sum: 1], ids: [$addToSet: '$user_id'], cash: [$sum: '$cash']])
-        ]).results().each { row ->
-            def type = 'apply_cash'
-            def _id = "${YMD}_${type}".toString()
-            def ids = row.removeField("ids") as List
-            row.put("user_count", ids.size())
-            row.put("total_count", row['count'])
-            row.put("_id", _id)
-            row.put("type", type)
-            row.put("timestamp", timeBetween.get(BEGIN))
-            row.put("status", 1)
-            award_daily_logs.update($$('_id', _id), row, true, false)
-        }
-    }
     //=================================消耗 end=================================
-
-    /**
-     * 申请提现: apply_agree
-     */
-    static void statics_cash_agree() {
-        def timeBetween = getTimeBetween()
-        def YMD = new Date(timeBetween.get(BEGIN)).format('yyyyMMdd')
-        def query = new BasicDBObject(status: 2, last_modify: timeBetween)
-        cash_apply_logs.aggregate([
-                new BasicDBObject('$match', query),
-                new BasicDBObject('$project', [user_id: '$user_id', cash: '$amount', expend: '$income']),
-                new BasicDBObject('$group', [_id: null, count: [$sum: 1], ids: [$addToSet: '$user_id'], cash: [$sum: '$cash'], expend: [$sum: '$expend']])
-        ]).results().each { row ->
-            def type = 'apply_agree'
-            def _id = "${YMD}_${type}".toString()
-            def ids = row.removeField("ids") as List
-            row.put("user_count", ids.size())
-            row.put("total_count", row['count'])
-            row.put("_id", _id)
-            row.put("type", type)
-            row.put("timestamp", timeBetween.get(BEGIN))
-            award_daily_logs.update($$('_id', _id), row, true, false)
-        }
-    }
 
     static Integer day = 0
 
     static void main(String[] args) {
         long l = System.currentTimeMillis()
         long begin = l
-        l = System.currentTimeMillis()
-        cash_log_task()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},cash_log_task cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-        l = System.currentTimeMillis()
-        statics_award()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_award cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-        l = System.currentTimeMillis()
-        statics_family_award()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_family_award cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-        l = System.currentTimeMillis()
-        statics_exchange_diamond()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_exchange_diamond cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
 
         l = System.currentTimeMillis()
         statics_pay()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_pay cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
-        l = System.currentTimeMillis()
-        statics_cash_apply()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_cash_apply cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-        l = System.currentTimeMillis()
-        statics_refuse_cash()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_refuse_cash cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-        l = System.currentTimeMillis()
-        statics_family_rank()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_family_rank cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
         //===============减=================
-        l = System.currentTimeMillis()
-        statics_diamond_cost()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_diamond_cost cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
         l = System.currentTimeMillis()
         statics_hand_cut_diamond()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_hand_cut_diamond cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
-
-        l = System.currentTimeMillis()
-        statics_cash_apply()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_cash_apply cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
         //================减 end=============
 
-        l = System.currentTimeMillis()
-        statics_cash_agree()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReport.class.getSimpleName()},statics_cash_agree cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
 
         jobFinish(begin)
     }

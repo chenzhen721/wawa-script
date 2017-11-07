@@ -76,12 +76,12 @@ class DataInit {
         xy_user.getCollection("users").remove($$(via:[$ne:'robot']))
         xy.getCollection("rooms").remove($$(_id:[$ne:null]))
         //admin 信息
-        xy_admin.getCollection("finance_log").remove($$(_id:[$ne:null]))
+        /*xy_admin.getCollection("finance_log").remove($$(_id:[$ne:null]))
         cleanAllCollections(xy_family)
         cleanAllCollections(xy_friend)
         cleanAllCollections(game_log)
         cleanAllCollections(xylog)
-        cleanAllCollections(xyrank)
+        cleanAllCollections(xyrank)*/
 
     }
 
@@ -106,7 +106,7 @@ class DataInit {
     static void main(String[] args) {
         long l = System.currentTimeMillis()
         initData()
-        initRedis();
+        //initRedis();
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   initData, cost  ${System.currentTimeMillis() - l} ms"
     }
 }
