@@ -31,7 +31,7 @@ class DiamondDailyStat {
     }
 
     static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
-    static DBCollection diamond_logs = mongo.getDB('xy_admin').getCollection('diamond_logs')
+    static DBCollection diamond_logs = mongo.getDB('xylog').getCollection('diamond_logs')
     static DBCollection diamond_cost_logs = mongo.getDB('xy_admin').getCollection('diamond_cost_logs')
     static DBCollection diamond_dailyReport_stat = mongo.getDB('xy_admin').getCollection('diamond_dailyReport_stat')
     static DAY_MILLON = 24 * 3600 * 1000L

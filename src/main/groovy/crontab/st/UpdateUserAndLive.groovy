@@ -102,8 +102,8 @@ class UpdateUserAndLive {
         def trans = [
                 room_cost      : room_cost_coll,
                 finance_log    : M.getDB('xy_admin').getCollection('finance_log'),
-                diamond_logs   : M.getDB('xy_admin').getCollection('diamond_logs'),
-                diamond_cost_logs   : M.getDB('xy_admin').getCollection('diamond_cost_logs')
+                diamond_cost_logs    : M.getDB('xy_log').getCollection('diamond_cost_logs'),
+                diamond_add_logs    : M.getDB('xy_log').getCollection('diamond_add_logs')
         ]
         trans.each { k, v ->
             long lc = System.currentTimeMillis()
@@ -122,10 +122,20 @@ class UpdateUserAndLive {
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  delayOrderCheck---->cost:  ${System.currentTimeMillis() - l} ms"
 
         //家族活动
-        l = System.currentTimeMillis()
+        /*l = System.currentTimeMillis()
         task.familyEventAward()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  familyEventAward---->cost:  ${System.currentTimeMillis() - l} ms"
 
+        //vip用户更新
+        l = System.currentTimeMillis()
+        task.vipCheck()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  vipCheck---->cost:  ${System.currentTimeMillis() - l} ms"
+
+        //钻石红包超时检测
+        l = System.currentTimeMillis()
+        task.diamondPacketCheck()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  diamondPacketCheck---->cost:  ${System.currentTimeMillis() - l} ms"
+*/
         Long totalCost = System.currentTimeMillis() - begin
         //落地定时执行的日志
         l = System.currentTimeMillis()
@@ -289,6 +299,16 @@ class UpdateUserAndLive {
 
     def delayOrderCheck() {
         def api_url = api_domain + "pay/delay_order_fix?speed=${speed}".toString()
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')} result : ${request(api_url)}"
+    }
+
+    def vipCheck(){
+        users.updateMulti(new BasicDBObject('vip_expires',[$lt:System.currentTimeMillis()]),
+                new BasicDBObject('$unset',[vip_expires:1,vip:1]))
+    }
+
+    def diamondPacketCheck() {
+        def api_url = api_domain + "redpacket/refund".toString()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')} result : ${request(api_url)}"
     }
 
