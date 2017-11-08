@@ -502,10 +502,12 @@ class StaticsEveryDay {
         map.put('regs', regs)
         if (cost != null) {
             def user_cost = cost.get('user_cost') as BasicDBObject
-            def coin = user_cost.get('cost') as Double
-            def cost_cny = new BigDecimal(coin / 100).toDouble()
-            map.put('cost_cny', cost_cny)
-            map.put('cost_user', (user_cost.get('user') ?: 0) as Integer)
+            if(user_cost != null){
+                def coin = user_cost.get('cost') as Double
+                def cost_cny = new BigDecimal(coin / 100).toDouble()
+                map.put('cost_cny', cost_cny)
+                map.put('cost_user', (user_cost.get('user') ?: 0) as Integer)
+            }
         }
         stat_report.update(new BasicDBObject(_id: "${prefix}allreport".toString()), new BasicDBObject(map), true, false)
     }
