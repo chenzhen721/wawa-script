@@ -55,7 +55,7 @@ class Recovery {
     static DBCollection coll = mongo.getDB('xy_admin').getCollection('stat_daily')
     static DBCollection users = mongo.getDB('xy').getCollection('users')
     static DBCollection channels = mongo.getDB('xy_admin').getCollection('channels')
-    static DBCollection diamond_logs = mongo.getDB('xy_admin').getCollection('diamond_logs')
+    static DBCollection diamond_logs = mongo.getDB('xylog').getCollection('diamond_logs')
     static DBCollection diamond_cost_logs = mongo.getDB('xy_admin').getCollection('diamond_cost_logs')
     static DBCollection diamond_dailyReport_stat = mongo.getDB('xy_admin').getCollection('diamond_dailyReport_stat')
     static DBCollection channel_pay_DB = mongo.getDB('xy_admin').getCollection('channel_pay')
