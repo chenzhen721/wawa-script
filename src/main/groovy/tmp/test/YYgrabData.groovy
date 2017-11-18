@@ -6,9 +6,30 @@ import com.mongodb.BasicDBObject
         @Grab('org.mongodb:mongo-java-driver:2.14.2'),
         @Grab('commons-lang:commons-lang:2.6'),
         @Grab('redis.clients:jedis:2.1.0'),
+        @Grab('org.apache.httpcomponents:httpclient:4.2.5'),
 ])
 import com.mongodb.Mongo
 import com.mongodb.MongoURI
+<<<<<<< HEAD
+import com.mongodb.BasicDBObject
+import groovy.json.JsonOutput
+import org.apache.http.HttpEntity
+import org.apache.http.HttpResponse
+import org.apache.http.HttpStatus
+import org.apache.http.NameValuePair
+import org.apache.http.StatusLine
+import org.apache.http.client.HttpClient
+import org.apache.http.client.entity.UrlEncodedFormEntity
+import org.apache.http.client.methods.HttpPost
+import org.apache.http.impl.client.DefaultHttpClient
+import org.apache.http.message.BasicNameValuePair
+import org.apache.http.params.HttpConnectionParams
+import org.apache.http.params.HttpParams
+import org.apache.http.util.EntityUtils
+
+import java.security.MessageDigest
+=======
+>>>>>>> 45153cc5afd401dde157cea29947c2eeff878e16
 import groovy.json.JsonSlurper
 import redis.clients.jedis.Jedis
 
@@ -55,16 +76,22 @@ class FamilyRobot{
 
     static void main(String[] args) {
         Long cur = System.currentTimeMillis()
-        println "yy  static >>>>>>>>>>>>>"
+/*        println "yy  static >>>>>>>>>>>>>"
         59.times {
             staticYY();
             Thread.sleep(1000l);
+        }*/
+        5000.times {
+            staticTiantian();
+            Thread.sleep(100l);
         }
+        println "room counts : ${roomCounts.size()}";
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')} ".toString()
     }
 
     static String redisRoomKey = "yy:room:live"
     static String redisKey = "${new Date().format('yyyy-MM-dd')}:yy:total".toString()
+    static Set<String> roomCounts = new HashSet<>(1000);
     static void staticYY(){
         String responseContent = new URL("http://data.3g.yy.com/play/assemble/crane").getText("utf-8")
         def jsonSlurper = new JsonSlurper()
@@ -88,6 +115,63 @@ class FamilyRobot{
 
         println "${new Date().format('yyyy-MM-dd HH:mm')} total : " + mainRedis.get(redisKey)
         println "${new Date().format('yyyy-MM-dd HH:mm')} total : " + mainRedis.get(redisKey)
+    }
+
+    static void staticTiantian(){
+        postData("http://wwj-new.same.com/api/v1/zone/change", null)
+        Map result = postData("http://wwj-new.same.com/api/v1/room/list", null) as Map
+        def rooms = (result.get("data") as Map).get("rooms") as List
+        rooms.each {
+            roomCounts.add(it["machine_token"] as String)
+        }
+    }
+
+    public static Object postData(String POST_URL, Map params) {
+        String responseContent = "";
+        HttpPost httpPost = new HttpPost(POST_URL);
+        if (params != null) {
+            List<NameValuePair> nvps = new ArrayList<NameValuePair>();
+            Set<Map.Entry<String, String>> paramEntrys = params.entrySet();
+            for (Map.Entry<String, String> entry : paramEntrys) {
+                nvps.add(new BasicNameValuePair(entry.getKey(), entry.getValue()));
+            }
+            httpPost.setEntity(new UrlEncodedFormEntity(nvps, "utf-8"));
+        }
+
+        httpPost.setHeader("Authorization", "7f6e9242f5cd40756e155943e4f785fb4fba2b09");
+
+        HttpClient httpClient = getHttpClient()
+
+        HttpResponse response = httpClient.execute(httpPost);
+        StatusLine status = response.getStatusLine();
+        if (status.getStatusCode() >= HttpStatus.SC_MULTIPLE_CHOICES) {
+            System.out.printf("Did not receive successful HTTP response: status code = {}, status message = {}", status.getStatusCode(), status.getReasonPhrase());
+            httpPost.abort();
+        }
+
+        HttpEntity entity = response.getEntity();
+        if (entity != null) {
+            responseContent = EntityUtils.toString(entity, "utf-8");
+            def jsonSlurper = new JsonSlurper()
+            def result = jsonSlurper.parseText(responseContent)
+            EntityUtils.consume(entity);
+            return result
+        } else {
+            System.out.printf("Http entity is null! request url is {},response status is {}", POST_URL, response.getStatusLine());
+        }
+        httpClient.getConnectionManager().shutdown()
+    }
+
+    /**
+     * 获取httpClient
+     * @return
+     */
+    def static HttpClient getHttpClient() {
+        HttpClient httpClient = new DefaultHttpClient();
+        HttpParams httpParams = httpClient.getParams();
+        HttpConnectionParams.setSoTimeout(httpParams, 10 * 1000);
+        HttpConnectionParams.setConnectionTimeout(httpParams, 10 * 1000);
+        return httpClient
     }
 
     public static BasicDBObject $$(String key, Object value) {
