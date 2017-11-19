@@ -12,6 +12,6 @@ build_staging :
           - rsync -av src/main/groovy/crontab/crontab.txt webserver@101.201.68.1:/empty/crontab/
           - ssh root@101.201.68.1  "chmod -Rf 755 /empty/crontab/* && cat /empty/crontab/crontab.txt > /etc/cron.d/root.cron"
     only :
-        - master
+        - aliproduct
     tags :
         - java-shell
