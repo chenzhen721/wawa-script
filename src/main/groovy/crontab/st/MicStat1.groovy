@@ -153,6 +153,17 @@ class MicStat1 {
         sign = MD5Util.MD5Encode(MD5Util.MD5Encode(str1, utf8) + app_id, utf8)
         println "http://testdoll.artqiyi.com/api/index.php?app=doll&act=operate&device_id=${device_id}&action=${action}&platform=${platform}&user_id=${user_id}&sign=${sign}&ts=${ts}".toString()
 
+
+
+
+
+        def playtime = '40'
+        str = "device_id${device_id}platform${platform}playtime${playtime}ts${ts}".toString()
+        sign = MD5Util.MD5Encode(MD5Util.MD5Encode(str, utf8) + app_id, utf8)
+        println 'set_playtime:' + sign
+        println "http://testdoll.artqiyi.com/api/index.php?app=doll&act=set_playtime&device_id=${device_id}&playtime=${playtime}&platform=${platform}&sign=${sign}&ts=${ts}".toString()
+
+
         */
 
 
