@@ -32,7 +32,7 @@ class MicStat1 {
         return props.get(key, defaultValue)
     }
 
-    static mongo = new Mongo(new MongoURI('mongodb://127.0.0.1:27017'))
+    static mongo  = new Mongo(new MongoURI(getProperties('mongo.uri','mongodb://192.168.2.27:10000/?w=1') as String))
     /*static final String jedis_host = getProperties("main_jedis_host", "192.168.31.236")
     static final Integer main_jedis_port = getProperties("main_jedis_port", 6379) as Integer*/
 //    static redis = new Jedis(jedis_host, main_jedis_port)
@@ -46,7 +46,7 @@ class MicStat1 {
         def catch_record = mongo.getDB('xy_lab').getCollection('catch_record')
 
         //获取meme发货订单
-        def query = $$(pack_id: [$exists: true], post_type: 1)
+        /*def query = $$(pack_id: [$exists: true], post_type: 1)
         def packIds = catch_record.find(query).toArray()*.pack_id
         println packIds
         def sb = new StringBuffer()
@@ -64,7 +64,7 @@ class MicStat1 {
 
         File file = new File('E:/a.txt')
 
-        file.write(sb.toString())
+        file.write(sb.toString())*/
 
 
         def gteMill = yesTday - i * DAY_MILLON
@@ -93,6 +93,11 @@ class MicStat1 {
 
         println new Date(gteMill).format('yyyy-MM-dd') + ' ' + login*/
 
+
+        def users = mongo.getDB('xy').getCollection('users')
+        users.find($$(timestamp: [$gte: zeroMill])).each {BasicDBObject obj ->
+            println obj['_id'] + ":" + obj['nick_name'] + "decode to:" + URLDecoder.decode(obj['nick_name'] as String, 'UTF-8')
+        }
 
     }
 
