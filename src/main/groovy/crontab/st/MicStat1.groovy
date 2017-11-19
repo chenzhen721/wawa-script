@@ -96,7 +96,15 @@ class MicStat1 {
 
         def users = mongo.getDB('xy').getCollection('users')
         users.find($$(timestamp: [$gte: zeroMill])).each {BasicDBObject obj ->
-            println obj['_id'] + ":" + obj['nick_name'] + "decode to:" + URLDecoder.decode(obj['nick_name'] as String, 'UTF-8')
+            def nick_name = obj['nick_name'] as String
+            def decode = URLDecoder.decode(obj['nick_name'] as String, 'UTF-8')
+
+            if (nick_name != decode) {
+                users.update($$(_id: obj['_id']), $$($set: [nick_name: decode]), false, false)
+                println obj['_id'] + ":" + nick_name + " decode to: " + decode
+            }
+
+            //println obj['_id'] + ":" + obj['nick_name'] + "decode to:" +
         }
 
     }
