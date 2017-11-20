@@ -132,12 +132,12 @@ class MicStat1 {
         def prob_url = host + prob_controller + prob_param
         def content = new URL(prob_url).getText("UTF-8")
         def obj = new JsonSlurper().parseText(content) as Map
-        if (obj == null || Boolean.TRUE != (obj['done'] as Boolean)) {
-            println prob_url + ' error.'
+        if (obj == null || Boolean.TRUE != (Boolean.parseBoolean(obj['done'] as String))) {
+            println prob_url + ' error.' + content
             return false
         }
 
-        String time_param = "device_id=${device_id}&platfort=meme&ts=${ts}&playtime=${time}".toString()
+        String time_param = "device_id=${device_id}&platfort=meme&playtime=${time}&ts=${ts}".toString()
         def time_sign = DigestUtils.md5Hex(DigestUtils.md5Hex(time_param) + APP_ID)
         time_param = time_param + "&sign=" + time_sign
         def time_url = host + time_controller + time_param
