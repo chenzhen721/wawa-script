@@ -127,7 +127,7 @@ class MicStat1 {
         String time_controller = "?app=doll&act=set_playtime&"
         //参与验签字符串
         Long ts = System.currentTimeMillis()
-        String prob_param = "device_id=${device_id}&platfort=meme&ts=${ts}&winning_probability=${prob}".toString()
+        String prob_param = "device_id=${device_id}&platform=meme&ts=${ts}&winning_probability=${prob}".toString()
         def sign = DigestUtils.md5Hex(DigestUtils.md5Hex(prob_param
                 .replaceAll('=', '').replaceAll('&', '')) + APP_ID)
         prob_param = prob_param + "&sign=" + sign
@@ -139,7 +139,7 @@ class MicStat1 {
             return false
         }
 
-        String time_param = "device_id=${device_id}&platfort=meme&playtime=${time}&ts=${ts}".toString()
+        String time_param = "device_id=${device_id}&platform=meme&playtime=${time}&ts=${ts}".toString()
         def time_sign = DigestUtils.md5Hex(DigestUtils.md5Hex(time_param.replaceAll('=', '')
                 .replaceAll('&', '')) + APP_ID)
         time_param = time_param + "&sign=" + time_sign
