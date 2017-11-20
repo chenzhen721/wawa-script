@@ -120,14 +120,14 @@ class MicStat1 {
 
     public static final String APP_ID = "984069e5f8edd8ca4411e81863371f16"
 
-    static Map setProbAndtime(String device_id, Integer prob, Integer time) {
+    static Boolean setProbAndtime(String device_id, Integer prob, Integer time) {
         String host = "http://doll.artqiyi.com/api/index.php"
         String prob_controller = "?app=doll&act=set_winning_probability&"
         String time_controller = "?app=doll&act=set_playtime&"
         //参与验签字符串
         Long ts = System.currentTimeMillis()
         String prob_param = "device_id=${device_id}&platfort=meme&ts=${ts}&winning_probability=${prob}".toString()
-        def sign = DigestUtils.md5Hex(DigestUtils.md5Hex(prob_param) + APP_ID)
+        def sign = DigestUtils.md5Hex(DigestUtils.md5Hex(prob_param.replaceAll('=', '')) + APP_ID)
         prob_param = prob_param + "&sign=" + sign
         def prob_url = host + prob_controller + prob_param
         def content = new URL(prob_url).getText("UTF-8")
@@ -138,7 +138,7 @@ class MicStat1 {
         }
 
         String time_param = "device_id=${device_id}&platfort=meme&playtime=${time}&ts=${ts}".toString()
-        def time_sign = DigestUtils.md5Hex(DigestUtils.md5Hex(time_param) + APP_ID)
+        def time_sign = DigestUtils.md5Hex(DigestUtils.md5Hex(time_param.replaceAll('=', '')) + APP_ID)
         time_param = time_param + "&sign=" + time_sign
         def time_url = host + time_controller + time_param
         content = new URL(time_url).getText("UTF-8")
