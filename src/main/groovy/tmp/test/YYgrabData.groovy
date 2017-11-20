@@ -10,7 +10,6 @@ import com.mongodb.BasicDBObject
 ])
 import com.mongodb.Mongo
 import com.mongodb.MongoURI
-<<<<<<< HEAD
 import com.mongodb.BasicDBObject
 import groovy.json.JsonOutput
 import org.apache.http.HttpEntity
@@ -28,8 +27,6 @@ import org.apache.http.params.HttpParams
 import org.apache.http.util.EntityUtils
 
 import java.security.MessageDigest
-=======
->>>>>>> 45153cc5afd401dde157cea29947c2eeff878e16
 import groovy.json.JsonSlurper
 import redis.clients.jedis.Jedis
 

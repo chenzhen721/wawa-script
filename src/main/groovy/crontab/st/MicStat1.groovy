@@ -6,12 +6,12 @@ import com.mongodb.BasicDBObject
         @Grab('org.mongodb:mongo-java-driver:2.14.2'),
         @Grab('commons-lang:commons-lang:2.6'),
         @Grab('redis.clients:jedis:2.1.0'),
+        @Grab('com.ttpod:ttpod-rest:1.0.4'),
 ])
 import com.mongodb.Mongo
 import com.mongodb.MongoURI
-import com.mongodb.WriteConcern
-import redis.clients.jedis.Jedis
-
+import com.ttpod.rest.common.util.MsgDigestUtil
+import groovy.json.JsonSlurper
 
 /**
  * 房间发言数统计
@@ -94,7 +94,7 @@ class MicStat1 {
         println new Date(gteMill).format('yyyy-MM-dd') + ' ' + login*/
 
 
-        def users = mongo.getDB('xy').getCollection('users')
+        /*def users = mongo.getDB('xy').getCollection('users')
         users.find($$(timestamp: [$gte: zeroMill])).each {BasicDBObject obj ->
             def nick_name = obj['nick_name'] as String
             def decode = URLDecoder.decode(obj['nick_name'] as String, 'UTF-8')
@@ -105,8 +105,58 @@ class MicStat1 {
             }
 
             //println obj['_id'] + ":" + obj['nick_name'] + "decode to:" +
+        }*/
+
+        //todo 设置超时、概率
+        def catch_room = mongo.getDB('xy_lab').getCollection('catch_room')
+        catch_room.find($$(playtime: [$ne: 40], winrate: [$ne: 25])).toArray().each {BasicDBObject obj ->
+            if (!setProbAndtime(obj['fid'] as String, 25, 40)) {
+                println obj['_id']
+            }
+            catch_room.update($$(_id: obj['_id']), $$($set: [playtime: 40, winrate: 25]))
         }
 
+
+
+        //
+
+
+
+
+
+
+    }
+
+    public static final String APP_ID = "984069e5f8edd8ca4411e81863371f16"
+
+    static Map setProbAndtime(String device_id, Integer prob, Integer time) {
+        String host = "http://doll.artqiyi.com/api/index.php"
+        String prob_controller = "?app=doll&act=set_winning_probability&"
+        String time_controller = "?app=doll&act=set_playtime&"
+        //参与验签字符串
+        Long ts = System.currentTimeMillis()
+        String prob_param = "device_id=${device_id}&platfort=meme&ts=${ts}&winning_probability=${prob}".toString()
+        def sign = MsgDigestUtil.MD5.digest2HEX(MsgDigestUtil.MD5.digest2HEX(prob_param) + APP_ID)
+        prob_param = prob_param + "&sign=" + sign
+        def prob_url = host + prob_controller + prob_param
+        def content = new URL(prob_url).getText("UTF-8")
+        def obj = new JsonSlurper().parseText(content) as Map
+        if (obj == null || Boolean.TRUE != (obj['done'] as Boolean)) {
+            println prob_url + ' error.'
+            return false
+        }
+
+        String time_param = "device_id=${device_id}&platfort=meme&ts=${ts}&playtime=${time}".toString()
+        def time_sign = MsgDigestUtil.MD5.digest2HEX(MsgDigestUtil.MD5.digest2HEX(time_param) + APP_ID)
+        time_param = time_param + "&sign=" + time_sign
+        def time_url = host + time_controller + time_param
+        content = new URL(time_url).getText("UTF-8")
+        obj = new JsonSlurper().parseText(content) as Map
+        if (obj == null || Boolean.TRUE != (obj['done'] as Boolean)) {
+            println time_url + '  error.'
+            return false
+        }
+        return true
     }
 
     static Integer day = 0
