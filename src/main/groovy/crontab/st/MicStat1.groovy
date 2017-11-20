@@ -112,8 +112,9 @@ class MicStat1 {
         catch_room.find($$(playtime: [$ne: 40], winrate: [$ne: 25])).limit(2).toArray().each {BasicDBObject obj ->
             if (!setProbAndtime(obj['fid'] as String, 25, 40)) {
                 println obj['_id']
+            } else {
+                catch_room.update($$(_id: obj['_id']), $$($set: [playtime: 40, winrate: 25]))
             }
-            catch_room.update($$(_id: obj['_id']), $$($set: [playtime: 40, winrate: 25]))
         }
 
     }
