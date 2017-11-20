@@ -109,7 +109,7 @@ class MicStat1 {
 
         //设置超时、概率
         def catch_room = mongo.getDB('xy_lab').getCollection('catch_room')
-        catch_room.find($$(playtime: [$ne: 40], winrate: [$ne: 25])).toArray().each {BasicDBObject obj ->
+        catch_room.find($$(playtime: [$ne: 40], winrate: [$ne: 25])).limit(2).toArray().each {BasicDBObject obj ->
             if (!setProbAndtime(obj['fid'] as String, 25, 40)) {
                 println obj['_id']
             }
@@ -127,7 +127,8 @@ class MicStat1 {
         //参与验签字符串
         Long ts = System.currentTimeMillis()
         String prob_param = "device_id=${device_id}&platfort=meme&ts=${ts}&winning_probability=${prob}".toString()
-        def sign = DigestUtils.md5Hex(DigestUtils.md5Hex(prob_param.replaceAll('=', '')) + APP_ID)
+        def sign = DigestUtils.md5Hex(DigestUtils.md5Hex(prob_param
+                .replaceAll('=', '').replaceAll('&', '')) + APP_ID)
         prob_param = prob_param + "&sign=" + sign
         def prob_url = host + prob_controller + prob_param
         def content = new URL(prob_url).getText("UTF-8")
@@ -138,7 +139,8 @@ class MicStat1 {
         }
 
         String time_param = "device_id=${device_id}&platfort=meme&playtime=${time}&ts=${ts}".toString()
-        def time_sign = DigestUtils.md5Hex(DigestUtils.md5Hex(time_param.replaceAll('=', '')) + APP_ID)
+        def time_sign = DigestUtils.md5Hex(DigestUtils.md5Hex(time_param.replaceAll('=', '')
+                .replaceAll('&', '')) + APP_ID)
         time_param = time_param + "&sign=" + time_sign
         def time_url = host + time_controller + time_param
         content = new URL(time_url).getText("UTF-8")
