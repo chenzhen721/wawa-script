@@ -143,8 +143,8 @@ class MicStat1 {
         def time_url = host + time_controller + time_param
         content = new URL(time_url).getText("UTF-8")
         obj = new JsonSlurper().parseText(content) as Map
-        if (obj == null || Boolean.TRUE != (obj['done'] as Boolean)) {
-            println time_url + '  error.'
+        if (obj == null || Boolean.TRUE != (Boolean.parseBoolean(obj['done'] as String))) {
+            println time_url + '  error.' + content
             return false
         }
         return true
