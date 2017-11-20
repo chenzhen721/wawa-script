@@ -109,11 +109,12 @@ class MicStat1 {
 
         //设置超时、概率
         def catch_room = mongo.getDB('xy_lab').getCollection('catch_room')
-        catch_room.find($$(online: true, _id: [$in: [1000111, 1000112]])).limit(2).toArray().each {BasicDBObject obj ->
+        catch_room.find($$(online: true, _id: [$nin: [1000111, 1000112]])).limit(2).toArray().each {BasicDBObject obj ->
             if (!setProbAndtime(obj['fid'] as String, 25, 40)) {
                 println obj['_id']
             } else {
                 catch_room.update($$(_id: obj['_id']), $$($set: [playtime: 40, winrate: 25]))
+                println "success ${obj['_id']}".toString()
             }
         }
 
