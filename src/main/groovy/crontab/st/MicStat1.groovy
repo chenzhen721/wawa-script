@@ -6,12 +6,12 @@ import com.mongodb.BasicDBObject
         @Grab('org.mongodb:mongo-java-driver:2.14.2'),
         @Grab('commons-lang:commons-lang:2.6'),
         @Grab('redis.clients:jedis:2.1.0'),
-        @Grab('com.ttpod:ttpod-rest:1.0.4'),
+        @Grab('commons-codec:commons-codec:1.6')
 ])
 import com.mongodb.Mongo
 import com.mongodb.MongoURI
-import com.ttpod.rest.common.util.MsgDigestUtil
 import groovy.json.JsonSlurper
+import org.apache.commons.codec.digest.DigestUtils
 
 /**
  * 房间发言数统计
@@ -107,7 +107,7 @@ class MicStat1 {
             //println obj['_id'] + ":" + obj['nick_name'] + "decode to:" +
         }*/
 
-        //todo 设置超时、概率
+        //设置超时、概率
         def catch_room = mongo.getDB('xy_lab').getCollection('catch_room')
         catch_room.find($$(playtime: [$ne: 40], winrate: [$ne: 25])).toArray().each {BasicDBObject obj ->
             if (!setProbAndtime(obj['fid'] as String, 25, 40)) {
@@ -115,15 +115,6 @@ class MicStat1 {
             }
             catch_room.update($$(_id: obj['_id']), $$($set: [playtime: 40, winrate: 25]))
         }
-
-
-
-        //
-
-
-
-
-
 
     }
 
@@ -136,7 +127,7 @@ class MicStat1 {
         //参与验签字符串
         Long ts = System.currentTimeMillis()
         String prob_param = "device_id=${device_id}&platfort=meme&ts=${ts}&winning_probability=${prob}".toString()
-        def sign = MsgDigestUtil.MD5.digest2HEX(MsgDigestUtil.MD5.digest2HEX(prob_param) + APP_ID)
+        def sign = DigestUtils.md5Hex(DigestUtils.md5Hex(prob_param) + APP_ID)
         prob_param = prob_param + "&sign=" + sign
         def prob_url = host + prob_controller + prob_param
         def content = new URL(prob_url).getText("UTF-8")
@@ -147,7 +138,7 @@ class MicStat1 {
         }
 
         String time_param = "device_id=${device_id}&platfort=meme&ts=${ts}&playtime=${time}".toString()
-        def time_sign = MsgDigestUtil.MD5.digest2HEX(MsgDigestUtil.MD5.digest2HEX(time_param) + APP_ID)
+        def time_sign = DigestUtils.md5Hex(DigestUtils.md5Hex(time_param) + APP_ID)
         time_param = time_param + "&sign=" + time_sign
         def time_url = host + time_controller + time_param
         content = new URL(time_url).getText("UTF-8")
