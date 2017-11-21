@@ -43,7 +43,7 @@ class MicStat1 {
 
     static statics(int i) {
 
-        def catch_record = mongo.getDB('xy_lab').getCollection('catch_record')
+        def catch_record = mongo.getDB('xy_catch').getCollection('catch_record')
 
         //获取meme发货订单
         /*def query = $$(pack_id: [$exists: true], post_type: 1)
@@ -108,19 +108,19 @@ class MicStat1 {
         }*/
 
         //设置超时、概率
-        /*def catch_room = mongo.getDB('xy_lab').getCollection('catch_room')
-        catch_room.find($$(online: true, _id: [$nin: [1000111, 1000112]])).toArray().each {BasicDBObject obj ->
+        def catch_room = mongo.getDB('xy_catch').getCollection('catch_room')
+        catch_room.find($$(online: true)).toArray().each {BasicDBObject obj ->
             if (!setProbAndtime(obj['fid'] as String, 25, 40)) {
                 println obj['_id']
             } else {
-                catch_room.update($$(_id: obj['_id']), $$($set: [playtime: 40, winrate: 25]))
+                //catch_room.update($$(_id: obj['_id']), $$($set: [winrate: 25]))
                 println "success ${obj['_id']}".toString()
             }
-        }*/
+        }
 
         //
-        def catch_room = mongo.getDB('xy_lab').getCollection('catch_room')
-        println catch_room.update(new BasicDBObject(), $$($set: [online: false]), false, true)
+        /*def catch_room = mongo.getDB('xy_catch').getCollection('catch_room')
+        println catch_room.update(new BasicDBObject(), $$($set: [online: false]), false, true)*/
 
 
     }
@@ -130,7 +130,7 @@ class MicStat1 {
     static Boolean setProbAndtime(String device_id, Integer prob, Integer time) {
         String host = "http://doll.artqiyi.com/api/index.php"
         String prob_controller = "?app=doll&act=set_winning_probability&"
-        String time_controller = "?app=doll&act=set_playtime&"
+        //String time_controller = "?app=doll&act=set_playtime&"
         //参与验签字符串
         Long ts = System.currentTimeMillis()
         String prob_param = "device_id=${device_id}&platform=meme&ts=${ts}&winning_probability=${prob}".toString()
@@ -145,7 +145,7 @@ class MicStat1 {
             return false
         }
 
-        String time_param = "device_id=${device_id}&platform=meme&playtime=${time}&ts=${ts}".toString()
+        /*String time_param = "device_id=${device_id}&platform=meme&playtime=${time}&ts=${ts}".toString()
         def time_sign = DigestUtils.md5Hex(DigestUtils.md5Hex(time_param.replaceAll('=', '')
                 .replaceAll('&', '')) + APP_ID)
         time_param = time_param + "&sign=" + time_sign
@@ -155,7 +155,7 @@ class MicStat1 {
         if (obj == null || Boolean.TRUE != (Boolean.parseBoolean(obj['done'] as String))) {
             println time_url + '  error.' + content
             return false
-        }
+        }*/
         return true
     }
 
