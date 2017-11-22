@@ -2,10 +2,6 @@
 
 #### git push 后会自动覆盖服务器crontab ###
 
-##SHELL=/bin/bash
-##PATH=/sbin:/bin:/usr/sbin:/usr/bin
-##MAILTO=root
-
 ### main 数据
 ##05,45 * * * * root source /etc/profile && /empty/crontab/RankFamily.groovy >> /empty/crontab/logs/RankFamily.log
 
