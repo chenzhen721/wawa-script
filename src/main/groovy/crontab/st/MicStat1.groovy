@@ -109,20 +109,29 @@ class MicStat1 {
 
         //设置超时、概率
         def catch_room = mongo.getDB('xy_catch').getCollection('catch_room')
-        catch_room.find($$(online: true)).toArray().each {BasicDBObject obj ->
+        /*catch_room.find($$(online: true)).toArray().each {BasicDBObject obj ->
             if (!setProbAndtime(obj['fid'] as String, 25, 40)) {
                 println obj['_id']
             } else {
                 //catch_room.update($$(_id: obj['_id']), $$($set: [winrate: 25]))
                 println "success ${obj['_id']}".toString()
             }
-        }
+        }*/
 
-        //
+        //批量上下线
         /*def catch_room = mongo.getDB('xy_catch').getCollection('catch_room')
         println catch_room.update(new BasicDBObject(), $$($set: [online: false]), false, true)*/
 
 
+        def catch_toy = mongo.getDB('xy_catch').getCollection('catch_toy')
+        def sb = new StringBuffer()
+        catch_room.find().toArray().each {BasicDBObject obj->
+            String toy = catch_toy.findOne(obj['toy_id'])
+            sb.append("${obj['name']}").append(',').append("${obj['fid']}").append(',')
+                    .append("${toy['_id']}").append(',').append("${obj['name']}").append(',').append(System.lineSeparator())
+        }
+
+        println sb.toString()
     }
 
     public static final String APP_ID = "984069e5f8edd8ca4411e81863371f16"
