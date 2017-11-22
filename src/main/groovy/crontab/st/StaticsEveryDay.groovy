@@ -55,7 +55,11 @@ class StaticsEveryDay {
     static DBCollection users = mongo.getDB('xy').getCollection('users')
     static DBCollection channel_pay_DB = mongo.getDB('xy_admin').getCollection('channel_pay')
     static DBCollection channels = mongo.getDB('xy_admin').getCollection('channels')
-
+    /**
+     * 1：WEB  2：Android   4：iOS   5：H5
+     * @param i
+     * @return
+     */
     static loginStatics(int i) {
         // yesTday 昨天凌晨 - 1天 = 前天凌晨
         def begin = yesTday - i * DAY_MILLON
@@ -64,7 +68,7 @@ class StaticsEveryDay {
         def log = mongo.getDB("xylog").getCollection("day_login");
         def query = new BasicDBObject(timestamp: [$gte: begin, $lt: end])
         def channel = mongo.getDB('xy_admin').getCollection('channels')
-        def pcqds = channel.find(new BasicDBObject(client: '1')).toArray()*._id
+        def pcqds = channel.find(new BasicDBObject(client: [$in: ['1', '5']])).toArray()*._id
         //统计流失率
         def lossbegin = begin - 15 * DAY_MILLON
         def lossend = lossbegin + DAY_MILLON
@@ -238,8 +242,8 @@ class StaticsEveryDay {
         }
         def typeMap = new HashMap<String, PayStat>()
         PayStat total = new PayStat()
-        def pc = channel_pay_DB.find(new BasicDBObject([client: "1", _id: [$ne: 'Admin']])).toArray()*._id
-        def mobile = channel_pay_DB.find(new BasicDBObject([client: ['$ne': "1"], _id: [$ne: 'Admin']])).toArray()*._id
+        def pc = channel_pay_DB.find(new BasicDBObject([client: [$in: ["1", "5"]], _id: [$ne: 'Admin']])).toArray()*._id
+        def mobile = channel_pay_DB.find(new BasicDBObject([client: ['$nin': ["1", "5"]], _id: [$ne: 'Admin']])).toArray()*._id
         [pc    : pc,//PayType
          mobile: mobile,
         ].each { String k, List<String> v ->
