@@ -140,7 +140,8 @@ class MicStat1 {
             ids.put(Integer.parseInt(a[2]), a[4])
         }
         println ids
-        catch_success_log.find($$(goods_id: {$exists: false})).each {BasicDBObject obj ->
+        def logs = catch_success_log.find($$(goods_id: {$exists: false}))
+        logs.each {BasicDBObject obj ->
             def gid = ids.get(obj['toy']['_id']) as Integer
             catch_success_log.update($$(_id: obj['_id']), $$($set: [goods_id: gid]), false, false)
             println obj['_id']
@@ -188,9 +189,9 @@ class MicStat1 {
 
     static void main(String[] args) {
         long l = System.currentTimeMillis()
-        1.times {
-            statics(it)
-        }
+//        1.times {
+            statics(0)
+//        }
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${MicStat1.class.getSimpleName()},statics cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
