@@ -132,6 +132,7 @@ class MicStat1 {
         }
         println sb.toString()*/
 
+        //补充线上中奖id
         def catch_success_log = mongo.getDB('xylog').getCollection('catch_success_logs')
         def file = new File('/empty/crontab/goodsid.txt')
         def ids = new HashMap()
@@ -140,7 +141,8 @@ class MicStat1 {
             ids.put(Integer.parseInt(a[2]), a[4])
         }
         println ids
-        def logs = catch_success_log.find($$(goods_id: {$exists: false}))
+        def logs = catch_success_log.find($$(goods_id: [$exists: false]))
+        //println logs
         logs.each {BasicDBObject obj ->
             def gid = ids.get(obj['toy']['_id']) as Integer
             catch_success_log.update($$(_id: obj['_id']), $$($set: [goods_id: gid]), false, false)
