@@ -577,10 +577,10 @@ class TongjiActive {
         Thread.sleep(1000L)
 
         // 更新IOS的激活（联运管理iOS版）
-        l = System.currentTimeMillis()
-        //fetchTalkingData(day)
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd fetchTalkingData, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
+//        l = System.currentTimeMillis()
+//        fetchTalkingData(day)
+//        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd fetchTalkingData, cost  ${System.currentTimeMillis() - l} ms"
+//        Thread.sleep(1000L)
 
         // 运营关键数据统计（PC、手机），对应财务管理
         l = System.currentTimeMillis()
