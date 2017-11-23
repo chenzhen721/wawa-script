@@ -94,7 +94,7 @@ class UpdateUserAndLive {
 
         //房间用户上麦状态检测
         l = System.currentTimeMillis()
-        task.roomMicLiveCheck()
+        //task.roomMicLiveCheck()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  roomMicLiveCheck---> cost: ${System.currentTimeMillis() - l} ms"
 
         //异常交易检测
