@@ -124,14 +124,16 @@ class MicStat1 {
 
 
         def catch_toy = mongo.getDB('xy_catch').getCollection('catch_toy')
-        def sb = new StringBuffer()
+        /*def sb = new StringBuffer()
         catch_room.find().toArray().each {BasicDBObject obj->
             String toy = catch_toy.findOne(obj['toy_id'])
             sb.append("${obj['name']}").append(',').append("${obj['fid']}").append(',')
                     .append("${toy['_id']}").append(',').append("${obj['name']}").append(',').append(System.lineSeparator())
         }
+        println sb.toString()*/
 
-        println sb.toString()
+
+
     }
 
     public static final String APP_ID = "984069e5f8edd8ca4411e81863371f16"
