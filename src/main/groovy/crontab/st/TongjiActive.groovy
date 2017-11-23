@@ -107,110 +107,6 @@ class TongjiActive {
      * 友盟接口请求有限制（15分钟300条）
      * @param i
      */
-    static void fetchUmengData(int i) {
-        long l = System.currentTimeMillis()
-        def gteMill = yesTday - i * DAY_MILLON
-        def date = new Date(gteMill)//
-        def list = []
-        def day = date.format("yyyyMMdd_")
-        def coll = mongo.getDB('xy_admin').getCollection('stat_channels')
-        def channelDB = mongo.getDB('xy_admin').getCollection('channels')
-        def qdlist = channelDB.find(new BasicDBObject(is_close: false), new BasicDBObject(_id: 1))*._id
-
-        [IOS_APP_KEY, ANDROID_APP_KEY].each { String appkey ->
-            def page = 1, per_page = 100
-            def hasMore = true
-            while (hasMore) {
-                def data = null, result = "[]"
-                for (int j = 0; j < 10; j++) {
-                    try {
-                        result = getChannels(appkey, per_page, page, date)
-                        if (result != null) {
-                            data = new JsonSlurper().parseText(result)
-                            break
-                        }
-                        if (data == null) {
-                            //若接口第一时间无法同步则等待一定时间再重新查询
-                            Thread.sleep(2 * 60 * 1000L)
-                        }
-                    } catch (Exception e) {
-                        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}"
-                        println e.getStackTrace()
-                        //若接口第一时间无法同步则等待一定时间再重新查询
-                        Thread.sleep(30 * 1000L)
-                    }
-
-                }
-                if (data.size() > 0) {
-                    data.each { Map row ->
-                        def channelId = row['channel'] as String
-                        if (qdlist.contains(channelId)) {
-                            //查询umeng自定义事件三日发言
-                            def update = new BasicDBObject([active     : row['install'] as Integer,//新增用户
-                                                            active_user: row['active_user'] as Integer,//日活
-                                                            duration   : row['duration'] as String//使用时长
-                            ])
-                            def channel = channelDB.findOne(new BasicDBObject("_id", row['channel'] as String), new BasicDBObject("active_discount", 1))
-                            def active = row['install'] as Integer
-                            if (channel != null && active != null) {
-                                //设置激活扣量cpa1
-                                def discountMap = channel.removeField("active_discount") as Map
-                                if (discountMap != null && discountMap.size() > 0) {
-                                    def cpa = null
-                                    def keyList = discountMap.keySet().toArray().sort { String a, String b ->
-                                        Long.parseLong(b) <=> Long.parseLong(a)
-                                    }
-                                    for (it in keyList) {
-                                        if (gteMill >= (it as Long)) {
-                                            def discount = discountMap.get(it) as Integer
-                                            cpa = new BigDecimal((double) (active * discount / 100)).toInteger()
-                                            break
-                                        }
-                                    }
-                                    if (cpa != null) update.append("cpa1", cpa)
-                                }
-                            }
-                            row.put('update', update)
-                            row.put('appkey', appkey)
-                            //查询30日新增激活及日活
-                            def new_active30 = 0, active30 = 0
-                            coll.aggregate(
-                                    new BasicDBObject('$match', [qd: row['channel'], timestamp: [$gte: gteMill - 30 * DAY_MILLON, $lt: gteMill + DAY_MILLON]]),
-                                    new BasicDBObject('$project', [_id: '$qd', new_active: '$active', active: '$active_user']),
-                                    new BasicDBObject('$group', [_id: '$_id', total_new_active: [$sum: '$new_active'], total_active: [$sum: '$active']])
-                            ).results().each { BasicDBObject item ->
-                                new_active30 = item.get('total_new_active') as Integer
-                                active30 = item.get('total_active') as Integer
-                            }
-                            update.put("active30", new_active30 + update.get('active'))
-                            update.put("active_user30", active30 + update.get('active_user'))
-                            list.add(row)
-                        }
-                    }
-                }
-                if (data == null || data.size() < per_page) {
-                    hasMore = false
-                }
-                page++
-            }
-        }
-        def before = new Date(gteMill - DAY_MILLON)
-        list.each { Map row ->
-            def update = row['update'] as BasicDBObject
-            def appkey = row['appkey'] as String
-
-            coll.update(new BasicDBObject('_id', "${day}${row['channel']}".toString()), new BasicDBObject('$set', update))
-            try {
-                if (row['id'] != null) {
-                    def rateStr = getRetention(appkey, row['id'] as String, before)
-                    def rate = new BigDecimal(rateStr).toDouble()
-                    coll.update(new BasicDBObject('_id', "${day}${row['channel']}".toString()), new BasicDBObject('$set', ["retention": rate]))
-                }
-            } catch (Exception e) {
-                println "${new Date().format('yyyy-MM-dd HH:mm:ss')} ${row['channel']}:${row['id']} retention error".toString()
-            }
-        }
-    }
 
     /**
      * 调用友盟渠道列表
@@ -221,108 +117,6 @@ class TongjiActive {
      * @param date
      * @return
      */
-    private static String getChannels(String appkey, Integer pageSize, Integer page, Date date) {
-        def content = null
-        InputStream is = null
-        try {
-            def url = new URL("http://api.umeng.com/channels?appkey=${appkey}&auth_token=${AUTH_TOKEN}" +
-                    "&per_page=${pageSize}&page=${page}&date=${date.format('yyyy-MM-dd')}")
-            def conn = (HttpURLConnection) url.openConnection()
-            def responseCode = conn.getResponseCode()
-            if (responseCode == 403) {
-                println 'umeng channels sleep 3min'
-                Thread.sleep(3 * 60 * 1000L)
-                return getChannels(appkey, pageSize, page, date)
-            }
-            if (responseCode == 200) {
-                def buffer = new StringBuffer()
-                is = conn.getInputStream()
-                is.eachLine('UTF-8') { buffer.append(it) }
-                content = buffer.toString()
-            }
-        } finally {
-            if (is != null) is.close()
-        }
-        return content
-    }
-
-    private static Integer getSpeechs(String appkey, String channelId, Date date) {
-        def count = 0
-        InputStream is = null
-        try {
-            String url_str = "http://api.umeng.com/events/parameter_list?appkey=${appkey}" +
-                    "&auth_token=${AUTH_TOKEN}&period_type=daily&event_id=543ce217e8af9ceaa72f3847" +
-                    "&start_date=${date.format('yyyy-MM-dd')}&end_date=${date.format('yyyy-MM-dd')}" +
-                    "&channels=${channelId}"
-            def url = new URL(url_str)
-
-            //println "getSpeechs url: ${url_str}"
-            def conn = (HttpURLConnection) url.openConnection()
-            def responseCode = conn.getResponseCode()
-            if (responseCode == 403) {
-                println 'umeng parameter_list sleep 3min'
-                Thread.sleep(3 * 60 * 1000L)
-                return getSpeechs(appkey, channelId, date)
-            }
-            if (responseCode == 200) {
-                def buffer = new StringBuffer()
-                is = conn.getInputStream()
-                is.eachLine('UTF-8') { buffer.append(it) }
-                def content = buffer.toString()
-                if (StringUtils.isNotBlank(content)) {
-                    //println "getSpeechs content: ${content}"
-                    def listObj = new JsonSlurper().parse(new StringReader(content)) as List
-                    if (listObj != null) {
-                        for (Map item : listObj) {
-                            if ("新注册用户数发言率".equals(item.get('label') as String)) {
-                                count = item.get('num') as Integer
-                            }
-                        }
-                    }
-                }
-            }
-        } finally {
-            if (is != null) is.close()
-        }
-        return count
-    }
-
-    private static String getRetention(String appkey, String channelId, Date date) {
-        def rate = "0"
-        InputStream is = null
-        try {
-            def url = new URL("http://api.umeng.com/retentions?appkey=${appkey}&auth_token=${AUTH_TOKEN}" +
-                    "&start_date=${date.format('yyyy-MM-dd')}&end_date=${date.format('yyyy-MM-dd')}&period_type=daily" +
-                    "&channels=${channelId}")
-            def conn = (HttpURLConnection) url.openConnection()
-            def responseCode = conn.getResponseCode()
-            if (responseCode == 403) {
-                println 'umeng retentions sleep 3min'
-                Thread.sleep(3 * 60 * 1000L)
-                return getRetention(appkey, channelId, date)
-            }
-            if (responseCode == 200) {
-                def buffer = new StringBuffer()
-                is = conn.getInputStream()
-                is.eachLine('UTF-8') { buffer.append(it) }
-                def content = buffer.toString()
-                if (StringUtils.isNotBlank(content)) {
-                    def listObj = new JsonSlurper().parse(new StringReader(content)) as List
-                    if (listObj != null && listObj.size() > 0) {
-                        def obj = listObj[0] as Map
-                        def retentionList = obj.get('retention_rate') as List
-                        if (retentionList != null && retentionList.size() > 0) {
-                            rate = retentionList[0] as String
-                        }
-                    }
-                }
-
-            }
-        } finally {
-            if (is != null) is.close()
-        }
-        return rate
-    }
 
     /**
      * 1,7,30活跃统计
@@ -560,10 +354,10 @@ class TongjiActive {
             if ('4'.equals(client)) {
                 channel_ios.add(id)
             }
-            /*if ('5'.equals(client)) {
+            if ('5'.equals(client)) {
                 channel_h5.add(id)
             }
-            if ('6'.equals(client)) {
+            /*if ('6'.equals(client)) {
                 channel_ria.add(id)
             }*/
         }
@@ -669,7 +463,7 @@ class TongjiActive {
                 new BasicDBObject($set: pc_map), true, false)
         //新增激活，激活用户
         def new_active = 0, active = 0
-        [IOS_APP_KEY, ANDROID_APP_KEY].each { String appkey ->
+        /*[IOS_APP_KEY, ANDROID_APP_KEY].each { String appkey ->
             try {
                 def content = new URL("http://api.umeng.com/base_data?appkey=${appkey}&auth_token=${AUTH_TOKEN}" +
                         "&date=${date.format('yyyy-MM-dd')}").getText("UTF-8")
@@ -679,7 +473,7 @@ class TongjiActive {
             } catch (Exception e) {
                 println e
             }
-        }
+        }*/
         mobile_map.put('type', 'mobilereport')
         mobile_map.put('timestamp', gteMill)
         mobile_map.put('pay_user', pay?.get('user_mobile')?.getAt('user') ?: 0)
@@ -691,8 +485,8 @@ class TongjiActive {
         mobile_map.put('reg_pay_user', mobile_pay_reg.size())
         mobile_map.put('first_pay_cny', mobile_total)
         mobile_map.put('first_pay_user', mobile_pay_user.size())
-        mobile_map.put('new_active', new_active ?: 0)
-        mobile_map.put('active', active ?: 0)
+//        mobile_map.put('new_active', new_active ?: 0)
+//        mobile_map.put('active', active ?: 0)
         stat_report.update(new BasicDBObject(_id: "${prefix}mobilereport".toString()),
                 new BasicDBObject($set: mobile_map), true, false)
     }
@@ -725,7 +519,7 @@ class TongjiActive {
         def mobile_retention = day_login.count(new BasicDBObject(user_id: [$in: mobile_reg], timestamp: [$gte: gteMill + DAY_MILLON, $lt: gteMill + 2 * DAY_MILLON]))
         def beforeStr = date.format('yyyy-MM-dd')
         def rate = 0 as BigDecimal
-        [IOS_APP_KEY, ANDROID_APP_KEY].each { String appkey ->
+        /*[IOS_APP_KEY, ANDROID_APP_KEY].each { String appkey ->
             try {
                 def content = new URL("http://api.umeng.com/retentions?appkey=${appkey}&auth_token=${AUTH_TOKEN}" +
                         "&start_date=${beforeStr}&end_date=${beforeStr}&period_type=daily").getText("UTF-8")
@@ -742,7 +536,7 @@ class TongjiActive {
             } catch (Exception e) {
                 println e
             }
-        }
+        }*/
         stat_report.update(new BasicDBObject(_id: "${prefix}pcreport".toString()),
                 new BasicDBObject($set: [reg_retention: pc_retention]))
         stat_report.update(new BasicDBObject(_id: "${prefix}mobilereport".toString()),
@@ -771,10 +565,10 @@ class TongjiActive {
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd stayStatics, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
         // 更新渠道的激活值
-        l = System.currentTimeMillis()
-        fetchUmengData(day)
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd fetchUmengData, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
+        //l = System.currentTimeMillis()
+        //fetchUmengData(day)
+        //println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd fetchUmengData, cost  ${System.currentTimeMillis() - l} ms"
+        //Thread.sleep(1000L)
 
         //03.父级渠道的统计
         l = System.currentTimeMillis()
@@ -784,7 +578,7 @@ class TongjiActive {
 
         // 更新IOS的激活（联运管理iOS版）
         l = System.currentTimeMillis()
-        fetchTalkingData(day)
+        //fetchTalkingData(day)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd fetchTalkingData, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
