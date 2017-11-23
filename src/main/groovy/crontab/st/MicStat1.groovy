@@ -132,6 +132,20 @@ class MicStat1 {
         }
         println sb.toString()*/
 
+        def catch_success_log = mongo.getDB('xylog').getCollection('catch_success_logs')
+        def file = new File('/empty/crontab/goodsid.txt')
+        def ids = new HashMap()
+        file.readLines().each {String line ->
+            def a = line.split(',')
+            ids.put(Integer.parseInt(a[2]), a[4])
+        }
+        println ids
+        catch_success_log.find($$(goods_id: {$exists: false})).toArray().each {BasicDBObject obj ->
+            def gid = ids.get(obj['toy']['_id']) as Integer
+            catch_success_log.update($$(_id: obj['_id']), $$($set: [goods_id: gid]), false, false)
+            println obj['_id']
+        }
+
 
 
     }
