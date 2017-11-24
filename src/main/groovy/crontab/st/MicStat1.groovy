@@ -74,7 +74,7 @@ class MicStat1 {
 
 
 
-        def  count = catch_record.count($$(timestamp: [$gte: gteMill, $lt: ltMill]))
+        /*def  count = catch_record.count($$(timestamp: [$gte: gteMill, $lt: ltMill]))
         def bingo = catch_record.count($$(type: 2, status: true, timestamp: [$gte: gteMill, $lt: ltMill]))
 
         def users = mongo.getDB('xy').getCollection('users')
@@ -89,7 +89,7 @@ class MicStat1 {
         def day_login = mongo.getDB("xylog").getCollection("day_login")
         def login = day_login.count($$(user_id: [$in: reg], timestamp: [$gte: ltMill, $lt: ltMill + DAY_MILLON]))
 
-        println new Date(gteMill).format('yyyy-MM-dd') + ' ' + count + ' ' + bingo + ' ' + login
+        println new Date(gteMill).format('yyyy-MM-dd') + ' ' + count + ' ' + bingo + ' ' + login*/
 
 
         /*def users = mongo.getDB('xy').getCollection('users')
