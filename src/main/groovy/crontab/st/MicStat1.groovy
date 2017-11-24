@@ -182,11 +182,14 @@ class MicStat1 {
         }
 
         println catch_success_log.update($$(_id: [$in: ids], is_delete: [$ne: true]), $$($set: [is_delete: true]))*/
-        apply_post_log.find($$(timestamp: [$gte: new Date().clearTime().getTime()]))
-                .sort($$(timestmap: -1)).toArray().each{BasicDBObject post_log->
+        def logs = apply_post_log.find($$(timestamp: [$gte: new Date().clearTime().getTime()]))
+                .sort($$(timestmap: -1)).toArray()
+        println logs.size()
+        logs.each{BasicDBObject post_log->
             def toys = post_log['toys'] as List
             if (toys != null && toys.size() > 0) {
                 def records = toys*.record_id
+                println records
                 if (catch_success_log.count($$(_id: [$in: records], post_type: 0)) > 0) {
                     println catch_success_log.update($$(_id: [$in: records]), $$($set: [post_type: 0], $unset: [pack_id: 1, apply_time: 1]), false, true)
                     apply_post_log.update($$(_id: post_log['_id']), $$($set: [is_delete: true]))
