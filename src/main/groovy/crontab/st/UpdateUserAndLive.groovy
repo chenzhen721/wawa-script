@@ -68,6 +68,8 @@ class UpdateUserAndLive {
     static orders = M.getDB("shop").getCollection('orders')
     static room_cost_coll = M.getDB('xylog').getCollection('room_cost')
     static mic_log = M.getDB('xylog').getCollection('mic_log')
+    static catch_success_log = M.getDB('xylog').getCollection('catch_success_logs')
+    static apply_post_logs = M.getDB('xylog').getCollection('apply_post_logs')
     static DBCollection familyDB = M.getDB('xyactive').getCollection('familys')
 
     static final String api_domain = getProperties("api.domain", "http://test-aiapi.memeyule.com/")
@@ -102,8 +104,8 @@ class UpdateUserAndLive {
         def trans = [
                 room_cost      : room_cost_coll,
                 finance_log    : M.getDB('xy_admin').getCollection('finance_log'),
-                diamond_cost_logs    : M.getDB('xy_log').getCollection('diamond_cost_logs'),
-                diamond_add_logs    : M.getDB('xy_log').getCollection('diamond_add_logs')
+                diamond_cost_logs    : M.getDB('xylog').getCollection('diamond_cost_logs'),
+                diamond_add_logs    : M.getDB('xylog').getCollection('diamond_add_logs')
         ]
         trans.each { k, v ->
             long lc = System.currentTimeMillis()
@@ -130,12 +132,13 @@ class UpdateUserAndLive {
         l = System.currentTimeMillis()
         task.vipCheck()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  vipCheck---->cost:  ${System.currentTimeMillis() - l} ms"
-
-        //钻石红包超时检测
-        l = System.currentTimeMillis()
-        task.diamondPacketCheck()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  diamondPacketCheck---->cost:  ${System.currentTimeMillis() - l} ms"
 */
+        //快递下单超时检测
+        l = System.currentTimeMillis()
+        task.postTranCheck('apply_post_logs', apply_post_logs)
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}  diamondPacketCheck---->cost:  ${System.currentTimeMillis() - l} ms"
+
+
         Long totalCost = System.currentTimeMillis() - begin
         //落地定时执行的日志
         l = System.currentTimeMillis()
@@ -283,6 +286,23 @@ class UpdateUserAndLive {
                     def _id = log.get('_id')
                     collection.save(log)
                     orders.update(oid, new BasicDBObject('$pull', new BasicDBObject(field, [_id: _id])))
+                    println "clean ${field} : ${log}"
+                }
+            }
+        }
+    }
+
+    //失败事务处理 30 秒
+    def postTranCheck(String field, DBCollection collection) {
+        catch_success_log.find(new BasicDBObject(field + '.timestamp', [$lt: System.currentTimeMillis() - WAIT]), new BasicDBObject(field, 1))
+                .limit(50).toArray().each { order ->
+            List logs = order.get(field) as List
+            def oid = new BasicDBObject('_id', order.get('_id'))
+            if (logs) {
+                logs.each { DBObject log ->
+                    def _id = log.get('_id')
+                    collection.save(log)
+                    catch_success_log.update(oid, new BasicDBObject('$pull', new BasicDBObject(field, [_id: _id])))
                     println "clean ${field} : ${log}"
                 }
             }
