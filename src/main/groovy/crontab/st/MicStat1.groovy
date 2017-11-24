@@ -74,8 +74,8 @@ class MicStat1 {
 
 
 
-        def  count = catch_record.count($$(timestamp: [$get: gteMill, $lt: ltMill]))
-        def bingo = catch_record.count($$(type: 2, status: true, timestamp: [$get: gteMill, $lt: ltMill]))
+        def  count = catch_record.count($$(timestamp: [$gte: gteMill, $lt: ltMill]))
+        def bingo = catch_record.count($$(type: 2, status: true, timestamp: [$gte: gteMill, $lt: ltMill]))
 
         def users = mongo.getDB('xy').getCollection('users')
         def reg = new HashSet()
