@@ -151,7 +151,7 @@ class MicStat1 {
         }*/
 
         def apply_post_log = mongo.getDB('xylog').getCollection('apply_post_logs')
-        def file = new File('/empty/crontab/metadata/BUG12.txt')
+        def file = new File('/empty/crontab/BUG12.txt')
         def ids = []
         file.readLines().each {String line ->
             if (StringUtils.isNotBlank(line)) {
