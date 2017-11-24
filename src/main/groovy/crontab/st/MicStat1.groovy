@@ -74,11 +74,8 @@ class MicStat1 {
 
 
 
-        /*def  count = catch_record.count($$(timestamp: [$get: gteMill, $lt: ltMill]))
-        def bingo = catch_record.count($$(type: 2, timestamp: [$get: gteMill, $lt: ltMill]))
-
-        println new Date(gteMill).format('yyyy-MM-dd') + ' ' + count + ' ' + bingo
-
+        def  count = catch_record.count($$(timestamp: [$get: gteMill, $lt: ltMill]))
+        def bingo = catch_record.count($$(type: 2, status: true, timestamp: [$get: gteMill, $lt: ltMill]))
 
         def users = mongo.getDB('xy').getCollection('users')
         def reg = new HashSet()
@@ -92,7 +89,7 @@ class MicStat1 {
         def day_login = mongo.getDB("xylog").getCollection("day_login")
         def login = day_login.count($$(timestamp: [$gte: ltMill, $lt: ltMill + DAY_MILLON]))
 
-        println new Date(gteMill).format('yyyy-MM-dd') + ' ' + login*/
+        println new Date(gteMill).format('yyyy-MM-dd') + ' ' + count + ' ' + bingo + ' ' + login
 
 
         /*def users = mongo.getDB('xy').getCollection('users')
@@ -151,7 +148,7 @@ class MicStat1 {
         }*/
 
         def apply_post_log = mongo.getDB('xylog').getCollection('apply_post_logs')
-        def file = new File('/empty/crontab/BUG12.txt')
+        /*def file = new File('/empty/crontab/BUG12.txt')
         def ids = []
         file.readLines().each {String line ->
             if (StringUtils.isNotBlank(line)) {
@@ -181,7 +178,7 @@ class MicStat1 {
             }
         }
 
-        println catch_success_log.update($$(_id: [$in: ids], is_delete: [$ne: true]), $$($set: [is_delete: true]))
+        println catch_success_log.update($$(_id: [$in: ids], is_delete: [$ne: true]), $$($set: [is_delete: true]))*/
 
 
     }
