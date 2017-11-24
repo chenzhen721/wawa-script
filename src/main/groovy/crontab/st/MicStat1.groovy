@@ -182,7 +182,7 @@ class MicStat1 {
         }
 
         println catch_success_log.update($$(_id: [$in: ids], is_delete: [$ne: true]), $$($set: [is_delete: true]))*/
-        def logs = apply_post_log.find($$(timestamp: [$gte: new Date().clearTime().getTime()]))
+        def logs = apply_post_log.find(new BasicDBObject())
                 .sort($$(timestmap: -1)).toArray()
         println logs.size()
         logs.each{BasicDBObject post_log->
