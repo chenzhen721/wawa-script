@@ -151,7 +151,7 @@ class MicStat1 {
         }*/
 
         def apply_post_log = mongo.getDB('xylog').getCollection('apply_post_logs')
-        def file = new File('/empty/crontab/BUG12.txt')
+        /*def file = new File('/empty/crontab/BUG12.txt')
         def ids = []
         file.readLines().each {String line ->
             if (StringUtils.isNotBlank(line)) {
@@ -181,8 +181,26 @@ class MicStat1 {
             }
         }
 
-        println catch_success_log.update($$(_id: [$in: ids], is_delete: [$ne: true]), $$($set: [is_delete: true]))
-
+        println catch_success_log.update($$(_id: [$in: ids], is_delete: [$ne: true]), $$($set: [is_delete: true]))*/
+        apply_post_log.find($$(timestamp: [$gte: new Date().clearTime().getTime()]))
+                .sort($$(timestmap: -1)).toArray().each{BasicDBObject post_log->
+            def toys = post_log['toys'] as List
+            if (toys != null && toys.size() > 0) {
+                def records = toys*.record_id
+                if (catch_success_log.count($$(_id: [$in: records], post_type: 0)) > 0) {
+                    println catch_success_log.update($$(_id: [$in: records]), $$($set: [post_type: 0], $unset: [pack_id: 1, apply_time: 1]), false, true)
+                    apply_post_log.update($$(_id: post_log['_id']), $$($set: [is_delete: true]))
+                }
+                /*toys.each { BasicDBObject toy ->
+                    def _id = toy['record_id'] as String
+                    //正常抓取的记录还原
+                    if (!ids.contains(_id)) {
+                        catch_success_log.update($$(_id: _id), $$($set: [post_type: 0], $unset: [pack_id: 1, apply_time: 1]))
+                        println _id
+                    }
+                }*/
+            }
+        }
 
     }
 
