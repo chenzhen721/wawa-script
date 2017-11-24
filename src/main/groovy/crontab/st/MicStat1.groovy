@@ -87,7 +87,7 @@ class MicStat1 {
         }
         //次日登录
         def day_login = mongo.getDB("xylog").getCollection("day_login")
-        def login = day_login.count($$(timestamp: [$gte: ltMill, $lt: ltMill + DAY_MILLON]))
+        def login = day_login.count($$(user_id: [$in: reg], timestamp: [$gte: ltMill, $lt: ltMill + DAY_MILLON]))
 
         println new Date(gteMill).format('yyyy-MM-dd') + ' ' + count + ' ' + bingo + ' ' + login
 
