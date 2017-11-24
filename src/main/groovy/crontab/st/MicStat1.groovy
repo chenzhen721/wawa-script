@@ -12,6 +12,7 @@ import com.mongodb.Mongo
 import com.mongodb.MongoURI
 import groovy.json.JsonSlurper
 import org.apache.commons.codec.digest.DigestUtils
+import org.apache.commons.lang.StringUtils
 
 /**
  * 房间发言数统计
@@ -134,7 +135,7 @@ class MicStat1 {
 
         //补充线上中奖id
         def catch_success_log = mongo.getDB('xylog').getCollection('catch_success_logs')
-        def file = new File('/empty/crontab/goodsid.txt')
+        /*def file = new File('/empty/crontab/metadata/goodsid.txt')
         def ids = new HashMap()
         file.readLines().each {String line ->
             def a = line.split(',')
@@ -147,8 +148,40 @@ class MicStat1 {
             def gid = ids.get(obj['toy']['_id']) as Integer
             catch_success_log.update($$(_id: obj['_id']), $$($set: [goods_id: gid]), false, false)
             println obj['_id']
+        }*/
+
+        def apply_post_log = mongo.getDB('xylog').getCollection('apply_post_logs')
+        def file = new File('/empty/crontab/BUG12.txt')
+        def ids = []
+        file.readLines().each {String line ->
+            if (StringUtils.isNotBlank(line)) {
+                def a = line.split(',')
+                if (a.length > 1) {
+                    ids.add(a[1] as String)
+                }
+            }
+        }
+        println ids.size()
+
+        //先查询是否有已申请的异常订单
+        apply_post_log.find($$('toys.record_id': [$in: ids], is_delete: [$ne: true])).toArray().each {BasicDBObject post_log->
+            if (post_log != null) {
+                apply_post_log.update($$(_id: post_log['_id']), $$($set: [is_delete: true, status: 2]))
+                def toys = post_log['toys'] as List
+                if (toys != null && toys.size() > 0) {
+                    toys.each { BasicDBObject toy ->
+                        def _id = toy['record_id'] as String
+                        //正常抓取的记录还原
+                        if (!ids.contains(_id)) {
+                            catch_success_log.update($$(_id: _id), $$($set: [post_type: 0], $unset: [pack_id: 1, apply_time: 1]))
+                            println _id
+                        }
+                    }
+                }
+            }
         }
 
+        println catch_success_log.update($$(_id: [$in: ids], is_delete: [$ne: true]), $$($set: [is_delete: true]))
 
 
     }
