@@ -166,7 +166,7 @@ class MicStat1 {
         //先查询是否有已申请的异常订单
         apply_post_log.find($$('toys.record_id': [$in: ids], is_delete: [$ne: true])).toArray().each {BasicDBObject post_log->
             if (post_log != null) {
-                apply_post_log.update($$(_id: post_log['_id']), $$($set: [is_delete: true], status: 2))
+                apply_post_log.update($$(_id: post_log['_id']), $$($set: [is_delete: true, status: 2]))
                 def toys = post_log['toys'] as List
                 if (toys != null && toys.size() > 0) {
                     toys.each { BasicDBObject toy ->
