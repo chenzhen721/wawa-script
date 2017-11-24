@@ -222,7 +222,7 @@ class MicStat1 {
     static void main(String[] args) {
         long l = System.currentTimeMillis()
         5.times {
-            statics(0 )
+            statics(it )
         }
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${MicStat1.class.getSimpleName()},statics cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
