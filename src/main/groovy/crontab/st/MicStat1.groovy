@@ -190,6 +190,7 @@ class MicStat1 {
                 if (catch_success_log.count($$(_id: [$in: records], post_type: 0)) > 0) {
                     println catch_success_log.update($$(_id: [$in: records]), $$($set: [post_type: 0], $unset: [pack_id: 1, apply_time: 1]), false, true)
                     apply_post_log.update($$(_id: post_log['_id']), $$($set: [is_delete: true]))
+                    println post_log
                 }
                 /*toys.each { BasicDBObject toy ->
                     def _id = toy['record_id'] as String
