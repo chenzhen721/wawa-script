@@ -244,7 +244,7 @@ class MicStat1 {
 
 
         //添加发货地址
-        apply_post_log.find($$(address_list: [$exists: true])).toArray().each {BasicDBObject obj ->
+        apply_post_log.find($$(address_list: [$exists: false])).toArray().each {BasicDBObject obj ->
             if (obj['address'] != null) {
                 def address = obj['address']
                 def addressstr = "${address['province'] ?: ''}${address['city'] ?: ''}${address['region'] ?: ''}${address['address']}".toString()
