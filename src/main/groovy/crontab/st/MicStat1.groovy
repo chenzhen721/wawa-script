@@ -12,7 +12,6 @@ import com.mongodb.Mongo
 import com.mongodb.MongoURI
 import groovy.json.JsonSlurper
 import org.apache.commons.codec.digest.DigestUtils
-import org.apache.commons.lang.StringUtils
 
 /**
  * 房间发言数统计
@@ -153,6 +152,7 @@ class MicStat1 {
         }*/
 
         def apply_post_log = mongo.getDB('xylog').getCollection('apply_post_logs')
+        def catch_user = mongo.getDB('xy_catch').getCollection('catch_user')
         /*def file = new File('/empty/crontab/BUG12.txt')
         def ids = []
         file.readLines().each {String line ->
@@ -240,19 +240,70 @@ class MicStat1 {
         }*/
 
         //批量添加status
-        println apply_post_log.update($$(status: [$exists: false]), $$($set: [status: 0]), false, true)
+        //println apply_post_log.update($$(status: [$exists: false]), $$($set: [status: 0]), false, true)
 
 
         //添加发货地址
-        apply_post_log.find($$(address_list: [$exists: false])).toArray().each {BasicDBObject obj ->
+        /*apply_post_log.find($$(address_list: [$exists: false])).toArray().each {BasicDBObject obj ->
             if (obj['address'] != null) {
                 def address = obj['address']
                 def addressstr = "${address['province'] ?: ''}${address['city'] ?: ''}${address['region'] ?: ''}${address['address']}".toString()
-                println apply_post_log.update($$(_id: obj['_id']), $$(address_list: addressstr), false, false)
+                println apply_post_log.update($$(_id: obj['_id']), $$($set: [address_list: addressstr]), false, false)
             }
-        }
+        }*/
         //下单脚本
 
+        //恢复订单
+        apply_post_log.find(new BasicDBObject()).toArray().each {BasicDBObject obj->
+            def _id = obj['_id'] as String
+            def success_logs = catch_success_log.find($$(pack_id: _id))
+            def logWithId = [is_delete: false] as Map
+            def toys = []
+            def userId = null
+            def ids = []
+            success_logs.each {BasicDBObject succ ->
+                ids.add(succ['_id'])
+                //包裹中有一条删除记录则删除全部
+                if (succ['is_delete'] != null && succ['is_delete'] == true) {
+                    logWithId.put('is_delete', true)
+                }
+                //
+                userId = succ['user_id'] as Integer
+                def toy = succ['toy'] as Map
+                Integer goods_id = succ['goods_id'] as Integer ?: null
+                if (goods_id == null) {
+                    //goods.clear()
+                    return
+                }
+                toy.put('goods_id', goods_id)
+                //goods.put(goods_id, goods.get(goods_id) + 1)
+                toy.put('room_id', succ['room_id'])
+                toy.put('record_id', succ['_id'])
+                toys.add(succ['toy'])
+            }
+
+            if (userId != null) {
+                def def_addr = catch_user.findOne(userId)
+                if (def_addr == null) {
+                    return [code: 0]
+                }
+                def list = def_addr['address_list'] as List
+                if (list != null || list.size() > 0) {
+                    def address = null
+                    for (int i = 0; i < list.size(); i++) {
+                        def add = list.get(i)
+                        if (add['is_default'] == Boolean.TRUE) {
+                            address = add
+                            break
+                        }
+                    }
+                    if (address != null) {
+                        logWithId.putAll([user_id: userId, record_ids: ids, toys: toys, timestamp: System.currentTimeMillis(), post_type: 1, status: 0, address: address])
+                        println apply_post_log.update($$(_id: _id), $$($set: logWithId), false, false)
+                    }
+                }
+            }
+        }
 
     }
 
