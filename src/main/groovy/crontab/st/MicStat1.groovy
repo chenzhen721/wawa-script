@@ -151,7 +151,7 @@ class MicStat1 {
         }*/
 
         def apply_post_log = mongo.getDB('xylog').getCollection('apply_post_logs')
-        /*def file = new File('/empty/crontab/BUG12.txt')
+        def file = new File('/empty/crontab/BUG12.txt')
         def ids = []
         file.readLines().each {String line ->
             if (StringUtils.isNotBlank(line)) {
@@ -181,7 +181,9 @@ class MicStat1 {
             }
         }
 
-        println catch_success_log.update($$(_id: [$in: ids], is_delete: [$ne: true]), $$($set: [is_delete: true]))*/
+        println catch_success_log.update($$(_id: [$in: ids], is_delete: [$ne: true]), $$($set: [is_delete: true]))
+
+        //重复提交订单BUG
         /*def logs = apply_post_log.find(new BasicDBObject())
                 .sort($$(timestmap: -1)).toArray()
         println logs.size()
@@ -198,11 +200,10 @@ class MicStat1 {
             }
         }*/
 
-        /*def channels = mongo.getDB('xy_admin').getCollection('channels')
-        channels.findOne($$(_id: 'tj'))
+        def channels = mongo.getDB('xy_admin').getCollection('channels')
 
         //统计渠道抓取人数和次数
-        def users = mongo.getDB('xy').getCollection('users')
+        /*def users = mongo.getDB('xy').getCollection('users')
         def uids = users.find($$(qd: 'tj')).toArray()*._id
         def time = [$gte: gteMill, $lt: ltMill]
         def u = [] as Set
