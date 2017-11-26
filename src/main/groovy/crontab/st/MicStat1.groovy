@@ -74,8 +74,11 @@ class MicStat1 {
 
 
 
-        /*def  count = catch_record.count($$(timestamp: [$gte: gteMill, $lt: ltMill]))
-        def bingo = catch_record.count($$(type: 2, status: true, timestamp: [$gte: gteMill, $lt: ltMill]))
+        /*def  count = catch_record.count($$(timestamp: [$get: gteMill, $lt: ltMill]))
+        def bingo = catch_record.count($$(type: 2, timestamp: [$get: gteMill, $lt: ltMill]))
+
+        println new Date(gteMill).format('yyyy-MM-dd') + ' ' + count + ' ' + bingo
+
 
         def users = mongo.getDB('xy').getCollection('users')
         def reg = new HashSet()
@@ -87,9 +90,9 @@ class MicStat1 {
         }
         //次日登录
         def day_login = mongo.getDB("xylog").getCollection("day_login")
-        def login = day_login.count($$(user_id: [$in: reg], timestamp: [$gte: ltMill, $lt: ltMill + DAY_MILLON]))
+        def login = day_login.count($$(timestamp: [$gte: ltMill, $lt: ltMill + DAY_MILLON]))
 
-        println new Date(gteMill).format('yyyy-MM-dd') + ' ' + count + ' ' + bingo + ' ' + login*/
+        println new Date(gteMill).format('yyyy-MM-dd') + ' ' + login*/
 
 
         /*def users = mongo.getDB('xy').getCollection('users')
@@ -179,6 +182,38 @@ class MicStat1 {
         }
 
         println catch_success_log.update($$(_id: [$in: ids], is_delete: [$ne: true]), $$($set: [is_delete: true]))*/
+        /*def logs = apply_post_log.find(new BasicDBObject())
+                .sort($$(timestmap: -1)).toArray()
+        println logs.size()
+        logs.each{BasicDBObject post_log->
+            def toys = post_log['toys'] as List
+            if (toys != null && toys.size() > 0) {
+                def records = toys*.record_id
+                println records
+                if (catch_success_log.count($$(_id: [$in: records], post_type: 0)) > 0) {
+                    println catch_success_log.update($$(_id: [$in: records]), $$($set: [post_type: 0], $unset: [pack_id: 1, apply_time: 1]), false, true)
+                    apply_post_log.update($$(_id: post_log['_id']), $$($set: [is_delete: true]))
+                    println post_log
+                }
+            }
+        }*/
+
+        def channels = mongo.getDB('xy_admin').getCollection('channels')
+        channels.findOne($$(_id: 'tj'))
+
+        //统计渠道抓取人数和次数
+        def users = mongo.getDB('xy').getCollection('users')
+        def uids = users.find($$(qd: 'tj')).toArray()*._id
+        def time = [$gte: gteMill, $lt: ltMill]
+        def u = [] as Set
+        def record = catch_record.find($$(user_id: [$in: uids], timestamp: time)).toArray()
+        def num = record.size()
+        record.each {BasicDBObject obj->
+            u.add(obj['user_id'] as Integer)
+        }
+        println 'count: ' + num + ' users:' + u.size()
+
+
 
 
     }
@@ -221,9 +256,9 @@ class MicStat1 {
 
     static void main(String[] args) {
         long l = System.currentTimeMillis()
-        5.times {
-            statics(it )
-        }
+//        1.times {
+            statics(0 )
+//        }
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${MicStat1.class.getSimpleName()},statics cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
