@@ -182,7 +182,7 @@ class MicStat1 {
         }
 
         println catch_success_log.update($$(_id: [$in: ids], is_delete: [$ne: true]), $$($set: [is_delete: true]))*/
-        def logs = apply_post_log.find(new BasicDBObject())
+        /*def logs = apply_post_log.find(new BasicDBObject())
                 .sort($$(timestmap: -1)).toArray()
         println logs.size()
         logs.each{BasicDBObject post_log->
@@ -195,16 +195,8 @@ class MicStat1 {
                     apply_post_log.update($$(_id: post_log['_id']), $$($set: [is_delete: true]))
                     println post_log
                 }
-                /*toys.each { BasicDBObject toy ->
-                    def _id = toy['record_id'] as String
-                    //正常抓取的记录还原
-                    if (!ids.contains(_id)) {
-                        catch_success_log.update($$(_id: _id), $$($set: [post_type: 0], $unset: [pack_id: 1, apply_time: 1]))
-                        println _id
-                    }
-                }*/
             }
-        }
+        }*/
 
     }
 
