@@ -228,8 +228,10 @@ class MicStat1 {
                             update.put("toys.${index}.goods_id".toString(), goods_id as Integer)
                         }
                     }
+                    index = index + 1
                 }
                 if (update.size() > 0) {
+                    println update
                     apply_post_log.update($$(_id: obj['_id']), $$($set: update), false, false)
                     println obj['_id']
                 }
