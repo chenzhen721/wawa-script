@@ -151,7 +151,7 @@ class MicStat1 {
         }*/
 
         def apply_post_log = mongo.getDB('xylog').getCollection('apply_post_logs')
-        def file = new File('/empty/crontab/BUG12.txt')
+        /*def file = new File('/empty/crontab/BUG12.txt')
         def ids = []
         file.readLines().each {String line ->
             if (StringUtils.isNotBlank(line)) {
@@ -181,7 +181,7 @@ class MicStat1 {
             }
         }
 
-        println catch_success_log.update($$(_id: [$in: ids], is_delete: [$ne: true]), $$($set: [is_delete: true]))
+        println catch_success_log.update($$(_id: [$in: ids], is_delete: [$ne: true]), $$($set: [is_delete: true]), false, true)*/
 
         //重复提交订单BUG
         /*def logs = apply_post_log.find(new BasicDBObject())
