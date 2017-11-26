@@ -23,7 +23,7 @@
 01 09 * * * root source /etc/profile && /empty/crontab/TongjiActive.groovy >> /empty/crontab/logs/TongjiActive.log &
 
 ### 每日财务对账统计
-20 01 * * * root source /etc/profile && /empty/crontab/FinanceDaily.groovy >> /empty/crontab/logs/FinanceDaily.log &
+##20 01 * * * root source /etc/profile && /empty/crontab/FinanceDaily.groovy >> /empty/crontab/logs/FinanceDaily.log &
 
 ### 统计运营数据
 1 1 * * * root source /etc/profile && /empty/crontab/StaticsEveryDay.groovy  >> /empty/crontab/logs/StaticsEveryDay.log &
