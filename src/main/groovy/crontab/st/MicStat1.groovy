@@ -198,6 +198,24 @@ class MicStat1 {
             }
         }*/
 
+        def channels = mongo.getDB('xy_admin').getCollection('channels')
+        channels.findOne($$(_id: 'tj'))
+
+        //统计渠道抓取人数和次数
+        def users = mongo.getDB('xy').getCollection('users')
+        def uids = users.find($$(qd: 'tj')).toArray()*._id
+        def time = [$gte: gteMill, $lt: ltMill]
+        def u = [] as Set
+        def record = catch_record.find($$(user_id: [$in: uids], timestamp: time)).toArray()
+        def num = record.size()
+        record.each {BasicDBObject obj->
+            u.add(obj['user_id'] as Integer)
+        }
+        println 'count: ' + num + ' users:' + u.size()
+
+
+
+
     }
 
     public static final String APP_ID = "984069e5f8edd8ca4411e81863371f16"
