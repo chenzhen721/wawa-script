@@ -135,14 +135,15 @@ class MicStat1 {
 
         //补充线上中奖id
         def catch_success_log = mongo.getDB('xylog').getCollection('catch_success_logs')
-        /*def file = new File('/empty/crontab/metadata/goodsid.txt')
+        //获取goods_id
+        def file = new File('/empty/crontab/goodsid.txt')
         def ids = new HashMap()
         file.readLines().each {String line ->
             def a = line.split(',')
             ids.put(Integer.parseInt(a[2]), a[4])
         }
         println ids
-        def logs = catch_success_log.find($$(goods_id: [$exists: false]))
+        /*def logs = catch_success_log.find($$(goods_id: [$exists: false]))
         //println logs
         logs.each {BasicDBObject obj ->
             def gid = ids.get(obj['toy']['_id']) as Integer
@@ -214,7 +215,28 @@ class MicStat1 {
         }
         println 'count: ' + num + ' users:' + u.size()*/
 
+        //已申请邮寄订单补充 goods_id
+        apply_post_log.find($$(is_delete: {$ne: true}, status: {$ne: 2})).toArray().each {BasicDBObject obj->
+            def toys = obj['toys'] as List
+            if (toys != null && toys.size() > 0) {
+                def update = new BasicDBObject()
+                int index = 0;
+                toys.each {BasicDBObject record->
+                    if (record['goods_id'] == null && record['_id'] != null) {
+                        def goods_id = ids.get(record['_id'] as Integer)
+                        if (goods_id != null) {
+                            update.put("toys.${index}.goods_id".toString(), goods_id as Integer)
+                        }
+                    }
+                }
+                if (update.size() > 0) {
+                    apply_post_log.update($$(_id: obj['_id']), $$($set: update))
+                }
+            }
+        }
 
+
+        //下单脚本
 
 
     }
