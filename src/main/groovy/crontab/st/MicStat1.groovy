@@ -290,8 +290,8 @@ class MicStat1 {
                 def list = def_addr['address_list'] as List
                 if (list != null || list.size() > 0) {
                     def address = null
-                    for (int i = 0; i < list.size(); i++) {
-                        def add = list.get(i)
+                    for (int ind = 0; ind < list.size(); ind++) {
+                        def add = list.get(ind)
                         if (add['is_default'] == Boolean.TRUE) {
                             address = add
                             break
