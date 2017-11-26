@@ -240,7 +240,7 @@ class MicStat1 {
         }*/
 
         //批量添加status
-        println apply_post_log.update($$(status: [$exists: false]), $$($set: [status: 0]), false, true)
+        //println apply_post_log.update($$(status: [$exists: false]), $$($set: [status: 0]), false, true)
 
         //下单脚本
 
