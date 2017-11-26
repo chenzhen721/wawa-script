@@ -242,6 +242,15 @@ class MicStat1 {
         //批量添加status
         println apply_post_log.update($$(status: [$exists: false]), $$($set: [status: 0]), false, true)
 
+
+        //添加发货地址
+        apply_post_log.find($$(address_list: [$exists: true])).toArray().each {BasicDBObject obj ->
+            if (obj['address'] != null) {
+                def address = obj['address']
+                def addressstr = "${address['province'] ?: ''}${address['city'] ?: ''}${address['region'] ?: ''}${address['address']}".toString()
+                println apply_post_log.update($$(_id: obj['_id']), $$(address_list: addressstr), false, false)
+            }
+        }
         //下单脚本
 
 
