@@ -499,7 +499,7 @@ class TongjiActive {
         def users = mongo.getDB('xy').getCollection('users')
         def stat_report = mongo.getDB('xy_admin').getCollection('stat_report')
         def channel_pc = [] as List
-        channels.find(new BasicDBObject('client', '1'), new BasicDBObject(_id: 1)).toArray().each { BasicDBObject obj ->
+        channels.find(new BasicDBObject('client', [$in: ['1', '5']]), new BasicDBObject(_id: 1)).toArray().each { BasicDBObject obj ->
             def id = obj.get('_id') as String
             channel_pc.add(id)
         }
