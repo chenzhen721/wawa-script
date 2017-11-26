@@ -216,7 +216,7 @@ class MicStat1 {
         println 'count: ' + num + ' users:' + u.size()*/
 
         //已申请邮寄订单补充 goods_id
-        apply_post_log.find($$(is_delete: {$ne: true}, status: {$ne: 2})).toArray().each {BasicDBObject obj->
+        apply_post_log.find($$(is_delete: {$ne: true}, status: {$ne: 2})).limit(1).toArray().each {BasicDBObject obj->
             def toys = obj['toys'] as List
             if (toys != null && toys.size() > 0) {
                 def update = new BasicDBObject()
@@ -230,7 +230,8 @@ class MicStat1 {
                     }
                 }
                 if (update.size() > 0) {
-                    apply_post_log.update($$(_id: obj['_id']), $$($set: update))
+                    apply_post_log.update($$(_id: obj['_id']), $$($set: update), false, false)
+                    println obj['_id']
                 }
             }
         }
