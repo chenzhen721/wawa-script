@@ -198,7 +198,7 @@ class MicStat1 {
             }
         }*/
 
-        def channels = mongo.getDB('xy_admin').getCollection('channels')
+        /*def channels = mongo.getDB('xy_admin').getCollection('channels')
         channels.findOne($$(_id: 'tj'))
 
         //统计渠道抓取人数和次数
@@ -211,7 +211,7 @@ class MicStat1 {
         record.each {BasicDBObject obj->
             u.add(obj['user_id'] as Integer)
         }
-        println 'count: ' + num + ' users:' + u.size()
+        println 'count: ' + num + ' users:' + u.size()*/
 
 
 
