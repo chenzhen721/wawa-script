@@ -12,9 +12,6 @@ import com.mongodb.Mongo
 import com.mongodb.MongoURI
 import groovy.json.JsonSlurper
 import org.apache.commons.codec.digest.DigestUtils
-import org.apache.commons.lang.StringUtils
-
-import static com.ttpod.rest.common.util.WebUtils.$$
 
 /**
  * 房间发言数统计
@@ -293,8 +290,8 @@ class MicStat1 {
                 def list = def_addr['address_list'] as List
                 if (list != null || list.size() > 0) {
                     def address = null
-                    for (int i = 0; i < list.size(); i++) {
-                        def add = list.get(i)
+                    for (int ind = 0; ind < list.size(); ind++) {
+                        def add = list.get(ind)
                         if (add['is_default'] == Boolean.TRUE) {
                             address = add
                             break
