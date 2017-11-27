@@ -148,7 +148,7 @@ class QdStat {
                         break
                     }
                 }
-                if (cpa != null) st.append("cpa2", cpa)
+                if (cpa != null) st.append("s_cpa2", cpa)
             }
 
             //优化后
@@ -288,9 +288,9 @@ class QdStat {
             int size = stat_child_channels.size()
             //println "stat_child_channels.size-------------->:$size"
             for (DBObject myObj : stat_child_channels) {
-                payNum += (myObj.get("pay") ?: 0) as Integer
+                payNum += (myObj.get("s_pay") ?: 0) as Integer
                 regNum += (myObj.get("reg") ?: 0) as Integer
-                cny += (myObj.get("cny") ?: 0) as Integer
+                cny += (myObj.get("s_cny") ?: 0) as Integer
                 month_pay += (myObj.get("month_pay") ?: 0) as Integer
                 month_cny += (myObj.get("month_cny") ?: 0) as Double
                 count += (myObj.get("count") ?: 0) as Integer
@@ -304,7 +304,7 @@ class QdStat {
                     stay7 += (myStay.get("7_day") ?: 0) as Integer
                     stay30 += (myStay.get("30_day") ?: 0) as Integer
                 }
-                Integer currentCpa2 = (myObj.get("cpa2") != null) ? myObj.get("cpa2") as Integer : 0
+                Integer currentCpa2 = (myObj.get("s_cpa2") != null) ? myObj.get("s_cpa2") as Integer : 0
                 cpa2 += currentCpa2
 
             }
