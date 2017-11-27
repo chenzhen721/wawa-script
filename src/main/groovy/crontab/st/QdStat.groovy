@@ -123,16 +123,16 @@ class QdStat {
             st.append('first_speechs', first_speechs)
 
             // 统计该渠道下的新增的消费人数
-            def betDB = mongo.getDB('game_log').getCollection('user_bet')
-            def gameBetList = betDB.distinct('user_id', $$('timestamp': timeBetween, 'user_id': ['$in': regUsers])) as String[]
-            def room_cost_db = mongo.getDB('xylog').getCollection('room_cost')
-            def roomCostList = room_cost_db.distinct('session._id', $$('timestamp': timeBetween, 'session._id': ['$in': regUsers as String[]]))
+            //def betDB = mongo.getDB('game_log').getCollection('user_bet')
+            //def gameBetList = betDB.distinct('user_id', $$('timestamp': timeBetween, 'user_id': ['$in': regUsers])) as String[]
+            //def room_cost_db = mongo.getDB('xylog').getCollection('room_cost')
+            //def roomCostList = room_cost_db.distinct('session._id', $$('timestamp': timeBetween, 'session._id': ['$in': regUsers as String[]]))
 
-            def first_cost_list = new HashSet()
-            first_cost_list.addAll(gameBetList)
-            first_cost_list.addAll(roomCostList)
+            //def first_cost_list = new HashSet()
+            //first_cost_list.addAll(gameBetList)
+            //first_cost_list.addAll(roomCostList)
 
-            st.append('first_cost', first_cost_list.size())
+            //st.append('first_cost', first_cost_list.size())
 
             //设置注册扣量cpa2
             def discountMap = channnel.removeField("reg_discount") as Map
@@ -162,7 +162,9 @@ class QdStat {
                 def obj = iter.next()
                 obj.removeField('_id')
                 st.putAll(obj)
-                st['pay'] = st['pays'].size()
+                st['s_pay'] = st['pays'].size()
+                st['s_cny'] = st['cny']
+                st['s_avg'] = st['s_pay'] == 0 ? 0 : (st['cny'] as Double) / st['s_pay']//
                 if (!channnel.isEmpty()) {
                     st.putAll(channnel)
                 }
@@ -309,9 +311,9 @@ class QdStat {
             def YMD = new Date(begin).format("yyyyMMdd")
             def st = $$(_id: "${YMD}_${parent_id}" as String, qd: parent_id, timestamp: begin)
             def setObject = $$(
-                    pay: payNum,
+                    s_pay: payNum,
                     reg: regNum,
-                    cny: cny,
+                    s_cny: cny,
                     month_pay: month_pay,
                     month_cny: month_cny,
                     count: count,
@@ -322,7 +324,7 @@ class QdStat {
                     'stay.3_day': stay3,
                     'stay.7_day': stay7,
                     'stay.30_day': stay30,
-                    cpa2: cpa2,
+                    s_cpa2: cpa2,
                     qd: parent_id,
                     timestamp: begin
             )
