@@ -135,13 +135,18 @@ class MicStat1 {
         //补充线上中奖id
         def catch_success_log = mongo.getDB('xylog').getCollection('catch_success_logs')
         //获取goods_id
-        /*def file = new File('/empty/crontab/goodsid.txt')
+        def file = new File('/empty/crontab/goodsid.txt')
         def ids = new HashMap()
         file.readLines().each {String line ->
             def a = line.split(',')
             ids.put(Integer.parseInt(a[2]), a[4])
         }
-        println ids*/
+        println ids
+
+        def record_logs = catch_record.find(new BasicDBObject()).toArray().each {BasicDBObject obj ->
+            def gid = ids.get(obj['toy']['_id']) as Integer
+            catch_record.update($$(_id: obj['_id']), $$($set: [goods_id: gid]), false, false)
+        }
         //设置成功记录
         /*def logs = catch_success_log.find($$(goods_id: [$exists: false]))
         //println logs

@@ -218,7 +218,7 @@ class TongjiActive {
             int size = stat_child_channels.size()
             //println "stat_child_channels.size-------------->:$size"
             for (DBObject myObj : stat_child_channels) {
-                Integer currentCpa1 = (myObj.get("cpa1") != null) ? myObj.get("cpa1") as Integer : 0
+                Integer currentCpa1 = (myObj.get("s_cpa1") != null) ? myObj.get("s_cpa1") as Integer : 0
                 cpa1 += currentCpa1
                 Integer currentActive = (myObj.get("active") != null) ? myObj.get("active") as Integer : 0
                 active += currentActive
@@ -233,7 +233,7 @@ class TongjiActive {
             }
             def YMD = new Date(begin).format("yyyyMMdd")
             def st = new BasicDBObject(_id: "${YMD}_${parent_id}" as String, qd: parent_id, timestamp: begin)
-            def incObject = new BasicDBObject(cpa1: cpa1, active: active, active_user: active_user, speechs: speechs)
+            def incObject = new BasicDBObject(s_cpa1: cpa1, active: active, active_user: active_user, speechs: speechs)
             def setObject = new BasicDBObject(qd: parent_id, timestamp: begin)
             if (hasVisitor) incObject.append('visitors', visitors)
             setObject.putAll(incObject)

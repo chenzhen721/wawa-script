@@ -346,7 +346,7 @@ class StaticsEveryMonth {
         stat_channel.aggregate(
                 $$('$match', [timestamp: [$gte: firstDayOfLastMonth, $lt: firstDayOfCurrentMonth]]),
                 $$('$project', [qd: '$qd', active: '$active', reg: '$reg', cpa1: '$cpa1']),
-                $$('$group', [_id: '$qd', active: [$sum: '$active'], reg: [$sum: '$reg'], cpa1: [$sum: '$cpa1']])
+                $$('$group', [_id: '$qd', active: [$sum: '$active'], reg: [$sum: '$reg'], s_cpa1: [$sum: '$cpa1']])
         ).results().each { BasicDBObject obj ->
             def qd = obj.remove('_id') as String
             if (StringUtils.isNotBlank(qd)) {
