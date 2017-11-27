@@ -153,10 +153,10 @@ class MicStat1 {
 
         def apply_post_log = mongo.getDB('xylog').getCollection('apply_post_logs')
         def catch_user = mongo.getDB('xy_catch').getCollection('catch_user')
-        /*def file = new File('/empty/crontab/BUG12.txt')
+        def file = new File('/empty/crontab/BUG12.txt')
         def ids = []
         file.readLines().each {String line ->
-            if (StringUtils.isNotBlank(line)) {
+            if (line != null && line != '') {
                 def a = line.split(',')
                 if (a.length > 1) {
                     ids.add(a[1] as String)
@@ -176,14 +176,14 @@ class MicStat1 {
                         //正常抓取的记录还原
                         if (!ids.contains(_id)) {
                             catch_success_log.update($$(_id: _id), $$($set: [post_type: 0], $unset: [pack_id: 1, apply_time: 1]))
-                            println _id
+                            println 'normal:' + _id
                         }
                     }
                 }
             }
         }
 
-        println catch_success_log.update($$(_id: [$in: ids], is_delete: [$ne: true]), $$($set: [is_delete: true]), false, true)*/
+        println catch_success_log.update($$(_id: [$in: ids]), $$($set: [is_delete: true]), false, true)
 
         //重复提交订单BUG
         /*def logs = apply_post_log.find(new BasicDBObject())
@@ -254,7 +254,7 @@ class MicStat1 {
         //下单脚本
 
         //恢复订单
-        apply_post_log.find(new BasicDBObject()).toArray().each {BasicDBObject obj->
+        /*apply_post_log.find(new BasicDBObject()).toArray().each {BasicDBObject obj->
             def _id = obj['_id'] as String
             def success_logs = catch_success_log.find($$(pack_id: _id))
             def logWithId = [is_delete: false] as Map
@@ -303,7 +303,7 @@ class MicStat1 {
                     }
                 }
             }
-        }
+        }*/
 
     }
 
