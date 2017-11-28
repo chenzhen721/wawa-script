@@ -18,3 +18,6 @@
 1 1 * * * root source /etc/profile && /empty/crontab/StaticsEveryDay.groovy  >> /empty/crontab/logs/StaticsEveryDay.log &
 
 
+### 娃娃抓取统计
+01 05 * * * root source /etc/profile && /empty/crontab/StaticsDoll.groovy >> /empty/crontab/logs/StaticsDoll.log &
+
