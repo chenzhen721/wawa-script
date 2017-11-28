@@ -135,13 +135,18 @@ class MicStat1 {
         //补充线上中奖id
         def catch_success_log = mongo.getDB('xylog').getCollection('catch_success_logs')
         //获取goods_id
-        /*def file = new File('/empty/crontab/goodsid.txt')
+        def file = new File('/empty/crontab/goodsid.txt')
         def ids = new HashMap()
         file.readLines().each {String line ->
             def a = line.split(',')
             ids.put(Integer.parseInt(a[2]), a[4])
         }
-        println ids*/
+        println ids
+
+        def record_logs = catch_record.find(new BasicDBObject()).toArray().each {BasicDBObject obj ->
+            def gid = ids.get(obj['toy']['_id']) as Integer
+            catch_record.update($$(_id: obj['_id']), $$($set: [goods_id: gid]), false, false)
+        }
         //设置成功记录
         /*def logs = catch_success_log.find($$(goods_id: [$exists: false]))
         //println logs
@@ -153,10 +158,11 @@ class MicStat1 {
 
         def apply_post_log = mongo.getDB('xylog').getCollection('apply_post_logs')
         def catch_user = mongo.getDB('xy_catch').getCollection('catch_user')
+        //异常订单拆单
         /*def file = new File('/empty/crontab/BUG12.txt')
         def ids = []
         file.readLines().each {String line ->
-            if (StringUtils.isNotBlank(line)) {
+            if (line != null && line != '') {
                 def a = line.split(',')
                 if (a.length > 1) {
                     ids.add(a[1] as String)
@@ -176,14 +182,14 @@ class MicStat1 {
                         //正常抓取的记录还原
                         if (!ids.contains(_id)) {
                             catch_success_log.update($$(_id: _id), $$($set: [post_type: 0], $unset: [pack_id: 1, apply_time: 1]))
-                            println _id
+                            println 'normal:' + _id
                         }
                     }
                 }
             }
         }
 
-        println catch_success_log.update($$(_id: [$in: ids], is_delete: [$ne: true]), $$($set: [is_delete: true]), false, true)*/
+        println catch_success_log.update($$(_id: [$in: ids]), $$($set: [is_delete: true]), false, true)*/
 
         //重复提交订单BUG
         /*def logs = apply_post_log.find(new BasicDBObject())
@@ -254,7 +260,7 @@ class MicStat1 {
         //下单脚本
 
         //恢复订单
-        apply_post_log.find(new BasicDBObject()).toArray().each {BasicDBObject obj->
+        /*apply_post_log.find(new BasicDBObject()).toArray().each {BasicDBObject obj->
             def _id = obj['_id'] as String
             def success_logs = catch_success_log.find($$(pack_id: _id))
             def logWithId = [is_delete: false] as Map
@@ -303,7 +309,9 @@ class MicStat1 {
                     }
                 }
             }
-        }
+        }*/
+
+        apply_post_log.update($$(order_id: [$exists: true]), $$($unset: [order_id: 1, push_time: 1]), false, true)
 
     }
 

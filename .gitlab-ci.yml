@@ -5,13 +5,14 @@ build_staging :
     stage: build
     script:
           - source /etc/profile
-          - pwd
           - echo "java Build..."
-          #- cd projects/star-admin/
-          - rsync -av src/main/groovy/crontab/*/* webserver@192.168.2.27:/empty/crontab/
-          - rsync -av src/main/groovy/crontab/crontab.txt webserver@192.168.2.27:/empty/crontab/
-          - ssh root@192.168.2.27  "chmod -Rf 755 /empty/crontab/* && cat /empty/crontab/crontab.txt > /etc/cron.d/root.cron"
+          - pwd
+          - /opt/ci-shell/2.0/to-git --rsync-from=$CI_PROJECT_DIR/src/main/groovy/crontab/  --git-repository=online/script.aiwan.com.git  --clean=false
+          - rsync -av src/main/groovy/crontab/*/* webserver@192.168.2.9:/empty/crontab/
+          - rsync -av src/main/groovy/crontab/crontab.txt webserver@192.168.2.9:/empty/crontab/
+          - ssh root@101.201.68.1  "chmod -Rf 755 /empty/crontab/* && cat /empty/crontab/crontab.txt > /etc/cron.d/root.cron"
+          - echo "java Build success"
     only :
-        - dev
+        - aliproduct
     tags :
         - java-shell
