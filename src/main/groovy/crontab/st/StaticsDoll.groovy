@@ -59,7 +59,7 @@ class StaticsDoll {
             def bingoQuery = new BasicDBObject(time).append('toy._id', toyId).append('status',true) //抓中次数
             def bingo = catch_record.count(bingoQuery) as Long;
             def userSet = new HashSet(obj?.get('users') as Set) //抓取人数
-            def log = $$(type:'day',toy_id:toyId, count:count, bingo_count:bingo, user_count:userSet.size(), user:userSet,timestamp:begin)
+            def log = $$(type:'day',toy_id:toyId, count:count, bingo_count:bingo, user_count:userSet.size(), users:userSet,timestamp:begin)
             coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
         }
     }
@@ -67,8 +67,8 @@ class StaticsDoll {
     // 总抓取人数,总抓取次数,总抓中次数
     static dollTotalStatics(){
         coll.aggregate([
-                                new BasicDBObject('$project', [toyId: '$toy_id', count:'$count', bingo_count:'$bingo_count', user_count:'$user_count']),
-                                new BasicDBObject('$group', [_id: '$toyId', count: [$sum: '$count'], bingo_count: [$sum: '$bingo_count'], user_count: [$sum: '$user_count']])]
+                        new BasicDBObject('$project', [toyId: '$toy_id', count:'$count', bingo_count:'$bingo_count', user_count:'$user_count']),
+                        new BasicDBObject('$group', [_id: '$toyId', count: [$sum: '$count'], bingo_count: [$sum: '$bingo_count'], user_count: [$sum: '$user_count']])]
         ).results().each {
             def obj = it as Map
             def toyId = obj.remove('_id')
@@ -95,6 +95,7 @@ class StaticsDoll {
             dollStatics(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   StaticsDoll, cost  ${System.currentTimeMillis() - l} ms"
             l = System.currentTimeMillis()
+            // 总抓取人数,总抓取次数,总抓中次数
             dollTotalStatics()
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   StaticsDoll, cost  ${System.currentTimeMillis() - l} ms"
         }catch (Exception e){

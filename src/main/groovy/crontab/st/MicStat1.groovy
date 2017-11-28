@@ -1,5 +1,5 @@
 #!/usr/bin/env groovy
-package st
+package crontab.st
 
 import com.mongodb.BasicDBObject
 @Grapes([
@@ -250,13 +250,13 @@ class MicStat1 {
 
 
         //添加发货地址
-        /*apply_post_log.find($$(address_list: [$exists: false])).toArray().each {BasicDBObject obj ->
+        apply_post_log.find($$(address_list: [$exists: false])).toArray().each {BasicDBObject obj ->
             if (obj['address'] != null) {
                 def address = obj['address']
                 def addressstr = "${address['province'] ?: ''}${address['city'] ?: ''}${address['region'] ?: ''}${address['address']}".toString()
                 println apply_post_log.update($$(_id: obj['_id']), $$($set: [address_list: addressstr]), false, false)
             }
-        }*/
+        }
         //下单脚本
 
         //恢复订单
