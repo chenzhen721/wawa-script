@@ -105,7 +105,7 @@ class CreateIndex {
      * 获得钻石表
      */
     private static void buildDiamondLogIndex(){
-        DBCollection diamondLog = mongo.getDB('xy_admin').getCollection('diamond_logs')
+        DBCollection diamondLog = mongo.getDB('xylog').getCollection('diamond_logs')
         def indexName = '_user_room_diamond_type_'
         def diamond_log_index = $$('user_id': 1, 'diamond_count': 1, 'type':1, 'timestamp': -1)
         createIfNotAbsent(diamondLog,diamond_log_index,indexName)
