@@ -74,46 +74,6 @@ class SysEveryDay
 
     }
 
-    //lottery_logs同步到lottery_logs_history
-    static sysToLotteryHistory()
-    {
-        try{
-            def  lottery_logs_history = historyDB.getCollection('lottery_logs_history')
-            def lottery_logs = mongo.getDB('xylog').getCollection('lottery_logs')
-            lottery_logs.setReadPreference(ReadPreference.secondary())
-            def cursor = lottery_logs.find(new BasicDBObject(timestamp:[$lt: zeroMill - 15 * DAY_MILLON])).batchSize(20000)
-            while (cursor.hasNext()) {
-                def obj = cursor.next()
-               lottery_logs_history.insert(obj)
-            }
-
-            //lottery_logs_history.insert(result)
-        }catch (Exception e){
-            println "sysToLotteryHistory:"+e
-        }
-
-    }
-
-    //room_feather同步到room_feather_history
-    static sysToFeatherHistory()
-    {
-        try{
-            def room_feather = mongo.getDB('xylog').getCollection('room_feather')
-            room_feather.setReadPreference(ReadPreference.secondary())
-            def result = room_feather.find(new BasicDBObject(timestamp: [$gte: yesTday, $lt: zeroMill])).toArray()
-
-            def  room_feather_history = historyDB.getCollection('room_feather_history')
-            if(result.size() > 0)
-                room_feather_history.insert(result)
-            /*result.each {DBObject obj ->
-                room_feather_history.save(obj)
-
-            }*/
-        }catch (Exception e){
-            println "sysToFeatherHistory:"+e
-        }
-
-    }
 
     //room_cost 同步到room_cost2014
     private final static Long SYS_TO_ROOMCOST_MILLIS = 15*1000L
@@ -147,27 +107,6 @@ class SysEveryDay
 
     }
 
-    //删除悄悄话
-    static delWhisperStatics()
-    {
-        DBCollection coll = mongo.getDB('xy_admin').getCollection('rooms_whisper')
-        def query = new BasicDBObject(timestamp: [$lt: zeroMill - 7 * DAY_MILLON])
-        coll.remove(query)
-    }
-
-    //删除 room_feather 数据
-    static delRoomFeather()
-    {
-        def room_feather= mongo.getDB('xylog').getCollection('room_feather')
-        room_feather.remove(new BasicDBObject(timestamp:[$lt: zeroMill - 7 * DAY_MILLON]))
-    }
-
-    //删除 room_feather_day 数据
-    static delRoomFeatherDay()
-    {
-        def room_feather_day= mongo.getDB('xylog').getCollection('room_feather_day')
-        room_feather_day.remove(new BasicDBObject(timestamp:[$lt: zeroMill - 30 * DAY_MILLON]))
-    }
 
     //删除 follower_logs 数据
     static delRoomFollower()
@@ -176,16 +115,6 @@ class SysEveryDay
         follower_logs.remove(new BasicDBObject(timestamp:[$lt: zeroMill - 30 * DAY_MILLON]))
     }
 
-    //删除 Lottery_log 数据
-    static delLottery()
-    {
-        try{
-            lottery_logs.remove(new BasicDBObject(timestamp:[$lt: zeroMill - 30 * DAY_MILLON]))
-        }catch (Exception e){
-            println "delLottery  Exception " + e
-        }
-
-    }
 
     //删除 day_login 数据 保留最近32天
     static delDayLogin()
