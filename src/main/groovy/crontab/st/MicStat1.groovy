@@ -311,7 +311,7 @@ class MicStat1 {
             }
         }*/
 
-        apply_post_log.update($$(order_id: [$exists: true]), $$($unset: [order_id: 1, push_time: 1]), false, true)
+        //apply_post_log.update($$(order_id: [$exists: true]), $$($unset: [order_id: 1, push_time: 1]), false, true)
 
     }
 
