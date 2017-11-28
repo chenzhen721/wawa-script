@@ -20,7 +20,7 @@
 21 1 * * * root source /etc/profile && /empty/crontab/QdStat.groovy  >> /empty/crontab/logs/star_Qd.log &
 
 ### 友盟联运统计
-01 09 * * * root source /etc/profile && /empty/crontab/TongjiActive.groovy >> /empty/crontab/logs/TongjiActive.log &
+01 08 * * * root source /etc/profile && /empty/crontab/TongjiActive.groovy >> /empty/crontab/logs/TongjiActive.log &
 
 ### 每日财务对账统计
 20 01 * * * root source /etc/profile && /empty/crontab/FinanceDaily.groovy >> /empty/crontab/logs/FinanceDaily.log &
