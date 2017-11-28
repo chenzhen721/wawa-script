@@ -59,7 +59,7 @@ class StaticsDoll {
             def bingoQuery = new BasicDBObject(time).append('toy._id', toyId).append('status',true) //抓中次数
             def bingo = catch_record.count(bingoQuery) as Long;
             def userSet = new HashSet(obj?.get('users') as Set) //抓取人数
-            def log = $$(type:'day',toy_id:toyId, count:count, bingo_count:bingo, user_count:userSet.size(), user:userSet,timestamp:begin)
+            def log = $$(type:'day',toy_id:toyId, count:count, bingo_count:bingo, user_count:userSet.size(), users:userSet,timestamp:begin)
             coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
         }
     }
