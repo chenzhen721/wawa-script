@@ -67,8 +67,8 @@ class StaticsDoll {
     // 总抓取人数,总抓取次数,总抓中次数
     static dollTotalStatics(){
         coll.aggregate([
-                                new BasicDBObject('$project', [toyId: '$toy_id', count:'$count', bingo_count:'$bingo_count', user_count:'$user_count']),
-                                new BasicDBObject('$group', [_id: '$toyId', count: [$sum: '$count'], bingo_count: [$sum: '$bingo_count'], user_count: [$sum: '$user_count']])]
+                        new BasicDBObject('$project', [toyId: '$toy_id', count:'$count', bingo_count:'$bingo_count', user_count:'$user_count']),
+                        new BasicDBObject('$group', [_id: '$toyId', count: [$sum: '$count'], bingo_count: [$sum: '$bingo_count'], user_count: [$sum: '$user_count']])]
         ).results().each {
             def obj = it as Map
             def toyId = obj.remove('_id')
@@ -92,9 +92,10 @@ class StaticsDoll {
         try{
             long l = System.currentTimeMillis()
             //统计每个娃娃每日抓取人数,抓取次数, 抓中次数,
-            dollStatics(DAY)
+            dollStatics(i)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   StaticsDoll, cost  ${System.currentTimeMillis() - l} ms"
             l = System.currentTimeMillis()
+            //总抓取人数,总抓取次数,总抓中次数
             dollTotalStatics()
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   StaticsDoll, cost  ${System.currentTimeMillis() - l} ms"
         }catch (Exception e){
