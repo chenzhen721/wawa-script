@@ -12,9 +12,12 @@
 21 1 * * * root source /etc/profile && /empty/crontab/QdStat.groovy  >> /empty/crontab/logs/star_Qd.log &
 
 ### 友盟联运统计
-01 09 * * * root source /etc/profile && /empty/crontab/TongjiActive.groovy >> /empty/crontab/logs/TongjiActive.log &
+01 08 * * * root source /etc/profile && /empty/crontab/TongjiActive.groovy >> /empty/crontab/logs/TongjiActive.log &
 
 ### 统计运营数据
 1 1 * * * root source /etc/profile && /empty/crontab/StaticsEveryDay.groovy  >> /empty/crontab/logs/StaticsEveryDay.log &
 
+
+### 娃娃抓取统计
+01 05 * * * root source /etc/profile && /empty/crontab/StaticsDoll.groovy >> /empty/crontab/logs/StaticsDoll.log &
 
