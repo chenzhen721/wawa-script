@@ -85,13 +85,14 @@ class StaticsDoll {
         def date = new Date(begin)
         def prefix = date.format('yyyyMMdd_')
         coll.aggregate([
-                $$('$match', [timestamp: begin]),
+                $$('$match', [timestamp: begin, type: 'day']),
                 $$('$project', [count: '$count', users: '$users', bingo_count: '$bingo_count', reg_count: '$reg_count', regs: '$regs']),
                 $$('$group', [_id: null, count: [$sum: '$count'], bingo_count: [$sum: '$bingo_count'], reg_count: [$sum: '$reg_count'],
                     user_set: ['$addToSet': '$users'], reg_set: ['$addToSet': '$regs']
                 ])
         ]).results().each {BasicDBObject obj ->
             //当前抓取总数据
+            println '============>'
             def sets = obj['user_set']
             def regsets = obj['reg_set']
             def users = new HashSet()
@@ -102,7 +103,7 @@ class StaticsDoll {
             regsets.each {Set item->
                 regs.addAll(item)
             }
-            def set = [type: 'total_doll', count: obj['count'], bingo_count: obj['bingo_count'], reg_count: obj['reg_count'], users: users, user_count: users.size(), reg_user_count: regs.size(), regs: regs]
+            def set = [type: 'total_all', count: obj['count'], bingo_count: obj['bingo_count'], reg_count: obj['reg_count'], users: users, user_count: users.size(), reg_user_count: regs.size(), regs: regs]
             coll.update($$(_id: "${YMD}" + '_total_doll'), $$($set: set), true, false)
             // 更新数据总表 5抓取次数 6 抓中 7 人数 13新抓
             def stat_report = mongo.getDB('xy_admin').getCollection('stat_report')
