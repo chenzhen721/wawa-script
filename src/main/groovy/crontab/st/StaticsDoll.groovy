@@ -94,6 +94,7 @@ class StaticsDoll {
             //当前抓取总数据
             def sets = obj['user_set'] as Set
             def regsets = obj['reg_set'] as Set
+            println obj
             def users = new HashSet()
             def regs = new HashSet()
             sets.each {Set item->
