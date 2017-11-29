@@ -94,7 +94,6 @@ class StaticsDoll {
             //当前抓取总数据
             def sets = obj['user_set'] as Set
             def regsets = obj['reg_set'] as Set
-            println obj
             def users = new HashSet()
             def regs = new HashSet()
             sets.each {List item->
@@ -104,8 +103,6 @@ class StaticsDoll {
             regsets.each {List item->
                 item.each {regs.add(it as Integer)}
             }
-            println users
-            println regs
             def set = [type: 'total_all', count: obj['count'], bingo_count: obj['bingo_count'], reg_count: obj['reg_count'], users: users, user_count: users.size(), reg_user_count: regs.size(), regs: regs]
             coll.update($$(_id: "${YMD}" + '_total_doll'), $$($set: set), true, false)
             // 更新数据总表 5抓取次数 6 抓中 7 人数 13新抓
