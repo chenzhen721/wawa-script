@@ -308,8 +308,9 @@ class QdStat {
                 cpa2 += currentCpa2
 
             }
-            def s_avg = payNum == 0 ? 0 : cny / payNum
+            def s_avg = (payNum == 0 ? 0 : cny / payNum) as Double
             def YMD = new Date(begin).format("yyyyMMdd")
+            println YMD + ':' + s_avg
             def st = $$(_id: "${YMD}_${parent_id}" as String, qd: parent_id, timestamp: begin)
             def setObject = $$(
                     s_pay: payNum,
