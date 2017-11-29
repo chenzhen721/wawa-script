@@ -97,11 +97,12 @@ class StaticsDoll {
             println obj
             def users = new HashSet()
             def regs = new HashSet()
-            sets.each {Set item->
-                users.addAll(item)
+            sets.each {List item->
+                item.each {users.add(it as Integer)}
+
             }
-            regsets.each {Set item->
-                regs.addAll(item)
+            regsets.each {List item->
+                item.each {regs.add(it as Integer)}
             }
             println users
             println regs
