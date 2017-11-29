@@ -61,15 +61,12 @@ class StaticsDoll {
             def count = obj?.get('count') as Long; //抓取次数
             def bingoQuery = new BasicDBObject(time).append('toy._id', toyId).append('status',true) //抓中次数
             def bingo = catch_record.count(bingoQuery) as Long;
-            def allusers = new HashSet()
-            (obj?.get('users') as Set).each {Set item->
-                allusers.addAll(item)
-            }
-            println allusers
+            def userSet = new HashSet(obj?.get('users') as Set) //抓取人数
             def new_user = new HashSet()
             //新增用户抓取该娃娃的数据
             regs.each {
-                if (allusers.contains(it as Integer)) {
+                if (userSet.contains(it as Integer)) {
+                    println '=================>'
                     new_user.add(it)
                 }
             }
@@ -77,7 +74,7 @@ class StaticsDoll {
             def q = $$(time)
             q.putAll(['toy._id': toyId, user_id: [$in: new_user]])
             def reg_count = catch_record.count($$(q))
-            def log = $$(type:'day',toy_id:toyId, count:count, bingo_count:bingo, user_count:allusers.size(), users:allusers,
+            def log = $$(type:'day',toy_id:toyId, count:count, bingo_count:bingo, user_count:userSet.size(), users:userSet,
                     reg_count: reg_count, regs: new_user, timestamp:begin)
             coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
         }
@@ -97,8 +94,8 @@ class StaticsDoll {
         ]).results().each {BasicDBObject obj ->
             //当前抓取总数据
             println '============>'
-            def sets = obj['user_set']
-            def regsets = obj['reg_set']
+            def sets = obj['user_set'] as Set
+            def regsets = obj['reg_set'] as Set
             def users = new HashSet()
             def regs = new HashSet()
             sets.each {Set item->
