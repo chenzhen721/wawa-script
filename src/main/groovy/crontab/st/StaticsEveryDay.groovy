@@ -55,6 +55,7 @@ class StaticsEveryDay {
     static DBCollection users = mongo.getDB('xy').getCollection('users')
     static DBCollection channel_pay_DB = mongo.getDB('xy_admin').getCollection('channel_pay')
     static DBCollection channels = mongo.getDB('xy_admin').getCollection('channels')
+    static DBCollection diamond_cost_log = mongo.getDB('xylog').getCollection('diamond_cost_logs')
     /**
      * 1：WEB  2：Android   4：iOS   5：H5
      * @param i
@@ -136,8 +137,7 @@ class StaticsEveryDay {
         def begin = yesTday - i * DAY_MILLON
         def end = begin + DAY_MILLON
         def YMD = new Date(begin).format('yyyyMMdd')
-        def list = mongo.getDB('xy_admin').getCollection('finance_log').find(new BasicDBObject(timestamp: [$gte: begin, $lt: end]))
-                .toArray()
+        def list = finance_log_DB.find(new BasicDBObject(timestamp: [$gte: begin, $lt: end])).toArray()
 
         def total = new BigDecimal(0)
         def total_cut = new BigDecimal(0)
@@ -231,6 +231,9 @@ class StaticsEveryDay {
         def YMD = new Date(gteMill).format("yyyyMMdd")
         def time = [$gte: gteMill, $lt: gteMill + DAY_MILLON]
 
+        //当天新增用户
+        def regs = users.find(new BasicDBObject(timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON]))*._id
+
         Map<String, Number> old_ids = new HashMap<String, Number>()
         finance_log_DB.aggregate(
                 new BasicDBObject('$match', new BasicDBObject('via', [$ne: 'Admin'])),
@@ -241,7 +244,9 @@ class StaticsEveryDay {
             old_ids.put(obj.get('_id') as String, obj.get('timestamp') as Number)
         }
         def typeMap = new HashMap<String, PayStat>()
+        //总数
         PayStat total = new PayStat()
+        PayStat reg_total = new PayStat() //充值新增
         def pc = channel_pay_DB.find(new BasicDBObject([client: [$in: ["1", "5"]], _id: [$ne: 'Admin']])).toArray()*._id
         def mobile = channel_pay_DB.find(new BasicDBObject([client: ['$nin': ["1", "5"]], _id: [$ne: 'Admin']])).toArray()*._id
         [pc    : pc,//PayType
@@ -258,11 +263,14 @@ class StaticsEveryDay {
                 def coin = obj.get('diamond') as Long
                 all.add(user_id, cny, coin)
                 total.add(user_id, cny, coin)
+                if (regs.contains(user_id)) { //新充值用户
+                    reg_total.add(user_id, cny, coin)
+                }
                 //该用户之前无充值记录或首冲记录为当天则算为当天新增用户
                 if (old_ids.containsKey(user_id)) {
                     def userTimestamp = old_ids.get(user_id) as Long
                     Long day = gteMill
-                    Long userday = new Date(userTimestamp).clearTime().getTime()
+                    Long userday = new Date(userTimestamp).clearTime().getTime()//首冲日期
                     if (day.equals(userday)) {
                         delta.add(user_id, cny, coin)
                     }
@@ -271,9 +279,11 @@ class StaticsEveryDay {
             typeMap.put(k + 'all', all)
             typeMap.put(k + 'delta', delta)
         }
+
         coll.update(new BasicDBObject(_id: YMD + '_allpay'),
                 new BasicDBObject(type: 'allpay',
                         user_pay: total.toMap(),
+                        user_reg_pay: reg_total.toMap(), //新增充值
                         user_pay_pc: typeMap.get('pcall').toMap(),
                         user_pay_pc_delta: typeMap.get('pcdelta').toMap(),
                         user_pay_mobile: typeMap.get('mobileall').toMap(),
@@ -331,7 +341,7 @@ class StaticsEveryDay {
             logMap.each { Integer uid, BasicDBObject finance ->
                 def qd = finance.get('qd') as String
                 //未知渠道数据统一计算在官方渠道
-                def client = channelMap.get(qd) ?: '1'
+                def client = channelMap.get(qd) ?: '5'
                 def payStat = clientMap.get(client as String) as PayStat
                 if (payStat == null) {
                     payStat = new PayStat()
@@ -380,7 +390,7 @@ class StaticsEveryDay {
                 }
             }
             setVal.put('first_pay', newuser)
-            setVal.put('first_pay_cout', newuser)
+            setVal.put('first_pay_cout', newuser.size())
             coll.update(new BasicDBObject(_id: YMD + '_allpay'), new BasicDBObject('$set': setVal), true, false)
         }
     }
@@ -415,15 +425,14 @@ class StaticsEveryDay {
         def YMD = new Date(gteMill).format('yyyyMMdd')
         def day7Mill = gteMill - 6 * DAY_MILLON
         def day30Mill = gteMill - 29 * DAY_MILLON
-        def pcMap = new HashMap<String, Integer>(3)
-        def mobileMap = new HashMap<String, Integer>(3)
-        def iosMap = new HashMap<String, Integer>(3)
-        def h5Map = new HashMap<String, Integer>(3)
-        def riaMap = new HashMap<String, Integer>(3)
+        def clients = [null, emptyMap(3), emptyMap(3), null, emptyMap(3), emptyMap(3), emptyMap(3)]
         def totalMap = new HashMap<String, Integer>(3)
-        def totalDaySet = new HashSet<Integer>(200000)
+        //[次日， 7日， 30日]
+        def totalDays = [emptySet(200000), emptySet(200000), emptySet(200000)]
+        /*def totalDaySet = new HashSet<Integer>(200000)
+        Set<Integer> totalDay3Set = new HashSet<Integer>(2000000)
         Set<Integer> totalDay7Set = new HashSet<Integer>(2000000)
-        Set<Integer> totalDay30Set = new HashSet<Integer>(2000000)
+        Set<Integer> totalDay30Set = new HashSet<Integer>(2000000)*/
         ['1', '2', '4', '5', '6'].each { String client ->
             def qb = new BasicDBObject()
             qb.put('client', client)
@@ -432,50 +441,53 @@ class StaticsEveryDay {
             def day_login = mongo.getDB("xylog").getCollection("day_login")
             if (qds.size() > 0) {
                 def logins = day_login.find(new BasicDBObject(qd: [$in: qds], timestamp: [$gte: day30Mill, $lt: ltMill]), new BasicDBObject([user_id: 1, timestamp: 1])).toArray()
-                Set<Integer> daySet = new HashSet<Integer>(200000)
+                /*Set<Integer> daySet = new HashSet<Integer>(200000)
+                Set<Integer> day3Set = new HashSet<Integer>(200000)
                 Set<Integer> day7Set = new HashSet<Integer>(2000000)
-                Set<Integer> day30Set = new HashSet<Integer>(2000000)
+                Set<Integer> day30Set = new HashSet<Integer>(2000000)*/
+                def daySets = [emptySet(200000), emptySet(200000), emptySet(200000)]
                 for (DBObject login : logins) {
                     Integer uid = login.get("user_id") as Integer
                     Long timestamp = login.get('timestamp') as Long
-                    day30Set.add(uid)
-                    totalDay30Set.add(uid)
+                    (daySets.get(2) as Set).add(uid)
+                    (totalDays.get(2) as Set).add(uid)
                     if (timestamp >= day7Mill) {
-                        day7Set.add(uid)
-                        totalDay7Set.add(uid)
+                        (daySets.get(1) as Set).add(uid)
+                        (totalDays.get(1) as Set).add(uid)
                     }
                     if (timestamp >= gteMill) {
-                        daySet.add(uid)
-                        totalDaySet.add(uid)
+                        (daySets.get(0) as Set).add(uid)
+                        (totalDays.get(0) as Set).add(uid)
                     }
                 }
-                if ('1'.equals(client)) {
-                    pcMap.putAll(['daylogin': daySet.size(), 'day7login': day7Set.size(), 'day30login': day30Set.size()])
-                } else if ('4'.equals(client)) {
-                    iosMap.putAll(['daylogin': daySet.size(), 'day7login': day7Set.size(), 'day30login': day30Set.size()])
-                } else if ('5'.equals(client)) {
-                    h5Map.putAll(['daylogin': daySet.size(), 'day7login': day7Set.size(), 'day30login': day30Set.size()])
-                } else if ('6'.equals(client)) {
-                    riaMap.putAll(['daylogin': daySet.size(), 'day7login': day7Set.size(), 'day30login': day30Set.size()])
+
+                def map = clients.get(Integer.parseInt(client))
+                if (map == null) {
+                    map = clients.get(5)
+                    map.put('daylogin', map.get('daylogin') + (daySets.get(0) as Set).size())
+                    map.put('day7login', map.get('day7login') + (daySets.get(1) as Set).size())
+                    map.put('day30login', map.get('day30login') + (daySets.get(2) as Set).size())
                 } else {
-                    if (mobileMap.size() <= 0) {
-                        mobileMap.putAll(['daylogin': daySet.size(), 'day7login': day7Set.size(), 'day30login': day30Set.size()])
-                    } else {
-                        mobileMap.put('daylogin', mobileMap.get('daylogin') + daySet.size())
-                        mobileMap.put('day7login', mobileMap.get('day7login') + daySet.size())
-                        mobileMap.put('day30login', mobileMap.get('day30login') + daySet.size())
-                    }
+                    map.putAll(['daylogin': (daySets.get(0) as Set).size(), 'day7login': (daySets.get(1) as Set).size(), 'day30login': (daySets.get(2) as Set).size()])
                 }
             }
         }
-        totalMap.putAll(['daylogin': totalDaySet.size(), 'day7login': totalDay7Set.size(), 'day30login': totalDay30Set.size()])
-        def info = new BasicDBObject(type: 'alllogin', login_total: totalMap, pc_login: pcMap, mobile_login: mobileMap,
-                ios_login: iosMap, h5_login: h5Map, ria_login: riaMap, timestamp: gteMill);
-        coll.update(new BasicDBObject(_id: YMD + '_alllogin'), info, true, false)
+        totalMap.putAll(['daylogin': (totalDays.get(0) as Set).size(), 'day7login': (totalDays.get(1) as Set).size(), 'day30login': (totalDays.get(2) as Set).size()])
+        def info = new BasicDBObject(type: 'alllogin', login_total: totalMap, pc_login: clients.get(1), mobile_login: clients.get(2),
+                ios_login: clients.get(4), h5_login: clients.get(5), ria_login: clients.get(6), timestamp: gteMill);
+        coll.update(new BasicDBObject(_id: YMD + '_alllogin'), $$($set: info), true, false)
+    }
+
+    static Set emptySet(int cap) {
+        return new HashSet(cap)
+    }
+
+    static Map emptyMap(int cap) {
+        return new HashMap(cap)
     }
 
     /**
-     * 统计运营数据总表
+     * 运营数据-运营数据总表
      * @param i
      * @return
      */
@@ -494,16 +506,29 @@ class StaticsEveryDay {
         def regs = users.count(new BasicDBObject(timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON]))
         // 查询消费人数
         def cost = coll.findOne(new BasicDBObject(_id: "${prefix}allcost".toString()))
+        // 查询日活
+        def login = coll.findOne(new BasicDBObject(_id: "${prefix}login".toString()))
+        // 钻石消耗
+        def costs = diamond_cost_log.find($$(type: 'catch_live', timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON]), $$(cost: 1)).toArray()*.cost
+        def diamond_count = 0
+        costs.each { diamond_count = diamond_count + (it as Integer)}
         def map = new HashMap()
         map.put('type', 'allreport')
         map.put('timestamp', gteMill)
-        map.put('pay_coin', (pay_coin?.get('total_coin') ?: 0) as Integer)
+        map.put('pay_coin', (pay_coin?.get('total_coin') ?: 0) as Integer) //充值钻石
         if (pay != null) {
             def user_pay = pay.get('user_pay') as BasicDBObject
-            map.put('pay_cny', (user_pay.get('cny') ?: 0) as Double)
-            map.put('pay_user', (user_pay.get('user') ?: 0) as Integer)
+            map.put('pay_cny', (user_pay.get('cny') ?: 0) as Double) //1
+            map.put('pay_user', (user_pay.get('user') ?: 0) as Integer) //2
+            def user_reg_pay = pay.get('user_reg_pay') as BasicDBObject
+            map.put('reg_pay_cny', (user_reg_pay.get('cny') ?: 0) as Double) //10
+            map.put('reg_pay_user', (user_reg_pay.get('user') ?: 0) as Integer) //11
         }
-        map.put('regs', regs)
+        if (login != null) {
+            map.put('logins', login.get('total') as Integer ?: 0) //日活 4
+        }
+        map.put('diamond_count', diamond_count) //钻石消耗总数 8
+        map.put('regs', regs) //9 新增总人数
         if (cost != null) {
             def user_cost = cost.get('user_cost') as BasicDBObject
             if(user_cost != null){
@@ -513,6 +538,11 @@ class StaticsEveryDay {
                 map.put('cost_user', (user_cost.get('user') ?: 0) as Integer)
             }
         }
+        //充值次日留存
+        def ids = finance_log_DB.find($$(timestamp: [$gte: gteMill - i * DAY_MILLON , $lt: gteMill])).toArray()*.user_id
+        def log = mongo.getDB("xylog").getCollection("day_login")
+        def retention = log.count($$(timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON], user_id: [$in: ids]))
+        map.put('1_pay', retention)  // 14
         stat_report.update(new BasicDBObject(_id: "${prefix}allreport".toString()), new BasicDBObject(map), true, false)
     }
 
