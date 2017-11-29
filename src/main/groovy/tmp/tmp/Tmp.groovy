@@ -314,6 +314,38 @@ class Tmp {
 
         //apply_post_log.update($$(order_id: [$exists: true]), $$($unset: [order_id: 1, push_time: 1]), false, true)
 
+        def file = new File('/empty/data/order-shipping-1127.txt')
+        def ids = new HashMap()
+        file.readLines().each {String line ->
+            def a = line.split(',')
+            ids.put(a[2], a[4])
+        }
+        println ids
+        def missing = []
+        def missmatch = []
+        def missorder = []
+        ids.each {String order_id, String shipping->
+            def post_log = apply_post_log.findOne($$('post_info.order_id': order_id))
+            if (post_log == null) {
+                missing.add(order_id + ',' + shipping)
+            }
+            def post_info = post_log['post_info'] as Map
+            def no = post_info['shipping_no']
+            def set = $$('post_info.shipping_no': shipping)
+            if (no != shipping) {
+                missmatch.add(post_info['_id']+','+order_id + ',' + shipping)
+            }
+            if (order_id != post_info['order_id']) {
+                set.put('order_id', order_id)
+                missorder.add(post_info['_id']+','+order_id + ',' + shipping)
+            }
+            apply_post_log.update($$(_id: post_log['_id']), $$($set: set))
+        }
+        println missing
+        println missmatch
+        println missorder
+        //apply_post_log.find($$())
+
     }
 
     public static final String APP_ID = "984069e5f8edd8ca4411e81863371f16"
