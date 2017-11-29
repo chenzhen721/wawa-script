@@ -135,7 +135,7 @@ class Tmp {
         //补充线上中奖id
         def catch_success_log = mongo.getDB('xylog').getCollection('catch_success_logs')
         //获取goods_id
-        /*def file = new File('/empty/crontab/goodsid.txt')
+        /*def file = new File('/empty/crontab/metadata/goodsid.txt')
         def ids = new HashMap()
         file.readLines().each {String line ->
             def a = line.split(',')
@@ -160,7 +160,7 @@ class Tmp {
         def apply_post_log = mongo.getDB('xylog').getCollection('apply_post_logs')
         def catch_user = mongo.getDB('xy_catch').getCollection('catch_user')
         //异常订单拆单
-        /*def file = new File('/empty/crontab/BUG12.txt')
+        /*def file = new File('/empty/crontab/metadata/BUG12.txt')
         def ids = []
         file.readLines().each {String line ->
             if (line != null && line != '') {
@@ -314,11 +314,14 @@ class Tmp {
 
         //apply_post_log.update($$(order_id: [$exists: true]), $$($unset: [order_id: 1, push_time: 1]), false, true)
 
-        def file = new File('/empty/data/order-shipping-1127.txt')
+        //同步订单
+        /*def file = new File('/empty/crontab/metadata/order-shipping-1127.txt')
         def ids = new HashMap()
         file.readLines().each {String line ->
-            def a = line.split(',')
-            ids.put(a[0], a[1])
+            if (line != null && !line.isEmpty()) {
+                def a = line.split(',')
+                ids.put(a[0], a[1])
+            }
         }
         println ids
         def missing = []
@@ -328,22 +331,23 @@ class Tmp {
             def post_log = apply_post_log.findOne($$('post_info.order_id': order_id))
             if (post_log == null) {
                 missing.add(order_id + ',' + shipping)
+            } else {
+                def post_info = post_log['post_info'] as Map
+                def no = post_info['shipping_no']
+                def set = $$('post_info.shipping_no': shipping)
+                if (no != shipping) {
+                    missmatch.add(post_info['_id'] + ',' + order_id + ',' + shipping)
+                }
+                if (order_id != post_log['order_id']) {
+                    set.put('order_id', order_id)
+                    missorder.add(post_log['_id'] + ',' + order_id + ',' + shipping)
+                }
+                apply_post_log.update($$(_id: post_log['_id']), $$($set: set))
             }
-            def post_info = post_log['post_info'] as Map
-            def no = post_info['shipping_no']
-            def set = $$('post_info.shipping_no': shipping)
-            if (no != shipping) {
-                missmatch.add(post_info['_id']+','+order_id + ',' + shipping)
-            }
-            if (order_id != post_info['order_id']) {
-                set.put('order_id', order_id)
-                missorder.add(post_info['_id']+','+order_id + ',' + shipping)
-            }
-            apply_post_log.update($$(_id: post_log['_id']), $$($set: set))
         }
         println missing
         println missmatch
-        println missorder
+        println missorder*/
         //apply_post_log.find($$())
 
     }

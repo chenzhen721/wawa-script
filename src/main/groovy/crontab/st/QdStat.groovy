@@ -308,12 +308,14 @@ class QdStat {
                 cpa2 += currentCpa2
 
             }
+            def s_avg = payNum == 0 ? 0 : cny / payNum
             def YMD = new Date(begin).format("yyyyMMdd")
             def st = $$(_id: "${YMD}_${parent_id}" as String, qd: parent_id, timestamp: begin)
             def setObject = $$(
                     s_pay: payNum,
                     reg: regNum,
                     s_cny: cny,
+                    s_avg: s_avg,
                     month_pay: month_pay,
                     month_cny: month_cny,
                     count: count,
@@ -398,10 +400,10 @@ class QdStat {
         Thread.sleep(1000L)
 
         //ASO优化统计 (App Store Optimization) mygreen
-        l = System.currentTimeMillis()
-        ASOstatics(begin_day)
+        /*l = System.currentTimeMillis()
+        //ASOstatics(begin_day)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${QdStat.class.getSimpleName()},ASOstatics cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
+        Thread.sleep(1000L)*/
 
         //落地定时执行的日志
         jobFinish(begin)
