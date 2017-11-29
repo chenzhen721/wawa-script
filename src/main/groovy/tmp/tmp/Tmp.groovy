@@ -318,7 +318,7 @@ class Tmp {
         def ids = new HashMap()
         file.readLines().each {String line ->
             def a = line.split(',')
-            ids.put(a[2], a[4])
+            ids.put(a[0], a[1])
         }
         println ids
         def missing = []
