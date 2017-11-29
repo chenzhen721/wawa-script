@@ -61,11 +61,11 @@ class StaticsDoll {
             def count = obj?.get('count') as Long; //抓取次数
             def bingoQuery = new BasicDBObject(time).append('toy._id', toyId).append('status',true) //抓中次数
             def bingo = catch_record.count(bingoQuery) as Long;
-            def userSet = new HashSet(obj?.get('users') as Set) //抓取人数
             def allusers = new HashSet()
-            userSet.each {Set item->
+            (obj?.get('users') as Set).each {Set item->
                 allusers.addAll(item)
             }
+            println allusers
             def new_user = new HashSet()
             //新增用户抓取该娃娃的数据
             regs.each {
