@@ -104,7 +104,7 @@ class StaticsDoll {
                 item.each {regs.add(it as Integer)}
             }
             def set = [type: 'total_all', count: obj['count'], bingo_count: obj['bingo_count'], reg_count: obj['reg_count'], users: users, user_count: users.size(), reg_user_count: regs.size(), regs: regs]
-            coll.update($$(_id: "${YMD}" + '_total_doll'), $$($set: set), true, false)
+            coll.update($$(_id: YMD + '_total_doll'), $$($set: set), true, false)
             // 更新数据总表 5抓取次数 6 抓中 7 人数 13新抓
             def stat_report = mongo.getDB('xy_admin').getCollection('stat_report')
             def report = [doll_count: obj['count'], bingo_count: obj['bingo_count'], user_count: users.size(), reg_count: obj['reg_count'], reg_user_count: regs.size()]
