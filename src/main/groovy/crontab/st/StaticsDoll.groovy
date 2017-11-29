@@ -147,7 +147,7 @@ class StaticsDoll {
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   dollStatics, cost  ${System.currentTimeMillis() - l} ms"
             l = System.currentTimeMillis()
             // 总抓取人数,总抓取次数,总抓中次数
-            dollTotalStatics(DAY)
+            //dollTotalStatics(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   dollTotalStatics, cost  ${System.currentTimeMillis() - l} ms"
             l = System.currentTimeMillis()
             // 单日 总抓取人数,总抓取次数,总抓中次数
