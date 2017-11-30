@@ -558,7 +558,7 @@ class StaticsEveryDay {
 
     static exchange_expire(int i) {
         //要加个时间控制
-        def gteMill = yesTday - i * DAY_MILLON
+        def gteMill = zeroMill - 10 * DAY_MILLON
         def url = "http://test-api.17laihou.com/job/catch_success_expire?stime=${new Date(gteMill).format('yyyy-MM-dd HH:mm:ss')}"
         println request(url)
     }

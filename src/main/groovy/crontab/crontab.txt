@@ -9,7 +9,7 @@
 ##################################后台统计数据###########################################
 
 ### 娃娃抓取统计
-00 30 * * * root source /etc/profile && /empty/crontab/StaticsDoll.groovy >> /empty/crontab/logs/StaticsDoll.log &
+1 30 * * * root source /etc/profile && /empty/crontab/StaticsDoll.groovy >> /empty/crontab/logs/StaticsDoll.log &
 
 ### 统计运营数据
 1 1 * * * root source /etc/profile && /empty/crontab/StaticsEveryDay.groovy  >> /empty/crontab/logs/StaticsEveryDay.log &
