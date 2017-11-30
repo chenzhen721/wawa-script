@@ -8,6 +8,7 @@ import com.mongodb.DBObject
         @Grab('org.mongodb:mongo-java-driver:2.14.2'),
         @Grab('commons-lang:commons-lang:2.6'),
         @Grab('redis.clients:jedis:2.1.0'),
+        @Grab('org.apache.httpcomponents:httpclient:4.2.5')
 ])
 
 import com.mongodb.Mongo
@@ -555,6 +556,13 @@ class StaticsEveryDay {
         stat_report.update(new BasicDBObject(_id: "${prefix}allreport".toString()), $$($set: map), true, false)
     }
 
+    static exchange_expire(int i) {
+        //要加个时间控制
+        def gteMill = yesTday - i * DAY_MILLON
+        def url = "http://test-api.17laihou.com/job/catch_success_expire?stime=${new Date(gteMill).format('yyyy-MM-dd HH:mm:ss')}"
+        println request(url)
+    }
+
 
     static Integer DAY = 0;
 
@@ -563,7 +571,7 @@ class StaticsEveryDay {
         long begin = l
 
         //01.充值的日报表
-        l = System.currentTimeMillis()
+        /*l = System.currentTimeMillis()
         financeStatics(DAY)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   financeStatics, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
@@ -602,10 +610,38 @@ class StaticsEveryDay {
         l = System.currentTimeMillis()
         payStaticsRetation(DAY)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   payStaticsRetation, cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)*/
+
+        //08.过期兑换
+        l = System.currentTimeMillis()
+        exchange_expire(DAY)
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   payStaticsRetation, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         //落地定时执行的日志
         jobFinish(begin)
+    }
+
+    static String request(String url) {
+        HttpURLConnection conn = null
+        def jsonText = ""
+        try {
+            conn = (HttpURLConnection) new URL(url).openConnection()
+            conn.setRequestMethod("GET")
+            conn.setDoOutput(true)
+            conn.setConnectTimeout(3000)
+            conn.setReadTimeout(3000)
+            conn.connect()
+            jsonText = conn.getInputStream().getText("UTF-8")
+
+        } catch (Exception e) {
+            println "request Exception : " + e
+        } finally {
+            if (conn != null) {
+                conn.disconnect()
+            }
+        }
+        return jsonText
     }
 
     /**
