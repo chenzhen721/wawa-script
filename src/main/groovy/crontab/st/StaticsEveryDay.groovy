@@ -541,7 +541,7 @@ class StaticsEveryDay {
         if (login != null) {
             map.put('logins', login.get('total') as Integer ?: 0) //日活 4
         }
-        map.put('diamond_count', diamond_count) //钻石消耗总数 8
+        map.put('diamond_cost', diamond_count) //钻石消耗总数 8
         map.put('regs', regs) //9 新增总人数
         if (cost != null) {
             def user_cost = cost.get('user_cost') as BasicDBObject
