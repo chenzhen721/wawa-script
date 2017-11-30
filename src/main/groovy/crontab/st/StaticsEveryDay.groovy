@@ -571,7 +571,7 @@ class StaticsEveryDay {
         long begin = l
 
         //01.充值的日报表
-        /*l = System.currentTimeMillis()
+        l = System.currentTimeMillis()
         financeStatics(DAY)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   financeStatics, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
@@ -610,7 +610,7 @@ class StaticsEveryDay {
         l = System.currentTimeMillis()
         payStaticsRetation(DAY)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   payStaticsRetation, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)*/
+        Thread.sleep(1000L)
 
         //08.过期兑换
         l = System.currentTimeMillis()
