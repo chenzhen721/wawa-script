@@ -292,6 +292,20 @@ class StaticsEveryDay {
                 ), true, false)
     }
 
+    //次日留存
+    static payStaticsRetation(int i) {
+        //记录在前一日的report中
+        def stat_report = mongo.getDB('xy_admin').getCollection('stat_report')
+        def gteMill = yesTday - (i + 1) * DAY_MILLON
+        def YMD = new Date(gteMill).format("yyyyMMdd")
+        def time = [$gte: gteMill, $lt: gteMill + DAY_MILLON]
+        //充值次日留存
+        def ids = finance_log_DB.find($$(timestamp: time)).toArray()*.user_id
+        def log = mongo.getDB("xylog").getCollection("day_login")
+        def retention = log.count($$(timestamp: [$gte: gteMill + DAY_MILLON, $lt: gteMill + 2 * DAY_MILLON], user_id: [$in: ids]))
+        stat_report.update(new BasicDBObject(_id: "${YMD}_allreport".toString()), $$($set: ['1_pay': retention]), true, false)
+    }
+
     /**
      * 根据充值人注册时的联运渠道统计
      */
@@ -538,12 +552,7 @@ class StaticsEveryDay {
                 map.put('cost_user', (user_cost.get('user') ?: 0) as Integer)
             }
         }
-        //充值次日留存
-        def ids = finance_log_DB.find($$(timestamp: [$gte: gteMill - i * DAY_MILLON , $lt: gteMill])).toArray()*.user_id
-        def log = mongo.getDB("xylog").getCollection("day_login")
-        def retention = log.count($$(timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON], user_id: [$in: ids]))
-        map.put('1_pay', retention)  // 14
-        stat_report.update(new BasicDBObject(_id: "${prefix}allreport".toString()), new BasicDBObject(map), true, false)
+        stat_report.update(new BasicDBObject(_id: "${prefix}allreport".toString()), $$($set: map), true, false)
     }
 
 
@@ -587,6 +596,12 @@ class StaticsEveryDay {
         l = System.currentTimeMillis()
         staticTotalReport(DAY)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   staticTotalReport, cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
+        //07.次日留存
+        l = System.currentTimeMillis()
+        payStaticsRetation(DAY)
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   payStaticsRetation, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         //落地定时执行的日志
