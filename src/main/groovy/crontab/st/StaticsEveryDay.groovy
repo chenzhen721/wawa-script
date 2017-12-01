@@ -264,7 +264,7 @@ class StaticsEveryDay {
                 def coin = obj.get('diamond') as Long
                 all.add(user_id, cny, coin)
                 total.add(user_id, cny, coin)
-                if (regs.contains(user_id)) { //新充值用户
+                if (regs.contains(Integer.valueOf(user_id))) { //新充值用户
                     reg_total.add(user_id, cny, coin)
                 }
                 //该用户之前无充值记录或首冲记录为当天则算为当天新增用户
