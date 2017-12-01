@@ -554,9 +554,6 @@ class TongjiActive {
         long l = System.currentTimeMillis()
         long begin = l
 
-//        /**
-//         *
-
         //更新渠道的日、周、月活跃度
         l = System.currentTimeMillis()
         activeStatics(day)
@@ -570,11 +567,6 @@ class TongjiActive {
         }
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd stayStatics, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
-        // 更新渠道的激活值
-        //l = System.currentTimeMillis()
-        //fetchUmengData(day)
-        //println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd fetchUmengData, cost  ${System.currentTimeMillis() - l} ms"
-        //Thread.sleep(1000L)
 
         //03.父级渠道的统计
         l = System.currentTimeMillis()
@@ -582,11 +574,6 @@ class TongjiActive {
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd parentQdstatic cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
-        // 更新IOS的激活（联运管理iOS版）
-//        l = System.currentTimeMillis()
-//        fetchTalkingData(day)
-//        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd fetchTalkingData, cost  ${System.currentTimeMillis() - l} ms"
-//        Thread.sleep(1000L)
 
         // 运营关键数据统计（PC、手机），对应财务管理
         l = System.currentTimeMillis()
@@ -598,7 +585,7 @@ class TongjiActive {
         staticRetention(day + 1)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd staticRetention cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
-//         */
+
         //落地定时执行的日志
         jobFinish(begin)
     }
