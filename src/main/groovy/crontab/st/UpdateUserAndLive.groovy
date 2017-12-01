@@ -12,17 +12,8 @@ import com.mongodb.DBObject
 ])
 import com.mongodb.Mongo
 import com.mongodb.MongoURI
-import com.mongodb.util.Hash
 import groovy.json.JsonOutput
-import groovy.json.JsonSlurper
-import org.apache.commons.lang.StringUtils
-import org.apache.http.client.HttpClient
-import org.apache.http.impl.client.DefaultHttpClient
-import org.apache.http.params.HttpConnectionParams
-import org.apache.http.params.HttpParams
 import redis.clients.jedis.Jedis
-import redis.clients.jedis.Pipeline
-import redis.clients.jedis.Response
 
 /**
  * 定时更新房间的在线人数

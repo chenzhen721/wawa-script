@@ -261,10 +261,14 @@ class QdStat {
             String parent_id = obj.get("parent_qd") as String
             parentMap.put(parent_id, obj)
         }
+        Integer total_stay1 = 0
+        Integer total_stay3 = 0
+        Integer total_stay7 = 0
+        Integer total_stay30 = 0
+        Long begin = yesTday - i * DAY_MILLON
 
         for (String key : parentMap.keySet()) {
             DBObject obj = parentMap.get(key)
-            Long begin = yesTday - i * DAY_MILLON
             def parent_id = obj.get("parent_qd") as String
             def childqds = channel_db.find($$(parent_qd: parent_id), $$(_id: 1)).toArray()
             DBObject query = $$('qd', [$in: childqds.collect {
@@ -308,12 +312,15 @@ class QdStat {
                 cpa2 += currentCpa2
 
             }
+            def s_avg = (payNum == 0 ? 0 : cny / payNum) as Double
             def YMD = new Date(begin).format("yyyyMMdd")
+            println YMD + ':' + s_avg
             def st = $$(_id: "${YMD}_${parent_id}" as String, qd: parent_id, timestamp: begin)
             def setObject = $$(
                     s_pay: payNum,
                     reg: regNum,
                     s_cny: cny,
+                    s_avg: s_avg,
                     month_pay: month_pay,
                     month_cny: month_cny,
                     count: count,
@@ -331,8 +338,20 @@ class QdStat {
 //            def setObject = $$(qd: parent_id, timestamp: begin)
             stat_channels.findAndModify(st, null, null, false,
                     $$($set: setObject), true, true)
+            total_stay1 = total_stay1 + stay1
+            total_stay3 = total_stay3 + stay3
+            total_stay7 = total_stay7 + stay7
+            total_stay30 = total_stay30 + stay30
         }
-
+        // 更新每日报表留存数据
+        def date = new Date(begin)
+        def prefix = date.format('yyyyMMdd_')
+        def stat_report = mongo.getDB('xy_admin').getCollection('stat_report')
+        def report = ['stay.1_day': total_stay1, //15
+                      'stay.3_day': total_stay3, //16
+                      'stay.7_day': total_stay7, //17
+                      'stay.30_day': total_stay30] //18
+        stat_report.update(new BasicDBObject(_id: "${prefix}allreport".toString()), $$($set: report), true, false)
     }
 
     /**
@@ -398,10 +417,10 @@ class QdStat {
         Thread.sleep(1000L)
 
         //ASO优化统计 (App Store Optimization) mygreen
-        l = System.currentTimeMillis()
-        ASOstatics(begin_day)
+        /*l = System.currentTimeMillis()
+        //ASOstatics(begin_day)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${QdStat.class.getSimpleName()},ASOstatics cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
+        Thread.sleep(1000L)*/
 
         //落地定时执行的日志
         jobFinish(begin)
