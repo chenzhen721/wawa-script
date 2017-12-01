@@ -359,7 +359,7 @@ class Tmp {
         println count*/
 
 
-        catch_success_log.find($$(coin: 0)).toArray().each {BasicDBObject obj->
+        /*catch_success_log.find($$(coin: 0)).toArray().each {BasicDBObject obj->
             def _id = obj['_id'] as String //
             //补单数据
             if (_id.endsWith('_supplement')) {
@@ -368,7 +368,11 @@ class Tmp {
                 catch_success_log.update($$(_id: obj['_id']), $$($set: [coin: record['coin'], relative_record: _id]))
             }
             println obj['_id']
-        }
+        }*/
+
+        //def channels = mongo.getDB('xy_admin').getCollection('channels')
+        def ids = channels.find(new BasicDBObject()).toArray()*._id
+        println mongo.getDB('xy').getCollection('users').distinct('qd', $$(qd: [$nin: ids]))
 
 
     }
