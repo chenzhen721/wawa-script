@@ -189,7 +189,7 @@ class TongjiActive {
         if (total_map.size() > 0) {
             // 更新每日报表留存数据
             def stat_report = mongo.getDB('xy_admin').getCollection('stat_report')
-            stat_report.update(new BasicDBObject(_id: "${prefix}allreport".toString()), new BasicDBObject($set: total_map), true, false)
+            stat_report.update(new BasicDBObject(_id: "${prefix}allreport".toString()), new BasicDBObject($set: ['stay': total_map]), true, false)
         }
     }
 
