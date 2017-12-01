@@ -293,7 +293,7 @@ class StaticsEveryDay {
                 ), true, false)
     }
 
-    //todo check次日留存
+    //todo check 次日留存
     static payStaticsRetation(int i) {
         //记录在前一日的report中
         def stat_report = mongo.getDB('xy_admin').getCollection('stat_report')
