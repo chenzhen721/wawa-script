@@ -161,7 +161,7 @@ class TongjiActive {
         def prefix = new Date(gteMill).format("yyyyMMdd_")
         def channels = mongo.getDB("xy_admin").getCollection("channels")
         def stat_channels = mongo.getDB("xy_admin").getCollection('stat_channels')
-
+        def total_map = new HashMap<String, Long>(4)
         channels.find(new BasicDBObject(), new BasicDBObject("_id": 1)).toArray().each { BasicDBObject qdObj ->
             String qd = qdObj.get("_id")
             def channel = stat_channels.findOne(new BasicDBObject('_id', prefix + qd))
@@ -177,6 +177,7 @@ class TongjiActive {
                                     [$gte: gt, $lt: gt + DAY_MILLON]))
                         }
                         map.put("${d}_day".toString(), count)
+                        total_map.put("${d}_day".toString(), count)
                     }
                 }
                 if (map.size() > 0) {
@@ -184,6 +185,11 @@ class TongjiActive {
                             new BasicDBObject('$set', new BasicDBObject("stay", map)))
                 }
             }
+        }
+        if (total_map.size() > 0) {
+            // 更新每日报表留存数据
+            def stat_report = mongo.getDB('xy_admin').getCollection('stat_report')
+            stat_report.update(new BasicDBObject(_id: "${prefix}allreport".toString()), new BasicDBObject($set: total_map), true, false)
         }
     }
 

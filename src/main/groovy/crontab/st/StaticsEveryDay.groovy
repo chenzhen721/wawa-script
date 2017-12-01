@@ -235,15 +235,6 @@ class StaticsEveryDay {
         //当天新增用户
         def regs = users.find(new BasicDBObject(timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON]))*._id
 
-        Map<String, Number> old_ids = new HashMap<String, Number>()
-        finance_log_DB.aggregate(
-                new BasicDBObject('$match', new BasicDBObject('via', [$ne: 'Admin'])),
-                new BasicDBObject('$project', [_id: '$user_id', timestamp: '$timestamp']),
-                new BasicDBObject('$group', [_id: '$_id', timestamp: [$min: '$timestamp']])
-        ).results().each {
-            def obj = new BasicDBObject(it as Map)
-            old_ids.put(obj.get('_id') as String, obj.get('timestamp') as Number)
-        }
         def typeMap = new HashMap<String, PayStat>()
         //总数
         PayStat total = new PayStat()
@@ -264,17 +255,8 @@ class StaticsEveryDay {
                 def coin = obj.get('diamond') as Long
                 all.add(user_id, cny, coin)
                 total.add(user_id, cny, coin)
-                if (regs.contains(Integer.valueOf(user_id))) { //新充值用户
+                if (regs.contains(Integer.valueOf(user_id))) { //新增充值用户
                     reg_total.add(user_id, cny, coin)
-                }
-                //该用户之前无充值记录或首冲记录为当天则算为当天新增用户
-                if (old_ids.containsKey(user_id)) {
-                    def userTimestamp = old_ids.get(user_id) as Long
-                    Long day = gteMill
-                    Long userday = new Date(userTimestamp).clearTime().getTime()//首冲日期
-                    if (day.equals(userday)) {
-                        delta.add(user_id, cny, coin)
-                    }
                 }
             }
             typeMap.put(k + 'all', all)
@@ -286,9 +268,9 @@ class StaticsEveryDay {
                         user_pay: total.toMap(),
                         user_reg_pay: reg_total.toMap(), //新增充值
                         user_pay_pc: typeMap.get('pcall').toMap(),
-                        user_pay_pc_delta: typeMap.get('pcdelta').toMap(),
+                        //user_pay_pc_delta: typeMap.get('pcdelta').toMap(), //PC首充新增
                         user_pay_mobile: typeMap.get('mobileall').toMap(),
-                        user_pay_mobile_delta: typeMap.get('mobiledelta').toMap(),
+                        //user_pay_mobile_delta: typeMap.get('mobiledelta').toMap(), //mobile首充新增
                         timestamp: gteMill
                 ), true, false)
     }
