@@ -17,9 +17,6 @@ import com.mongodb.DBObject
 
 /**
  * 每月统计一份数据
- *
- * date: 13-10-16 下午2:46
- * @author: haigen.xiong@ttpod.com
  */
 class StaticsEveryMonth {
 
