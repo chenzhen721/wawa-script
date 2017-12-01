@@ -33,7 +33,7 @@ class QdStat {
 
     static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
     static chatLog = mongo.getDB('chat_log')
-    static DAY_MILLON = 24 * 3600 * 1000L //
+    static DAY_MILLON = 24 * 3600 * 1000L
     static long zeroMill = new Date().clearTime().getTime()
     static Long yesTday = zeroMill - DAY_MILLON
 
