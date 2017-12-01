@@ -1,5 +1,5 @@
 #!/usr/bin/env groovy
-package crontab.st
+package tmp.tmp
 
 import com.mongodb.BasicDBObject
 @Grapes([
@@ -16,7 +16,7 @@ import org.apache.commons.codec.digest.DigestUtils
 /**
  * 房间发言数统计
  */
-class MicStat1 {
+class Tmp {
     static Properties props = null;
     static String profilepath = "/empty/crontab/db.properties";
 
@@ -135,18 +135,19 @@ class MicStat1 {
         //补充线上中奖id
         def catch_success_log = mongo.getDB('xylog').getCollection('catch_success_logs')
         //获取goods_id
-        def file = new File('/empty/crontab/goodsid.txt')
+        /*def file = new File('/empty/crontab/metadata/goodsid.txt')
         def ids = new HashMap()
         file.readLines().each {String line ->
             def a = line.split(',')
             ids.put(Integer.parseInt(a[2]), a[4])
         }
-        println ids
+        println ids*/
 
-        def record_logs = catch_record.find(new BasicDBObject()).toArray().each {BasicDBObject obj ->
+        //设置goods_id
+        /*catch_record.find($$(type: 2, goods_id: [$exists: false])).toArray().each {BasicDBObject obj ->
             def gid = ids.get(obj['toy']['_id']) as Integer
             catch_record.update($$(_id: obj['_id']), $$($set: [goods_id: gid]), false, false)
-        }
+        }*/
         //设置成功记录
         /*def logs = catch_success_log.find($$(goods_id: [$exists: false]))
         //println logs
@@ -159,7 +160,7 @@ class MicStat1 {
         def apply_post_log = mongo.getDB('xylog').getCollection('apply_post_logs')
         def catch_user = mongo.getDB('xy_catch').getCollection('catch_user')
         //异常订单拆单
-        /*def file = new File('/empty/crontab/BUG12.txt')
+        /*def file = new File('/empty/crontab/metadata/BUG12.txt')
         def ids = []
         file.readLines().each {String line ->
             if (line != null && line != '') {
@@ -250,13 +251,13 @@ class MicStat1 {
 
 
         //添加发货地址
-        apply_post_log.find($$(address_list: [$exists: false])).toArray().each {BasicDBObject obj ->
+        /*apply_post_log.find($$(address_list: [$exists: false])).toArray().each {BasicDBObject obj ->
             if (obj['address'] != null) {
                 def address = obj['address']
                 def addressstr = "${address['province'] ?: ''}${address['city'] ?: ''}${address['region'] ?: ''}${address['address']}".toString()
                 println apply_post_log.update($$(_id: obj['_id']), $$($set: [address_list: addressstr]), false, false)
             }
-        }
+        }*/
         //下单脚本
 
         //恢复订单
@@ -313,6 +314,42 @@ class MicStat1 {
 
         //apply_post_log.update($$(order_id: [$exists: true]), $$($unset: [order_id: 1, push_time: 1]), false, true)
 
+        //同步订单
+        /*def file = new File('/empty/crontab/metadata/order-shipping-1127.txt')
+        def ids = new HashMap()
+        file.readLines().each {String line ->
+            if (line != null && !line.isEmpty()) {
+                def a = line.split(',')
+                ids.put(a[0], a[1])
+            }
+        }
+        println ids
+        def missing = []
+        def missmatch = []
+        def missorder = []
+        ids.each {String order_id, String shipping->
+            def post_log = apply_post_log.findOne($$('post_info.order_id': order_id))
+            if (post_log == null) {
+                missing.add(order_id + ',' + shipping)
+            } else {
+                def post_info = post_log['post_info'] as Map
+                def no = post_info['shipping_no']
+                def set = $$('post_info.shipping_no': shipping)
+                if (no != shipping) {
+                    missmatch.add(post_info['_id'] + ',' + order_id + ',' + shipping)
+                }
+                if (order_id != post_log['order_id']) {
+                    set.put('order_id', order_id)
+                    missorder.add(post_log['_id'] + ',' + order_id + ',' + shipping)
+                }
+                apply_post_log.update($$(_id: post_log['_id']), $$($set: set))
+            }
+        }
+        println missing
+        println missmatch
+        println missorder*/
+        //apply_post_log.find($$())
+
     }
 
     public static final String APP_ID = "984069e5f8edd8ca4411e81863371f16"
@@ -356,7 +393,7 @@ class MicStat1 {
 //        1.times {
             statics(0 )
 //        }
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${MicStat1.class.getSimpleName()},statics cost  ${System.currentTimeMillis() - l} ms"
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${this.getSimpleName()},statics cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
     }
