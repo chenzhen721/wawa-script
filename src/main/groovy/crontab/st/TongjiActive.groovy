@@ -177,7 +177,7 @@ class TongjiActive {
                                     [$gte: gt, $lt: gt + DAY_MILLON]))
                         }
                         map.put("${d}_day".toString(), count)
-                        total_map.put("${d}_day".toString(), count)
+                        total_map.put("${d}_day".toString(), total_map.get("${d}_day".toString()) as Integer ?: 0 + count)
                     }
                 }
                 if (map.size() > 0) {
