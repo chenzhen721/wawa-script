@@ -46,6 +46,7 @@ class UserBehaviorStatic {
     static DBCollection finance_log  = mongo.getDB('xy_admin').getCollection('finance_log')
     static DBCollection catch_record = mongo.getDB('xy_catch').getCollection('catch_record')
     static DBCollection invitor_logs = mongo.getDB('xylog').getCollection('invitor_logs')
+    static DBCollection apply_post_logs = mongo.getDB('xylog').getCollection('apply_post_logs')
 
     static class CatchRateUser {
         final user = new HashSet(1000)
@@ -62,6 +63,7 @@ class UserBehaviorStatic {
     static Map<Integer, CatchRateUser> catchRateCount =MapWithDefault.<Integer, CatchRateUser> newInstance(new HashMap()) { new CatchRateUser() }
     static staticsPayUser(){
         Integer totalPayUserCount = 0
+        Integer totalPayCny = 0
         Integer catchUserCount = 0
         Integer fromInvitorUserCount = 0
         Integer fromGZHUserCount = 0
@@ -104,10 +106,11 @@ class UserBehaviorStatic {
             cRateCount.cny.addAndGet(cny)
             cRateCount.catchCount.addAndGet(catch_record.count($$(user_id:userId)) as Integer)
             totalPayUserCount++;
+            totalPayCny += cny
         }
         println "付费人数:${totalPayUserCount}"
         payPeriodCount.each {Integer period, Integer userCount ->
-            println " 第${period+1}天:${userCount}\t占比: ${fmtNumber(userCount/totalPayUserCount * 100)}%"
+            println " 付费周期${period+1}天:${userCount}\t占比: ${fmtNumber(userCount/totalPayUserCount * 100)}%"
         }
         println "付费抓中比率"
         println " 命中率 \t用户: \t占比 \t充值总额 \t人均充值:元\t人均抓取次数"
@@ -125,7 +128,7 @@ class UserBehaviorStatic {
     static payPeriod(Integer userId){
         Long firstTime = finance_log.find($$(user_id:userId), $$(timestamp:1)).sort($$(timestamp:1)).limit(1).toArray()[0]?.get("timestamp") as Long
         Long lastTime = finance_log.find($$(user_id:userId), $$(timestamp:1)).sort($$(timestamp:-1)).limit(1).toArray()[0]?.get("timestamp") as Long
-        Integer period = Integer.valueOf(new Date(lastTime).format("yyyyMMdd")) - Integer.valueOf(new Date(firstTime).format("yyyyMMdd"))
+        Integer period = (new Date(lastTime).clearTime().getTime() - new Date(firstTime).clearTime().getTime()) / DAY_MILLON
         return period
     }
 
@@ -140,17 +143,18 @@ class UserBehaviorStatic {
         return invitor_logs.count($$(user_id:userId)) >= 1
     }
 
-    //来自公众号
+    //来自公众号用户
     static fromGZH(Integer userId){
         String qd = finance_log.find($$(user_id:userId), $$(timestamp:1,qd:1)).sort($$(timestamp:1)).limit(1).toArray()[0]?.get("qd") as String
         return qd.equals("wawa_kuailai_gzh")
     }
 
-    //付费用户的概率
+    //付费用户的抓中的概率
     static rateCatchBingo(Integer userId){
         Long catchCount = catch_record.count($$(user_id:userId))
-        Long catchCountBingo = catch_record.count($$(user_id:userId,'status':true))
-        Double rate = catchCountBingo / catchCount;
+        Long catchCountBingo = catch_record.count($$(user_id:userId,'status':true)) ?: 0
+        //println "rate : ${userId} : ${catchCountBingo},  ${catchCount}"
+        Double rate = catchCountBingo > 0 ? catchCountBingo / catchCount: 0;
         //println "rate : ${catchCountBingo},  ${catchCount} = ${Math.rint( rate * 100)}"
         return Math.rint( rate * 100)
     }
@@ -165,7 +169,6 @@ class UserBehaviorStatic {
             def obj = $$(it as Map)
             Integer userId = obj?.get('_id') as Integer;
             def count = obj?.get('count') as Long; //抓取次数
-            //大于10RMB的
             if(count > 1){
                 Integer period = catchPeriod(userId)
                 Integer periodCount = playPeriodCount.get(period) ?: 0
@@ -183,8 +186,23 @@ class UserBehaviorStatic {
     static catchPeriod(Integer userId){
         Long firstTime = catch_record.find($$(user_id:userId), $$(timestamp:1)).sort($$(timestamp:1)).limit(1).toArray()[0]?.get("timestamp") as Long
         Long lastTime = catch_record.find($$(user_id:userId), $$(timestamp:1)).sort($$(timestamp:-1)).limit(1).toArray()[0]?.get("timestamp") as Long
-        Integer period = Integer.valueOf(new Date(lastTime).format("yyyyMMdd")) - Integer.valueOf(new Date(firstTime).format("yyyyMMdd"))
+        Integer period = (new Date(lastTime).clearTime().getTime() - new Date(firstTime).clearTime().getTime()) / DAY_MILLON
         return period
+    }
+
+    //收到娃娃用户的付费占比
+    static staticsDeliverUserOfPay(){
+        def uids = apply_post_logs.distinct("user_id", $$(post_type:3))
+        Integer payUserCount = 0
+        uids.each {Integer uid ->
+            if(isPay(uid))
+                payUserCount++;
+        }
+        println " 发货用户数::${uids.size()}\t充值用户数:${payUserCount}\t占比: ${fmtNumber(payUserCount/uids.size() * 100)}%"
+    }
+
+    static Boolean isPay(Integer userId){
+        return finance_log.count($$(user_id:userId,via: [$ne: 'Admin'])) > 0
     }
 
     static fmtNumber(Double num){
@@ -207,6 +225,7 @@ class UserBehaviorStatic {
         staticsPayUser()
         //抓取行为
         staticsCatchUser()
+        staticsDeliverUserOfPay()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   UserBehaviorStatic, cost  ${System.currentTimeMillis() - l} ms"
     }
 
