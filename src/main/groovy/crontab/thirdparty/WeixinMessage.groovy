@@ -20,6 +20,7 @@ import com.mongodb.MongoURI
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import groovy.json.StringEscapeUtils
+import org.apache.commons.lang.StringUtils
 import org.apache.http.HttpEntity
 import org.apache.http.HttpResponse
 import org.apache.http.client.HttpClient
@@ -39,10 +40,10 @@ class WeixinMessage {
 
     static Properties props = null;
     static String profilepath = "/empty/crontab/db.properties";
-//    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.246:27017/?w=1') as String))
     static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.249:10000/?w=1') as String))
-    static DBCollection union = mongo.getDB('xy_union').getCollection('weixin_template')
-    static DBCollection customer = mongo.getDB('xy_union').getCollection('weixin_customer')
+
+    static DBCollection weixin_msg = mongo.getDB('xy_union').getCollection('weixin_msgs')
+    static DBCollection users = mongo.getDB('xy_user').getCollection('users')
 
     static String jedis_host = getProperties("main_jedis_host", "192.168.31.249")
     static Integer main_jedis_port = getProperties("main_jedis_port", 6379) as Integer
@@ -59,7 +60,7 @@ class WeixinMessage {
     static final Long DAY_MILLION = 60 * 60 * 24 * 1000
     static Map errorCode = [:]
 
-    static List<String> openIds = ["ok2Ip1rVmmkypvPCHwGS3p6FDPUA","ok2Ip1hYtZOjKzacYzr06gskuNcs","ok2Ip1ke1-QxuicU9gpRqZ1tA10A","ok2Ip1pFWWphfjGld52014oXmEbc"];
+    static List<String> openIds = ["ok2Ip1hYtZOjKzacYzr06gskuNcs","ok2Ip1rk-Fx4PdJSdH25zKObb_oU"];
     static getProperties(String key, Object defaultValue) {
         try {
             if (props == null) {
@@ -76,93 +77,51 @@ class WeixinMessage {
         initErrorCode()
         Long begin = System.currentTimeMillis()
         sendMessage()
-        println "${WeixinMessage.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms"
-        /*
-        后台配置模板批量发送消息
-        sendCustomerMessage()
-        Long end = System.currentTimeMillis()
-        Long cost = end - begin
         println "${WeixinMessage.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: total ${requestCount} , success ${successCount} " +
-                "fail ${requestCount - successCount} finish cost ${cost} ms"
-        */
+                "fail ${requestCount - successCount} finish cost ${System.currentTimeMillis() - begin} ms"
     }
 
     static void sendMessage(){
-        openIds.each {String openId->
-            DBObject template = new BasicDBObject();
-            template['title']="妈呀！ 你今天有一堆钻石马上到期咯"
-            template['description']= '送你的一堆钻石即将过期了，速速领了去抓娃娃吧。 （测试，，，这仅仅是个测试！ 别当真）'
-            template['pic_url']= 'https://mmbiz.qpic.cn/mmbiz_jpg/kGE3RectqDza7OuqZicNV2vrGr3dibBHIsUJUAG7kj0aZJpBgqm2sfWoTYEH9Azg97XnITNn0qFRtvubISdaYqCg/0?wx_fmt=jpeg'
-            template['url']= '17laihou.com'
-            template['content']= "哇！ 你有一堆钻石马上到期咯，速速领取了去抓娃娃吧。"
-            //sendCustomText(template, openId)
-            sendCustomImageText(template, openId)
-        }
-
-    }
-
-    /**
-     *
-     * 发送微信客服消息
-     * 图文消息
-     * @param openIds
-     * @param text
-     */
-    static void sendCustomerMessage() {
         Long now = System.currentTimeMillis()
-        BasicDBObject searchExpression = new BasicDBObject('begin': [$lte: now], 'end': [$gte: now], msg_type: [$ne: null], 'next_fire': [$lte: now])
-        DBCursor cursor = union.find(searchExpression)
-        while (cursor.hasNext()) {
-            def template = cursor.next()
-            String fire = template['fire']
-            Long nextFire = template['next_fire'] as Long
-            String msgtype = template['msg_type']
-            BasicDBObject customerExpression = new BasicDBObject('expires': [$gte: now])
-            List<DBObject> customerList = customer.find(customerExpression).toArray()
-            Integer error = 0
-            // 判断是否过期
-            Long misFire = nextFire + MIS_FIRE
-            // 计算过期后 下一次触发时间
-            if (now > misFire) {
-                String time = new Date().format('yyyy-MM-dd') + ' ' + fire
-                SimpleDateFormat sdf = new SimpleDateFormat('yyyy-MM-dd HH:mm:ss')
-                Long tmp = sdf.parse(time).getTime()
-                if (tmp < now) {
-                    tmp += DAY_MILLION
-                }
-                // 设置下一次触发时间
-                nextFire = tmp
-                String id = template['_id']
-                BasicDBObject modifyExpression = new BasicDBObject(next_fire: nextFire)
-                union.findAndModify(new BasicDBObject('_id', id), null, null, false, new BasicDBObject('$set', modifyExpression), true, true)
-            } else {
-                for (DBObject customer : customerList) {
-                    Long sendBegin = System.currentTimeMillis()
-                    requestCount++
-                    String openId = customer['_id']
-                    if (msgtype == 'news') {
-                        error = sendCustomImageText(template, openId)
-                    } else {
-                        error = sendCustomText(template, openId)
-                    }
-                    if (error == 0) {
-                        successCount++
-                        String id = template['_id']
-                        BasicDBObject modifyExpression = new BasicDBObject(last_fire: now, next_fire: nextFire + DAY_MILLION)
-                        union.findAndModify(new BasicDBObject('_id', id), null, null, false, new BasicDBObject('$set', modifyExpression), true, true)
-                    } else {
-                        Long sendFinish = System.currentTimeMillis()
-                        Long sendCost = sendBegin - sendFinish
-                        String msg = errorCode.get(error)
-                        println "${WeixinMessage.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')} msg : ${msg}, error : ${error}, cost : ${sendCost} ms"
-                    }
+        def cur = weixin_msg.find($$(is_send : 0, 'next_fire': [$lte: now])).batchSize(10)
+        while (cur.hasNext()) {
+            def row = cur.next()
+            Integer uid = row['to_id'] as Integer
+            String openId = getOpenIdByUid(uid)
+            if(StringUtils.isNotBlank(openId)){
+                def template = row['template'] as DBObject
+                Integer error = sendCustomImageText(template, openId)
+                requestCount++
+                if (error == 0) {
+                    successCount++
                 }
             }
+            row['send_time'] = now;
+            row['is_send'] = 1;
+            row['openId'] = openId;
+            weixin_msg.save(row)
         }
+
     }
 
-    private static getNextFire() {
+    static String getOpenIdByUid(Integer uid){
+        String openId = null;
+        def user = users.findOne($$(mm_no:uid.toString()), $$(weixin:1))
+        if(user != null){
+            def weixin = user['weixin'] as Map
+            if(weixin != null){
+                openId = weixin[APP_ID]
+            }
+        }
+        return openId
+    }
 
+    public static BasicDBObject $$(String key, Object value) {
+        return new BasicDBObject(key, value);
+    }
+
+    public static BasicDBObject $$(Map map) {
+        return new BasicDBObject(map)
     }
 
     /**

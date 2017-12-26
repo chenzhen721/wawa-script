@@ -48,8 +48,9 @@ class Redpacket {
     static DBCollection catch_record = mongo.getDB('xy_catch').getCollection('catch_record')
     static DBCollection weixin_msg = mongo.getDB('xy_union').getCollection('weixin_msgs')
     static DBCollection red_packets = mongo.getDB('xy_activity').getCollection('red_packets')
-
+    static DBCollection users = mongo.getDB('xy').getCollection("users")
     static String jedis_host = getProperties("main_jedis_host", "192.168.31.249")
+    static String site_domain = getProperties("site.domain", "http://test.17laihou.com/")
     static Integer main_jedis_port = getProperties("main_jedis_port", 6379) as Integer
     static mainRedis = new Jedis(jedis_host, main_jedis_port)
     static String LAST_SCAN_REDIS_KEY = "last:scan:catch:record:time"
@@ -69,22 +70,28 @@ class Redpacket {
 
     static void main(String[] args) {
         Long begin = System.currentTimeMillis()
+        /*red_packets.remove($$(_id:[$ne:null]))
+        weixin_msg.remove($$(_id:[$ne:null]))*/
         genenrateRedPacket()
         println "${Redpacket.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms"
     }
 
+    static Long end =  System.currentTimeMillis();
+    static Long begin =  System.currentTimeMillis();
     static void genenrateRedPacket(){
+        end = System.currentTimeMillis();
+        begin = ((mainRedis.getSet(LAST_SCAN_REDIS_KEY, end.toString()) ?: end) as Long) - DAY_MILLION
         List<Integer> userIds = scanUserFromCatchRecord()
         userIds.each {Integer userId ->
             sendRedPacket(userId, getRelations(userId))
         }
 
     }
+
     //扫描最近抓中娃娃的用户
     static List<Integer> scanUserFromCatchRecord(){
-        Long end = System.currentTimeMillis();
-        Long begin = (mainRedis.getSet(LAST_SCAN_REDIS_KEY, end.toString()) ?: end) as Long
-        def List = catch_record.distinct("user_id", $$(status:true, timestamp:[$gt:begin-DAY_MILLION, $lt:end]))
+
+        def List = catch_record.distinct("user_id", $$(status:true, timestamp:[$gt:begin, $lt:end]))
         return List;
     }
 
@@ -100,13 +107,13 @@ class Redpacket {
         if(friends.size() <= friends_limit) return;
         println userId +":"+ friends.size()
         //生成红包
-        generateRedpacket(userId, friends)
+        def redpacket_id = generateRedpacket(userId, friends)
         //添加到微信消息队列
-        push2Msg(userId, friends)
+        push2Msg(userId, friends,redpacket_id)
     }
 
     //生成红包
-    static generateRedpacket(Integer userId, List<Integer> friends){
+    static String generateRedpacket(Integer userId, List<Integer> friends){
         try {
             Long time = System.currentTimeMillis();
             def _id = "${new Date().format('yyyyMMdd')}_${userId}".toString()
@@ -119,19 +126,46 @@ class Redpacket {
             def award_diamond = count * 20
             println count +":" + award_diamond
             List<Integer> packets = distribute(award_diamond, count);
-            println packets
-            red_packets.insert($$(_id:_id, redpacket_id:redpacket_id,user_id:userId, friends:friends, packets:packets,
+            def toy = getToyInfo(userId)
+            red_packets.insert($$(_id:_id, redpacket_id:redpacket_id,user_id:userId, friends:friends, packets:packets, draw_uids: [],toy:toy,
                                     count:count, award_diamond:award_diamond, status:1, timestamp:time, expires:time+DAY_MILLION))
+            return redpacket_id;
         }catch (Exception e){
             println e
+            return null
         }
     }
 
+    static final String path = 'activity/packet'
+    static final String wx_pic_url = 'https://mmbiz.qpic.cn/mmbiz_jpg/kGE3RectqDza7OuqZicNV2vrGr3dibBHIsUJUAG7kj0aZJpBgqm2sfWoTYEH9Azg97XnITNn0qFRtvubISdaYqCg/0?wx_fmt=jpeg'
     //添加到微信待发送消息队列
-    static push2Msg(Integer userId, List<Integer> friends){
-        //生成消息模板
-        //获取用户微信公众号openid
-        //push入待发送队列
+    static push2Msg(Integer userId, List<Integer> friends, String redpacket_id){
+        try{
+            Long time = System.currentTimeMillis();
+            //生成消息模板
+            List<BasicDBObject> msgs = new ArrayList<>(friends.size());
+            BasicDBObject template = $$(_id:redpacket_id)
+            String nickname = users.findOne($$(_id:userId),$$(nick_name:1))?.get('nick_name')
+            template['title']="${nickname}给你发来一个钻石红包，点击领取".toString()
+            template['description']= "哇！${nickname}又抓中娃娃了，并且给大家发了一大波钻石红包！赶紧去抢钻石抓娃娃".toString()
+            template['pic_url']= wx_pic_url
+            template['url']= site_domain + path + "?packet_id=${redpacket_id}".toString()
+            template['content']= ""
+            friends.each {Integer tid ->
+                def msg = $$(_id: redpacket_id+'_'+tid,from_id:userId,to_id:tid,timestamp:time,template:template, is_send:0, next_fire:time)
+                msgs.add(msg)
+            }
+            //push入待发送队列
+            weixin_msg.insert(msgs)
+        }catch (Exception e){
+            println "push2Msg exception :" + e;
+        }
+    }
+
+    static getToyInfo(Integer userId){
+        def record = catch_record.findOne($$(user_id:userId,status:true, timestamp:[$gt:begin, $lt:end]),$$(room_id:1,toy:1))
+        def toy = $$(room_id:record['room_id'],name:record['toy']['name'],pic:record['toy']['head_pic'])
+        return toy
     }
 
     static min = 10d
