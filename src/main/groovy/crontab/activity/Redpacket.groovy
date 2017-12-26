@@ -20,6 +20,7 @@ import com.mongodb.MongoURI
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import groovy.json.StringEscapeUtils
+import org.apache.commons.lang.StringUtils
 import org.apache.commons.lang.math.RandomUtils
 import org.apache.http.HttpEntity
 import org.apache.http.HttpResponse
@@ -80,7 +81,7 @@ class Redpacket {
     static Long begin =  System.currentTimeMillis();
     static void genenrateRedPacket(){
         end = System.currentTimeMillis();
-        begin = ((mainRedis.getSet(LAST_SCAN_REDIS_KEY, end.toString()) ?: end) as Long) - DAY_MILLION
+        begin = ((mainRedis.getSet(LAST_SCAN_REDIS_KEY, end.toString()) ?: end) as Long)
         List<Integer> userIds = scanUserFromCatchRecord()
         userIds.each {Integer userId ->
             sendRedPacket(userId, getRelations(userId))
@@ -90,7 +91,7 @@ class Redpacket {
 
     //扫描最近抓中娃娃的用户
     static List<Integer> scanUserFromCatchRecord(){
-
+        println "begin:${new Date(begin).format('yyyy-MM-dd HH:mm:ss')}, end ${new Date(end).format('yyyy-MM-dd HH:mm:ss')} ms"
         def List = catch_record.distinct("user_id", $$(status:true, timestamp:[$gt:begin, $lt:end]))
         return List;
     }
@@ -109,7 +110,10 @@ class Redpacket {
         //生成红包
         def redpacket_id = generateRedpacket(userId, friends)
         //添加到微信消息队列
-        push2Msg(userId, friends,redpacket_id)
+        if(StringUtils.isNotBlank(redpacket_id)){
+            push2Msg(userId, friends,redpacket_id)
+        }
+
     }
 
     //生成红包
