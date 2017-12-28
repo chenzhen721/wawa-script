@@ -125,7 +125,7 @@ class StaticsDoll {
             def toyId = obj.remove('_id')
             def log = $$(type:'total',toy_id:toyId, timestamp:zeroMill)
             log.putAll(obj)
-            coll.update($$(_id: "${YMD}_${toyId}" + '_total_doll'), new BasicDBObject('$set': log), true, false)
+            coll.update($$(_id: "${YMD}_${toyId}".toString() + '_total_doll'), new BasicDBObject('$set': log), true, false)
         }
     }
 
@@ -147,7 +147,7 @@ class StaticsDoll {
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   dollStatics, cost  ${System.currentTimeMillis() - l} ms"
             l = System.currentTimeMillis()
             // 总抓取人数,总抓取次数,总抓中次数
-            //dollTotalStatics(DAY)
+            dollTotalStatics(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   dollTotalStatics, cost  ${System.currentTimeMillis() - l} ms"
             l = System.currentTimeMillis()
             // 单日 总抓取人数,总抓取次数,总抓中次数

@@ -8,6 +8,7 @@ import com.mongodb.DBObject
         @Grab('org.mongodb:mongo-java-driver:2.14.2'),
         @Grab('commons-lang:commons-lang:2.6'),
         @Grab('redis.clients:jedis:2.1.0'),
+        @Grab('org.apache.httpcomponents:httpclient:4.2.5')
 ])
 
 import com.mongodb.Mongo
@@ -146,12 +147,6 @@ class StaticsEveryDay {
         def hand_coin = new AtomicLong()
 
         def pays = MapWithDefault.<String, PayType> newInstance(new HashMap()) { new PayType() }
-        Double android_recharge = 0d
-        Double ios_recharge = 0d
-        Double other_recharge = 0d
-        def android_recharge_set = new HashSet()
-        def ios_recharge_set = new HashSet()
-        def other_recharge_set = new HashSet()
         list.each { obj ->
             def cny = obj.containsField('cny') ? obj['cny'] as Double : 0.0d
             def payType = pays[obj.via]
@@ -162,35 +157,12 @@ class StaticsEveryDay {
             if (user == null) {
                 return
             }
-            def qd = user.containsField('qd') ? user['qd'] : QD_DEFAULT
-            // client = 2 android 4 ios
-            def channel = channels.findOne($$('_id': qd), $$('client': 1))
-            def client = channel?.containsField('client') ? channel['client'] as Integer : 2
             def via = obj.containsField('via') ? obj['via'] : ''
-            if (via != 'Admin') {
-                // 统计android和ios的充值人数，去重
-                if (client == 2) {
-                    android_recharge_set.add(userId)
-                } else if (client == 4) {
-                    ios_recharge_set.add(userId)
-                } else {
-                    other_recharge_set.add(userId)
-                }
-            }
-
             if (cny != null) {
                 cny = new BigDecimal(cny)
                 total = total.add(cny)
                 total_cut = total_cut.add(cny.multiply(PAY_RATES.get(via) ?: 1))
                 payType.cny = payType.cny.add(cny)
-                // 统计android和ios的充值金额
-                if (client == 2) {
-                    android_recharge += cny
-                } else if (client == 4) {
-                    ios_recharge += cny
-                } else {
-                    other_recharge += cny
-                }
             }
             def coin = obj.get('diamond') as Long
             if (coin) {
@@ -211,12 +183,6 @@ class StaticsEveryDay {
                 charge_coin: charge_coin, //充值加钻
                 hand_coin: hand_coin, //手动加钻
                 type: 'finance',
-                android_recharge: android_recharge,
-                ios_recharge: ios_recharge,
-                other_recharge: other_recharge,
-                ios_recharge_count: ios_recharge_set.size(),
-                android_recharge_count: android_recharge_set.size(),
-                other_recharge_count: other_recharge_set.size(),
                 timestamp: begin
         )
         pays.each { String key, PayType type -> obj.put(StringUtils.isBlank(key) ? '' : key.toLowerCase(), type.toMap()) }
@@ -234,15 +200,6 @@ class StaticsEveryDay {
         //当天新增用户
         def regs = users.find(new BasicDBObject(timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON]))*._id
 
-        Map<String, Number> old_ids = new HashMap<String, Number>()
-        finance_log_DB.aggregate(
-                new BasicDBObject('$match', new BasicDBObject('via', [$ne: 'Admin'])),
-                new BasicDBObject('$project', [_id: '$user_id', timestamp: '$timestamp']),
-                new BasicDBObject('$group', [_id: '$_id', timestamp: [$min: '$timestamp']])
-        ).results().each {
-            def obj = new BasicDBObject(it as Map)
-            old_ids.put(obj.get('_id') as String, obj.get('timestamp') as Number)
-        }
         def typeMap = new HashMap<String, PayStat>()
         //总数
         PayStat total = new PayStat()
@@ -263,17 +220,8 @@ class StaticsEveryDay {
                 def coin = obj.get('diamond') as Long
                 all.add(user_id, cny, coin)
                 total.add(user_id, cny, coin)
-                if (regs.contains(user_id)) { //新充值用户
+                if (regs.contains(Integer.valueOf(user_id))) { //新增充值用户
                     reg_total.add(user_id, cny, coin)
-                }
-                //该用户之前无充值记录或首冲记录为当天则算为当天新增用户
-                if (old_ids.containsKey(user_id)) {
-                    def userTimestamp = old_ids.get(user_id) as Long
-                    Long day = gteMill
-                    Long userday = new Date(userTimestamp).clearTime().getTime()//首冲日期
-                    if (day.equals(userday)) {
-                        delta.add(user_id, cny, coin)
-                    }
                 }
             }
             typeMap.put(k + 'all', all)
@@ -285,11 +233,25 @@ class StaticsEveryDay {
                         user_pay: total.toMap(),
                         user_reg_pay: reg_total.toMap(), //新增充值
                         user_pay_pc: typeMap.get('pcall').toMap(),
-                        user_pay_pc_delta: typeMap.get('pcdelta').toMap(),
+                        //user_pay_pc_delta: typeMap.get('pcdelta').toMap(), //PC首充新增
                         user_pay_mobile: typeMap.get('mobileall').toMap(),
-                        user_pay_mobile_delta: typeMap.get('mobiledelta').toMap(),
+                        //user_pay_mobile_delta: typeMap.get('mobiledelta').toMap(), //mobile首充新增
                         timestamp: gteMill
                 ), true, false)
+    }
+
+    //todo check 次日留存
+    static payStaticsRetation(int i) {
+        //记录在前一日的report中
+        def stat_report = mongo.getDB('xy_admin').getCollection('stat_report')
+        def gteMill = yesTday - (i + 1) * DAY_MILLON
+        def YMD = new Date(gteMill).format("yyyyMMdd")
+        def time = [$gte: gteMill, $lt: gteMill + DAY_MILLON]
+        //充值次日留存
+        def ids = finance_log_DB.find($$(timestamp: time)).toArray()*.user_id
+        def log = mongo.getDB("xylog").getCollection("day_login")
+        def retention = log.count($$(timestamp: [$gte: gteMill + DAY_MILLON, $lt: gteMill + 2 * DAY_MILLON], user_id: [$in: ids]))
+        stat_report.update(new BasicDBObject(_id: "${YMD}_allreport".toString()), $$($set: ['1_pay': retention]), true, false)
     }
 
     /**
@@ -527,7 +489,7 @@ class StaticsEveryDay {
         if (login != null) {
             map.put('logins', login.get('total') as Integer ?: 0) //日活 4
         }
-        map.put('diamond_count', diamond_count) //钻石消耗总数 8
+        map.put('diamond_cost', diamond_count) //钻石消耗总数 8
         map.put('regs', regs) //9 新增总人数
         if (cost != null) {
             def user_cost = cost.get('user_cost') as BasicDBObject
@@ -538,12 +500,14 @@ class StaticsEveryDay {
                 map.put('cost_user', (user_cost.get('user') ?: 0) as Integer)
             }
         }
-        //充值次日留存
-        def ids = finance_log_DB.find($$(timestamp: [$gte: gteMill - i * DAY_MILLON , $lt: gteMill])).toArray()*.user_id
-        def log = mongo.getDB("xylog").getCollection("day_login")
-        def retention = log.count($$(timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON], user_id: [$in: ids]))
-        map.put('1_pay', retention)  // 14
-        stat_report.update(new BasicDBObject(_id: "${prefix}allreport".toString()), new BasicDBObject(map), true, false)
+        stat_report.update(new BasicDBObject(_id: "${prefix}allreport".toString()), $$($set: map), true, false)
+    }
+
+    static exchange_expire(int i) {
+        //要加个时间控制
+        def gteMill = zeroMill - 9 * DAY_MILLON
+        def url = "http://test-api.17laihou.com/job/catch_success_expire?stime=${new Date(gteMill).format('yyyy-MM-dd HH:mm:ss')}"
+        println request(url)
     }
 
 
@@ -589,8 +553,42 @@ class StaticsEveryDay {
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   staticTotalReport, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
+        //07.次日留存
+        l = System.currentTimeMillis()
+        payStaticsRetation(DAY)
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   payStaticsRetation, cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
+        //08.过期兑换
+        l = System.currentTimeMillis()
+        exchange_expire(DAY)
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   payStaticsRetation, cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
         //落地定时执行的日志
         jobFinish(begin)
+    }
+
+    static String request(String url) {
+        HttpURLConnection conn = null
+        def jsonText = ""
+        try {
+            conn = (HttpURLConnection) new URL(url).openConnection()
+            conn.setRequestMethod("GET")
+            conn.setDoOutput(true)
+            conn.setConnectTimeout(3000)
+            conn.setReadTimeout(3000)
+            conn.connect()
+            jsonText = conn.getInputStream().getText("UTF-8")
+
+        } catch (Exception e) {
+            println "request Exception : " + e
+        } finally {
+            if (conn != null) {
+                conn.disconnect()
+            }
+        }
+        return jsonText
     }
 
     /**

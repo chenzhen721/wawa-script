@@ -5,7 +5,6 @@ build_staging :
     stage: build
     script:
           - source /etc/profile
-          - echo "java Build..."
           - pwd
           - /opt/ci-shell/2.0/to-git --rsync-from=$CI_PROJECT_DIR/src/main/groovy/crontab/  --git-repository=online/script.aiwan.com.git  --clean=false
           - rsync -av src/main/groovy/crontab/*/* webserver@192.168.2.9:/empty/crontab/
