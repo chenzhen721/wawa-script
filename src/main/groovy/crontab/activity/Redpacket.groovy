@@ -106,10 +106,9 @@ class Redpacket {
     //记录待发送红包
     static sendRedPacket(Integer userId, List<Integer> friends){
         if(friends.size() <= friends_limit) return;
-        println userId +":"+ friends.size()
         //生成红包
         def redpacket_id = generateRedpacket(userId, friends)
-        //添加到微信消息队列
+        //生成红包成功,则生成微信客服消息模板添加到微信消息队列
         if(StringUtils.isNotBlank(redpacket_id)){
             push2Msg(userId, friends,redpacket_id)
         }
@@ -128,7 +127,6 @@ class Redpacket {
             Integer count = (friends.size() / 2) as Integer
             //红包奖励总钻石 = 红包数量 * 20
             def award_diamond = count * 20
-            println count +":" + award_diamond
             List<Integer> packets = distribute(award_diamond, count);
             def toy = getToyInfo(userId)
             red_packets.insert($$(_id:_id, redpacket_id:redpacket_id,user_id:userId, friends:friends, packets:packets, draw_uids: [],toy:toy,
