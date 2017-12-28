@@ -2,6 +2,7 @@
 package tmp.tmp
 
 import com.mongodb.BasicDBObject
+import com.mongodb.DBCollection
 @Grapes([
         @Grab('org.mongodb:mongo-java-driver:2.14.2'),
         @Grab('commons-lang:commons-lang:2.6'),
@@ -370,10 +371,167 @@ class Tmp {
             println obj['_id']
         }*/
 
+        //查询无跟踪渠道
         //def channels = mongo.getDB('xy_admin').getCollection('channels')
-        def ids = channels.find(new BasicDBObject()).toArray()*._id
-        println mongo.getDB('xy').getCollection('users').distinct('qd', $$(qd: [$nin: ids]))
+        /*def ids = channels.find(new BasicDBObject()).toArray()*._id
+        println mongo.getDB('xy').getCollection('users').distinct('qd', $$(qd: [$nin: ids]))*/
 
+        def users = mongo.getDB('xy').getCollection('users')
+        def finance_log_DB = mongo.getDB('xy_admin').getCollection('finance_log')
+        13.times {
+            int day = 12 - it
+            def begin = yesTday - day * DAY_MILLON
+            def end = begin + DAY_MILLON
+            //充值用户
+            def regs = users.find(new BasicDBObject(timestamp: [$gte: begin, $lt: end]))*._id
+            Double total_cny = 0, day1cny = 0, day2cny = 0, day3cny = 0, day4cny = 0
+            def total_uids = new HashSet(), day1_uids = new HashSet(),day2_uids = new HashSet(),day3_uids = new HashSet(),day4_uids = new HashSet()
+            finance_log_DB.find($$(user_id: [$in: regs], via: [$ne: 'Admin'], timestamp: [$lt: gteMill])).toArray().each {BasicDBObject obj->
+                def timestamp = obj['timestamp'] as Long
+                def cny = obj.cny as Double
+                if (timestamp > end && timestamp < end + DAY_MILLON) {
+                    day1cny = day1cny + cny
+                    day1_uids.add(obj.user_id)
+                }
+                if (timestamp > end + DAY_MILLON && timestamp < end + 2 * DAY_MILLON) {
+                    day2cny = day2cny + cny
+                    day2_uids.add(obj.user_id)
+                }
+                if (timestamp > end + 2 * DAY_MILLON && timestamp < end + 3 * DAY_MILLON) {
+                    day3cny = day3cny + cny
+                    day3_uids.add(obj.user_id)
+                }
+                if (timestamp > end + 3 * DAY_MILLON && timestamp < end + 4 * DAY_MILLON) {
+                    day4cny = day4cny + cny
+                    day4_uids.add(obj.user_id)
+                }
+                total_cny = total_cny + cny
+                total_uids.add(obj.user_id)
+            }
+            def day_login = mongo.getDB("xylog").getCollection("day_login")
+            def start = end
+            def util = zeroMill
+
+            def days = 0 as Integer
+
+            total_uids.each {Integer id ->
+                def obj = day_login.find($$(user_id: id, timestamp: [$gte: begin, $lt: util])).sort($$(timestamp: -1)).limit(1)
+                def time = obj[0]['timestamp'] as Long
+                days = days + (((time - start) / DAY_MILLON) as Double).toInteger() + 1
+            }
+            println "${new Date(begin).format('yyyy-MM-dd')}  ${days} / ${total_uids.size()}".toString()
+
+            /*day_login.find($$(user_id: [$in: total_uids], timestamp: [$gte: begin, $lt: util])).toArray().each {BasicDBObject obj ->
+                def time = obj['timestamp'] as Long
+                days = days + (((time - start) / DAY_MILLON) as Double).toInteger() + 1
+                println days
+            }*/
+            //def avg = (days / total_uids.size()) as Double
+            println "${new Date(begin).format('yyyy-MM-dd')}  ${days} / ${total_uids.size()}".toString()
+
+
+            println "${new Date(begin).format('yyyy-MM-dd')}    ${total_cny}:${total_uids.size()}".toString() +
+                    "    ${day1cny}:${day1_uids.size()}    ${day2cny}:${day2_uids.size()}    ${day3cny}:${day3_uids.size()}    ${day4cny}:${day4_uids.size()}"
+        }
+
+        def award_log = mongo.getDB('xylog').getCollection('user_award_logs')
+
+        catch_success_log.find($$(post_type: [$ne: 0], is_award: true)).each {BasicDBObject obj->
+            //
+            def user_id = obj['user_id']
+            def award = award_log.findOne($$(success_log_id: obj['_id']))
+            if (award == null) {
+                println 'none:' + user_id
+            } else {
+                def points = award['award']['points'] as Integer
+                def user = users.findOne(user_id)
+                def count = user['bag']['points']['count']
+                if (count < points) {
+                    users.update($$(_id: user_id), $$($set: ['bag.points.count': 0]), false, false)
+                    catch_success_log.update($$(_id: obj['_id']), $$($set: [exception: true, need: points - count]))
+                    println 'not enough:' + count + ':' + points
+                } else {
+                    users.update($$(_id: user_id), $$($inc: ['bag.points.count': - points]), false, false)
+                    catch_success_log.update($$(_id: obj['_id']), $$($unset: [is_award: true]), false, false)
+                }
+                award_log.update($$(_id: award['_id']), $$($set: [is_delete: true]))
+            }
+        }
+
+        /*award_log.find($$(is_delete: true, user_id: 1203097)).toArray().each {BasicDBObject obj->
+            def points = obj['award']['points'] as Integer
+            def user_id = obj['user_id']
+            def user = users.findOne(user_id)
+            def count = user['bag']['points']['count']
+            if (count < points) {
+                users.update($$(_id: user_id), $$($set: ['bag.points.count': -count]), false, false)
+                catch_success_log.update($$(_id: obj['_id']), $$($set: [exception: true, need: points - count]))
+                println 'not enough:' + user_id + ':' + count + ':' + points
+            } else {
+                users.update($$(_id: user_id), $$($inc: ['bag.points.count': -points]), false, false)
+                catch_success_log.update($$(_id: obj['_id']), $$($unset: [is_award: true]), false, false)
+            }
+        }*/
+        def apply = apply_post_log.find($$(post_type: 3, timestamp: [$gte: 1512057600000,$lt: 1512403200000]))
+        println apply.size()
+        def n = 0
+        apply.each {BasicDBObject obj ->
+            n = n + (obj['record_ids'] as List).size()
+        }
+        println n
+
+
+        //日期/当日新增人数/截止到目前的付费/截止到目前的付费人数/截止到目前这些付费人数的经历总天数/
+        31.times {
+            int day = 30 - it
+            def begin = yesTday - day * DAY_MILLON
+            def end = begin + DAY_MILLON
+            def s = "${new Date(begin).format('yyyy-MM-dd')}".toString()
+            //充值用户
+            def regs = users.find(new BasicDBObject(timestamp: [$gte: begin, $lt: end], qd: 'wawa_kuailai_gzh'))*._id
+            s = s + '/' + regs.size()
+            Double total_cny = 0, day1cny = 0, day2cny = 0, day3cny = 0, day4cny = 0
+            def total_uids = new HashSet(), day1_uids = new HashSet(),day2_uids = new HashSet(),day3_uids = new HashSet(),day4_uids = new HashSet()
+            finance_log_DB.find($$(user_id: [$in: regs], via: [$ne: 'Admin'], timestamp: [$lt: gteMill])).toArray().each {BasicDBObject obj->
+                def cny = obj.cny as Double
+                total_cny = total_cny + cny
+                total_uids.add(obj.user_id)
+            }
+            def day_login = mongo.getDB("xylog").getCollection("day_login")
+            def start = end
+            def util = zeroMill
+
+            def days = 0 as Integer
+
+            total_uids.each {Integer id ->
+                def obj = day_login.find($$(user_id: id, timestamp: [$gte: begin, $lt: util])).sort($$(timestamp: -1)).limit(1)
+                def time = obj[0]['timestamp'] as Long
+                days = days + (((time - start) / DAY_MILLON) as Double).toInteger() + 1
+            }
+            //println "${new Date(begin).format('yyyy-MM-dd')}  ${days} / ${total_uids.size()}".toString()
+
+            /*day_login.find($$(user_id: [$in: total_uids], timestamp: [$gte: begin, $lt: util])).toArray().each {BasicDBObject obj ->
+                def time = obj['timestamp'] as Long
+                days = days + (((time - start) / DAY_MILLON) as Double).toInteger() + 1
+                println days
+            }*/
+            //def avg = (days / total_uids.size()) as Double
+            s = s + '/' + total_cny + '/' + total_uids.size() + '/' + days
+            println s
+        }
+
+        //查询所有充值用户的次数
+        SortedMap map = new TreeMap() //充值次数， 对应的人数
+        def uids = finance_log_DB.distinct('user_id', $$(via: [$ne: 'Admin']))
+        uids.each {Integer uid ->
+            def count = finance_log_DB.count($$(user_id: uid, via: [$ne: 'Admin']))
+            def c = map.get(count) ?: 0
+            c = c + 1
+            map.put(count, c)
+        }
+        map.each {Long count, Integer c ->
+            println count + ',' + c
+        }
 
     }
 
