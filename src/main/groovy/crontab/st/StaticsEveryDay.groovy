@@ -13,7 +13,18 @@ import com.mongodb.DBObject
 
 import com.mongodb.Mongo
 import com.mongodb.MongoURI
+import groovy.json.JsonSlurper
 import org.apache.commons.lang.StringUtils
+import org.apache.http.HttpEntity
+import org.apache.http.HttpResponse
+import org.apache.http.HttpStatus
+import org.apache.http.StatusLine
+import org.apache.http.client.HttpClient
+import org.apache.http.client.methods.HttpGet
+import org.apache.http.impl.client.DefaultHttpClient
+import org.apache.http.params.HttpConnectionParams
+import org.apache.http.params.HttpParams
+import org.apache.http.util.EntityUtils
 
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
@@ -38,7 +49,7 @@ class StaticsEveryDay {
         return props.get(key, defaultValue)
     }
 
-    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.31.231:20000,192.168.31.236:20000,192.168.31.231:20001/?w=1&slaveok=true') as String))
+    static mongo = new Mongo(new MongoURI(getProperties('mongo.uri', 'mongodb://192.168.2.27:10000?w=1') as String))
 
 
     static DAY_MILLON = 24 * 3600 * 1000L
@@ -512,8 +523,9 @@ class StaticsEveryDay {
         def start = gteMill - DAY_MILLON
         def stime = new Date(start).format('yyyy-MM-dd HH:mm:ss')
         def etime = new Date(gteMill).format('yyyy-MM-dd HH:mm:ss')
-        def url = "http://api.17laihou.com/job/catch_success_expire?stime=${stime}&etime=${etime}"
-        println request(url)
+        def url = "http://api.17laihou.com/job/catch_success_expire?stime=${URLEncoder.encode(stime, 'UTF-8')}&etime=${URLEncoder.encode(etime, 'UTF-8')}"
+
+        println getData(url, null)
     }
 
 
@@ -615,6 +627,43 @@ class StaticsEveryDay {
         def id = timerName + "_" + new Date().format("yyyyMMdd")
         def update = new BasicDBObject(timer_name: timerName, cost_total: totalCost, cat: 'day', unit: 'ms', timestamp: tmp)
         timerLogsDB.findAndModify(new BasicDBObject('_id', id), null, null, false, new BasicDBObject('$set', update), true, true)
+    }
+
+    /**
+     * 获取httpClient
+     * @return
+     */
+    def static HttpClient getHttpClient() {
+        HttpClient httpClient = new DefaultHttpClient();
+        HttpParams httpParams = httpClient.getParams();
+        HttpConnectionParams.setSoTimeout(httpParams, 10 * 1000);
+        HttpConnectionParams.setConnectionTimeout(httpParams, 10 * 1000);
+        return httpClient
+    }
+
+    public static Object getData(String url, Map header) {
+        String responseContent = ""
+        HttpGet httpGet = new HttpGet(url)
+        HttpClient httpClient = getHttpClient()
+
+        HttpResponse response = httpClient.execute(httpGet)
+        StatusLine status = response.getStatusLine()
+        if (status.getStatusCode() >= HttpStatus.SC_MULTIPLE_CHOICES) {
+            System.out.printf("Did not receive successful HTTP response: status code = {}, status message = {}", status.getStatusCode(), status.getReasonPhrase())
+            httpGet.abort()
+        }
+
+        HttpEntity entity = response.getEntity()
+        if (entity != null) {
+            responseContent = EntityUtils.toString(entity, "utf-8")
+            def jsonSlurper = new JsonSlurper()
+            def result = jsonSlurper.parseText(responseContent)
+            EntityUtils.consume(entity)
+            return result
+        } else {
+            System.out.printf("Http entity is null! request url is {},response status is {}", url, response.getStatusLine())
+        }
+        httpClient.getConnectionManager().shutdown()
     }
 
     static BasicDBObject $$(String key, Object value) {
