@@ -3,6 +3,7 @@ package crontab.st
 
 import com.https.HttpsUtil
 import com.mongodb.BasicDBObject
+import com.mongodb.DBCollection
 import com.mongodb.DBObject
 import com.mongodb.Mongo
 import com.mongodb.MongoURI
@@ -153,6 +154,8 @@ class TongjiActive {
         }
     }
 
+    static DBCollection users = mongo.getDB('xy').getCollection('users')
+
     /**
      * 1,3,7,30留存统计
      */
@@ -161,7 +164,6 @@ class TongjiActive {
         def prefix = new Date(gteMill).format("yyyyMMdd_")
         def channels = mongo.getDB("xy_admin").getCollection("channels")
         def stat_channels = mongo.getDB("xy_admin").getCollection('stat_channels')
-        def total_map = new HashMap<String, Long>(4)
         channels.find(new BasicDBObject(), new BasicDBObject("_id": 1)).toArray().each { BasicDBObject qdObj ->
             String qd = qdObj.get("_id")
             def channel = stat_channels.findOne(new BasicDBObject('_id', prefix + qd))
@@ -177,7 +179,6 @@ class TongjiActive {
                                     [$gte: gt, $lt: gt + DAY_MILLON]))
                         }
                         map.put("${d}_day".toString(), count)
-                        total_map.put("${d}_day".toString(), count)
                     }
                 }
                 if (map.size() > 0) {
@@ -185,11 +186,6 @@ class TongjiActive {
                             new BasicDBObject('$set', new BasicDBObject("stay", map)))
                 }
             }
-        }
-        if (total_map.size() > 0) {
-            // 更新每日报表留存数据
-            def stat_report = mongo.getDB('xy_admin').getCollection('stat_report')
-            stat_report.update(new BasicDBObject(_id: "${prefix}allreport".toString()), new BasicDBObject($set: ['stay': total_map]), true, false)
         }
     }
 
@@ -247,6 +243,28 @@ class TongjiActive {
                     new BasicDBObject($set: setObject), true, true)
         }
 
+    }
+
+    static stayAllStatics(int i) {
+        def gteMill = yesTday - i * DAY_MILLON
+        def prefix = new Date(gteMill).format("yyyyMMdd_")
+        def total_map = new HashMap<String, Long>(4)
+
+        def regs = users.find(new BasicDBObject(timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON])).toArray()*._id
+        [1, 3, 7, 30].each { Integer d ->
+            Long gt = gteMill + d * DAY_MILLON
+            Integer count = 0
+            if (gt <= yesTday) {
+                count = day_login.count(new BasicDBObject(user_id: [$in: regs], timestamp:
+                        [$gte: gt, $lt: gt + DAY_MILLON]))
+            }
+            total_map.put("${d}_day".toString(), total_map.get("${d}_day".toString()) as Integer ?: 0 + count)
+        }
+        if (total_map.size() > 0) {
+            // 更新每日报表留存数据
+            def stat_report = mongo.getDB('xy_admin').getCollection('stat_report')
+            stat_report.update(new BasicDBObject(_id: "${prefix}allreport".toString()), new BasicDBObject($set: ['stay': total_map]), true, false)
+        }
     }
 
     private static String md5HexString(String content) {
@@ -566,6 +584,13 @@ class TongjiActive {
             stayStatics(it)
         }
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd stayStatics, cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
+        l = System.currentTimeMillis()
+        31.times {
+            stayAllStatics(it)
+        }
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd stayAllStatics, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         //03.父级渠道的统计
