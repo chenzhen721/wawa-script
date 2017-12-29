@@ -90,8 +90,8 @@ class WeixinMessage {
             String openId = getOpenIdByUid(uid)
             if(StringUtils.isNotBlank(openId)){
                 def template = row['template'] as DBObject
-                //Integer error = sendCustomImageText(template, openId)
-                Integer error = 0
+                Integer error = sendCustomImageText(template, openId)
+                //Integer error = 0
                 requestCount++
                 if (error == 0) {
                     successCount++
