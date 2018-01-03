@@ -114,14 +114,15 @@ class StaticsDoll {
 
     // 历史总抓取人数,总抓取次数,总抓中次数
     static dollTotalStatics(int i){
-        def end = yesTday - (i + 1) * DAY_MILLON
-        def q = [timestamp: [$lt: end], type: 'day']
+        def end = yesTday - i * DAY_MILLON
+        def q = [timestamp: [$lte: end], type: 'day']
         coll.aggregate([
                 new BasicDBObject('$match', q),
                 new BasicDBObject('$project', [toyId: '$toy_id', count:'$count', bingo_count:'$bingo_count', user_count:'$user_count']),
                 new BasicDBObject('$group', [_id: '$toyId', count: [$sum: '$count'], bingo_count: [$sum: '$bingo_count'], user_count: [$sum: '$user_count']])]
         ).results().each {
             def obj = it as Map
+            println it
             def toyId = obj.remove('_id')
             def log = $$(type:'total',toy_id:toyId, timestamp:zeroMill)
             log.putAll(obj)
@@ -149,12 +150,12 @@ class StaticsDoll {
             // 总抓取人数,总抓取次数,总抓中次数
             43.times {
                 DAY = it
-            dollTotalStatics(DAY)
-            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   dollTotalStatics, cost  ${System.currentTimeMillis() - l} ms"
+                dollTotalStatics(DAY)
+                println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   dollTotalStatics, cost  ${System.currentTimeMillis() - l} ms"
+            }
             l = System.currentTimeMillis()
             // 单日 总抓取人数,总抓取次数,总抓中次数
-                dollTotalDay(DAY)
-            }
+            //dollTotalDay(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   dollTotalDay, cost  ${System.currentTimeMillis() - l} ms"
         }catch (Exception e){
             println "Exception : " + e
