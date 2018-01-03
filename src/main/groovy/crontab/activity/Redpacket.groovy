@@ -139,7 +139,7 @@ class Redpacket {
     }
 
     static final String path = 'activity/packet'
-    static final String wx_pic_url = 'https://mmbiz.qpic.cn/mmbiz_jpg/kGE3RectqDza7OuqZicNV2vrGr3dibBHIsUJUAG7kj0aZJpBgqm2sfWoTYEH9Azg97XnITNn0qFRtvubISdaYqCg/0?wx_fmt=jpeg'
+    static final String wx_pic_url = 'https://mmbiz.qpic.cn/mmbiz_png/kGE3RectqDwSvWBwjb6OJeSoCcjN7IhuJqsBd50UFqjulmmYdVADeMVAibtUhhmAkQFElCRiclxL8RpynXUSyXoA/0?wx_fmt=png'
     //添加到微信待发送消息队列
     static push2Msg(Integer userId, List<Integer> friends, String redpacket_id){
         try{
