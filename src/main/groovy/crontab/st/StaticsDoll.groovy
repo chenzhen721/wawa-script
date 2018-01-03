@@ -49,7 +49,7 @@ class StaticsDoll {
         def begin = yesTday - i * DAY_MILLON
         def end = begin + DAY_MILLON
         def YMD = new Date(begin).format('yyyyMMdd')
-        def time = [timestamp: [$gte: begin, $lt: end]]
+        def time = [timestamp: [$gte: begin, $lt: end], is_delete: [$ne: true]]
         def query = new BasicDBObject(time)
         def regs = users.find(new BasicDBObject(time))*._id
         catch_record.aggregate([new BasicDBObject('$match', query),
@@ -85,7 +85,7 @@ class StaticsDoll {
         def date = new Date(begin)
         def prefix = date.format('yyyyMMdd_')
         coll.aggregate([
-                $$('$match', [timestamp: begin, type: 'day']),
+                $$('$match', [timestamp: begin, type: 'day', is_delete: [$ne: true]]),
                 $$('$project', [count: '$count', users: '$users', bingo_count: '$bingo_count', reg_count: '$reg_count', regs: '$regs']),
                 $$('$group', [_id: null, count: [$sum: '$count'], bingo_count: [$sum: '$bingo_count'], reg_count: [$sum: '$reg_count'],
                     user_set: ['$addToSet': '$users'], reg_set: ['$addToSet': '$regs']
@@ -115,7 +115,7 @@ class StaticsDoll {
     // 历史总抓取人数,总抓取次数,总抓中次数
     static dollTotalStatics(int i){
         def end = yesTday - (i + 1) * DAY_MILLON
-        def q = [timestamp: [$lt: end], type: 'day']
+        def q = [timestamp: [$lt: end], type: 'day', is_delete: [$ne: true]]
         coll.aggregate([
                 new BasicDBObject('$match', q),
                 new BasicDBObject('$project', [toyId: '$toy_id', count:'$count', bingo_count:'$bingo_count', user_count:'$user_count']),
