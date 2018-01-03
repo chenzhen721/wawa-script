@@ -490,7 +490,7 @@ class StaticsEveryDay {
         map.put('timestamp', gteMill)
         map.put('pay_coin', (pay_coin?.get('total_coin') ?: 0) as Integer) //充值钻石
         if (pay != null) {
-            def user_pay = pay.get('user_pay') as BasicDBObject
+            def user_pay = pay.get('user_pay') as BasicDBObject //todo 充值用户人数调整
             map.put('pay_cny', (user_pay.get('cny') ?: 0) as Double) //1
             map.put('pay_user', (user_pay.get('user') ?: 0) as Integer) //2
             def user_reg_pay = pay.get('user_reg_pay') as BasicDBObject
