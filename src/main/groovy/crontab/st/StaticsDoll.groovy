@@ -83,6 +83,7 @@ class StaticsDoll {
     static dollTotalDay(int i) {
         def begin = yesTday - i * DAY_MILLON
         def date = new Date(begin)
+        def YMD = new Date(begin).format('yyyyMMdd')
         def prefix = date.format('yyyyMMdd_')
         coll.aggregate([
                 $$('$match', [timestamp: begin]),
@@ -114,8 +115,9 @@ class StaticsDoll {
 
     // 历史总抓取人数,总抓取次数,总抓中次数
     static dollTotalStatics(int i){
-        def end = yesTday - i * DAY_MILLON
-        def q = [timestamp: [$lte: end], type: 'day', toy_id: 100026]
+        def begin = zeroMill - i * DAY_MILLON
+        def YMD = new Date(begin).format('yyyyMMdd')
+        def q = [timestamp: [$lt: begin], type: 'day']
         coll.aggregate([
                 new BasicDBObject('$match', q),
                 new BasicDBObject('$project', [toyId: '$toy_id', count:'$count', bingo_count:'$bingo_count', user_count:'$user_count']),
@@ -152,10 +154,11 @@ class StaticsDoll {
                 DAY = it
                 dollTotalStatics(DAY)
                 println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   dollTotalStatics, cost  ${System.currentTimeMillis() - l} ms"
-            }
+
             l = System.currentTimeMillis()
             // 单日 总抓取人数,总抓取次数,总抓中次数
-            //dollTotalDay(DAY)
+            dollTotalDay(DAY)
+            }
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   dollTotalDay, cost  ${System.currentTimeMillis() - l} ms"
         }catch (Exception e){
             println "Exception : " + e
