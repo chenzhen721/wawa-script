@@ -115,7 +115,7 @@ class StaticsDoll {
     // 历史总抓取人数,总抓取次数,总抓中次数
     static dollTotalStatics(int i){
         def end = yesTday - (i + 1) * DAY_MILLON
-        def q = [timestamp: [$lt: end], type: 'day', is_delete: [$ne: true]]
+        def q = [timestamp: [$lt: end], type: 'day']
         coll.aggregate([
                 new BasicDBObject('$match', q),
                 new BasicDBObject('$project', [toyId: '$toy_id', count:'$count', bingo_count:'$bingo_count', user_count:'$user_count']),
