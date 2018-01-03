@@ -85,7 +85,7 @@ class StaticsDoll {
         def date = new Date(begin)
         def prefix = date.format('yyyyMMdd_')
         coll.aggregate([
-                $$('$match', [timestamp: begin, type: 'day', is_delete: [$ne: true]]),
+                $$('$match', [timestamp: begin]),
                 $$('$project', [count: '$count', users: '$users', bingo_count: '$bingo_count', reg_count: '$reg_count', regs: '$regs']),
                 $$('$group', [_id: null, count: [$sum: '$count'], bingo_count: [$sum: '$bingo_count'], reg_count: [$sum: '$reg_count'],
                     user_set: ['$addToSet': '$users'], reg_set: ['$addToSet': '$regs']
@@ -147,12 +147,12 @@ class StaticsDoll {
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   dollStatics, cost  ${System.currentTimeMillis() - l} ms"
             l = System.currentTimeMillis()
             // 总抓取人数,总抓取次数,总抓中次数
-            //dollTotalStatics(DAY)
+            43.times {
+                DAY = it
+            dollTotalStatics(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   dollTotalStatics, cost  ${System.currentTimeMillis() - l} ms"
             l = System.currentTimeMillis()
             // 单日 总抓取人数,总抓取次数,总抓中次数
-            43.times {
-                DAY = it
                 dollTotalDay(DAY)
             }
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   dollTotalDay, cost  ${System.currentTimeMillis() - l} ms"
