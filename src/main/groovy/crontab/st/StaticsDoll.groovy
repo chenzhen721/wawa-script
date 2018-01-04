@@ -117,7 +117,8 @@ class StaticsDoll {
     static dollTotalStatics(int i){
         def begin = yesTday - i * DAY_MILLON
         def YMD = new Date(begin).format('yyyyMMdd')
-        def q = [timestamp: [$lt: begin + DAY_MILLON], type: 'day']
+        def ids = coll.distinct('toy_id', $$([type: 'day', timestamp: [$gte: begin, $lt: begin + DAY_MILLON]]))
+        def q = [timestamp: [$lt: begin + DAY_MILLON], type: 'day', toy_id: [$in: ids]]
         coll.aggregate([
                 new BasicDBObject('$match', q),
                 new BasicDBObject('$project', [toyId: '$toy_id', users: '$users', count:'$count', bingo_count:'$bingo_count']),
