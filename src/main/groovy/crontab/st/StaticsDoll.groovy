@@ -124,7 +124,7 @@ class StaticsDoll {
                 new BasicDBObject('$group', [_id: '$toyId', count: [$sum: '$count'], bingo_count: [$sum: '$bingo_count'], user_count: [$sum: '$user_count']])]
         ).results().each {
             def obj = it as Map
-            println it
+            //println it
             def toyId = obj.remove('_id')
             def log = $$(type:'total',toy_id:toyId, timestamp:begin)
             log.putAll(obj)
