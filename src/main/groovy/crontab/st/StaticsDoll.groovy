@@ -120,13 +120,21 @@ class StaticsDoll {
         def q = [timestamp: [$lt: begin + DAY_MILLON], type: 'day']
         coll.aggregate([
                 new BasicDBObject('$match', q),
-                new BasicDBObject('$project', [toyId: '$toy_id', count:'$count', bingo_count:'$bingo_count', user_count:'$user_count']),
-                new BasicDBObject('$group', [_id: '$toyId', count: [$sum: '$count'], bingo_count: [$sum: '$bingo_count'], user_count: [$sum: '$user_count']])]
+                new BasicDBObject('$project', [toyId: '$toy_id', users: '$users', count:'$count', bingo_count:'$bingo_count']),
+                new BasicDBObject('$group', [_id: '$toyId', count: [$sum: '$count'], bingo_count: [$sum: '$bingo_count'],
+                   user_set: ['$addToSet': '$users']
+                ])]
         ).results().each {
             def obj = it as Map
             //println it
+            def sets = obj.remove('user_set') as Set
+            def users = new HashSet()
+            sets.each {List item->
+                item.each {users.add(it as Integer)}
+
+            }
             def toyId = obj.remove('_id')
-            def log = $$(type:'total',toy_id:toyId, timestamp:begin)
+            def log = $$(type:'total',toy_id:toyId, user_count: users.size(), timestamp:begin)
             log.putAll(obj)
             coll.update($$(_id: "${YMD}_${toyId}".toString() + '_total_doll'), new BasicDBObject('$set': log), true, false)
         }
