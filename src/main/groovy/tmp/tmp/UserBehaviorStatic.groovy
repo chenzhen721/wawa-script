@@ -132,13 +132,18 @@ class UserBehaviorStatic {
         return period
     }
 
-    //前几次免费是否抓命中
+    //是否在充值前命中
     static freeCatchBingo(Integer userId){
-        Long firstTime = finance_log.find($$(user_id:userId), $$(timestamp:1)).sort($$(timestamp:1)).limit(1).toArray()[0]?.get("timestamp") as Long
+        Long firstTime = finance_log.find($$(user_id:userId, via: [$ne: 'Admin']), $$(timestamp:1)).sort($$(timestamp:1)).limit(1).toArray()[0]?.get("timestamp") as Long
+        if(firstTime == null || firstTime<=0) firstTime = System.currentTimeMillis()
         return catch_record.count($$(user_id:userId, timestamp:[$lt:firstTime] ,status:true)) >= 1
     }
 
-    //前几次免费是否抓命中
+    static isPayUser(Integer userId){
+        return finance_log.count($$(user_id:userId, via: [$ne: 'Admin'])) >= 1
+    }
+
+    //是否为邀请用户
     static fromInvitor(Integer userId){
         return invitor_logs.count($$(user_id:userId)) >= 1
     }
@@ -162,6 +167,8 @@ class UserBehaviorStatic {
     static Map<Integer, Integer> playPeriodCount = new HashMap<>();
     static staticsCatchUser(){
         Integer totalplayUserCount = 0
+        Integer catchUserCount = 0
+        Integer catchUserPayCount = 0
         catch_record.aggregate([
                                 new BasicDBObject('$project', [user_id: '$user_id', toyId: '$toy._id']),
                                 new BasicDBObject('$group', [_id: '$user_id',  count: [$sum: 1], users: [$addToSet: '$user_id']])]
@@ -173,10 +180,18 @@ class UserBehaviorStatic {
                 Integer period = catchPeriod(userId)
                 Integer periodCount = playPeriodCount.get(period) ?: 0
                 playPeriodCount.put(period, ++periodCount);
+                if(freeCatchBingo(userId)){
+                    catchUserCount++;
+                    if(isPayUser(userId)){
+                        catchUserPayCount++;
+                    }
+                }
             }
             totalplayUserCount++;
         }
-        println "抓取人数:${totalplayUserCount}"
+        println "抓取人数:${totalplayUserCount} \t充值前免费抓中人数:${catchUserCount}" +
+                "\t充值前免费抓中的付费用户:${catchUserPayCount} 占比: ${fmtNumber(catchUserPayCount / catchUserCount * 100)}%" +
+                "\t免费抓中未付费用户${catchUserCount-catchUserPayCount} 免费抓中未付费占比: ${fmtNumber( (catchUserCount-catchUserPayCount) / catchUserCount * 100)}%"
         playPeriodCount.each {Integer period, Integer userCount ->
             println " 第${period+1}天:${userCount}\t占比: ${fmtNumber(userCount/totalplayUserCount * 100)}%"
         }
@@ -198,8 +213,9 @@ class UserBehaviorStatic {
             if(isPay(uid))
                 payUserCount++;
         }
-        println " 发货用户数::${uids.size()}\t充值用户数:${payUserCount}\t占比: ${fmtNumber(payUserCount/uids.size() * 100)}%"
+        println " 发货用户数:${uids.size()}\t充值用户数:${payUserCount}\t占比: ${fmtNumber(payUserCount/uids.size() * 100)}%"
     }
+
 
     static Boolean isPay(Integer userId){
         return finance_log.count($$(user_id:userId,via: [$ne: 'Admin'])) > 0
@@ -222,10 +238,10 @@ class UserBehaviorStatic {
     static void main(String[] args) {
         long l = System.currentTimeMillis()
         //统计付费行为
-        staticsPayUser()
+        //staticsPayUser()
         //抓取行为
         staticsCatchUser()
-        staticsDeliverUserOfPay()
+        //staticsDeliverUserOfPay()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   UserBehaviorStatic, cost  ${System.currentTimeMillis() - l} ms"
     }
 

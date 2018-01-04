@@ -130,7 +130,7 @@ class Redpacket {
             List<Integer> packets = distribute(award_diamond, count);
             def toy = getToyInfo(userId)
             red_packets.insert($$(_id:_id, redpacket_id:redpacket_id,user_id:userId, friends:friends, packets:packets, draw_uids: [],toy:toy,
-                                    count:count, award_diamond:award_diamond, status:1, timestamp:time, expires:time+DAY_MILLION))
+                                    count:count, award_diamond:award_diamond, status:1, timestamp:time, expires:time+3*DAY_MILLION))
             return redpacket_id;
         }catch (Exception e){
             println e

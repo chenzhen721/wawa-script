@@ -245,7 +245,6 @@ class WeixinMessage {
     }
 
     /**
-     * 我写这段代码的时候心里想疯
      * @return
      */
     static initErrorCode() {
