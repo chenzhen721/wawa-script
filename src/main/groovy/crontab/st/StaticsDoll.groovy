@@ -147,10 +147,10 @@ class StaticsDoll {
             long l = System.currentTimeMillis()
             //统计每个娃娃每日抓取人数,抓取次数, 抓中次数,
             44.times {
+                DAY = it
                 dollStatics(DAY)
                 println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   dollStatics, cost  ${System.currentTimeMillis() - l} ms"
 
-                DAY = it
                 l = System.currentTimeMillis()
                 // 总抓取人数,总抓取次数,总抓中次数
                 dollTotalStatics(DAY)
