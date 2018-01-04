@@ -49,9 +49,7 @@ class WeixinMessage {
     static Integer main_jedis_port = getProperties("main_jedis_port", 6379) as Integer
     static mainRedis = new Jedis(jedis_host, main_jedis_port)
 
-    static String APP_ID = 'wx45d43a50adf5a470'
-    static String APP_SECRET = '40e8dc2daac9f04bfbac32a64eb6dfff'
-    static String WEIXIN_ACCESS_TOKEN = 'weixin:' + APP_ID + ':token'
+    static Map<String,String> APP_ID_SECRETS = ['wx45d43a50adf5a470':'40e8dc2daac9f04bfbac32a64eb6dfff', 'wxf64f0972d4922815':'4b9628580a15224181505883d588ed30']
     static String WEIXIN_URL = 'https://api.weixin.qq.com/cgi-bin/'
     static Integer requestCount = 0
     static Integer successCount = 0
@@ -60,7 +58,7 @@ class WeixinMessage {
     static final Long DAY_MILLION = 60 * 60 * 24 * 1000
     static Map errorCode = [:]
 
-    static List<String> openIds = ["ok2Ip1hYtZOjKzacYzr06gskuNcs","ok2Ip1rk-Fx4PdJSdH25zKObb_oU"];
+
     static getProperties(String key, Object defaultValue) {
         try {
             if (props == null) {
@@ -73,6 +71,9 @@ class WeixinMessage {
         return props.get(key, defaultValue)
     }
 
+    static String getAccessRedisKey(String appId){
+        return  "weixin:${appId}:token".toString()
+    }
     static void main(String[] args) {
         initErrorCode()
         Long begin = System.currentTimeMillis()
@@ -87,31 +88,32 @@ class WeixinMessage {
         while (cur.hasNext()) {
             def row = cur.next()
             Integer uid = row['to_id'] as Integer
-            String openId = getOpenIdByUid(uid)
-            if(StringUtils.isNotBlank(openId)){
-                def template = row['template'] as DBObject
-                Integer error = sendCustomImageText(template, openId)
-                //Integer error = 0
-                requestCount++
-                if (error == 0) {
-                    successCount++
+            APP_ID_SECRETS.keySet().each {String appId ->
+                String openId = getOpenIdByUid(appId, uid)
+                if(StringUtils.isNotBlank(openId)){
+                    def template = row['template'] as DBObject
+                    Integer error = sendCustomImageText(template, openId,appId)
+                    //Integer error = 0
+                    requestCount++
+                    if (error == 0) {
+                        successCount++
+                    }
                 }
             }
             row['send_time'] = now;
             row['is_send'] = 1;
-            row['openId'] = openId;
             weixin_msg.save(row)
         }
 
     }
 
-    static String getOpenIdByUid(Integer uid){
+    static String getOpenIdByUid(String appId, Integer uid){
         String openId = null;
         def user = users.findOne($$(mm_no:uid.toString()), $$(weixin:1))
         if(user != null){
             def weixin = user['weixin'] as Map
-            if(weixin != null){
-                openId = weixin[APP_ID]
+            if(weixin != null && weixin.size() > 0){
+                openId = weixin[appId]
             }
         }
         return openId
@@ -130,15 +132,15 @@ class WeixinMessage {
      * https://mp.weixin.qq.com/wiki?t=resource/res_main&id=mp1421140547&token=&lang=zh_CN
      * @param data
      */
-    private static Integer sendCustomImageText(DBObject template, String openId) {
-        String requestUrl = WEIXIN_URL + 'message/custom/send?access_token='.concat(getAccessToken())
+    private static Integer sendCustomImageText(DBObject template, String openId, String appId) {
+        String requestUrl = WEIXIN_URL + 'message/custom/send?access_token='.concat(getAccessToken(appId))
         List articleList = new ArrayList()
         articleList.add([title: template['title'], description: template['description'], picurl: template['pic_url'], url: template['url']])
         Map map = new HashMap()
         map.put('articles', articleList)
         Map params = new HashMap()
         params.put('sendObj', [msgtype: 'news', touser: openId, news: map])
-        Map respMap = this.postWX('POST', requestUrl, params)
+        Map respMap = this.postWX('POST', requestUrl, params, appId)
         println "sendCustomImageText:" + respMap
         Integer error = respMap['errcode'] as Integer
         return error
@@ -148,15 +150,15 @@ class WeixinMessage {
      * 发送文本信息
      * @param data
      */
-    private static Integer sendCustomText(DBObject template, String openId) {
-        String requestUrl = WEIXIN_URL + 'message/custom/send?access_token='.concat(getAccessToken())
+    private static Integer sendCustomText(DBObject template, String openId, String appId) {
+        String requestUrl = WEIXIN_URL + 'message/custom/send?access_token='.concat(getAccessToken(appId))
         Map map = new HashMap()
         map.put('touser', openId)
         map.put('msgtype', 'text')
         map.put('text', ['content': template['content']])
         Map params = new HashMap()
         params.put('sendObj', map)
-        Map respMap = this.postWX('POST', requestUrl, params)
+        Map respMap = this.postWX('POST', requestUrl, params, appId)
         Integer error = respMap['errcode'] as Integer
         println "sendCustomText:" + respMap
         return error
@@ -167,18 +169,18 @@ class WeixinMessage {
      * 微信每日调用accessToken次数有限(2000次/日,有效7200秒)
      * @param req
      */
-    private static String getAccessToken() {
-        String access_token = mainRedis.get(WEIXIN_ACCESS_TOKEN)
+    private static String getAccessToken(String appId) {
+        String access_token = mainRedis.get(getAccessRedisKey(appId))
         String requestUrl = WEIXIN_URL + 'token'
         if (access_token == null) {
-            requestUrl += '?grant_type=client_credential&appid=' + APP_ID + '&secret=' + APP_SECRET
-            Map respMap = this.postWX('GET', requestUrl, new HashMap())
+            requestUrl += '?grant_type=client_credential&appid=' + appId + '&secret=' + APP_ID_SECRETS[appId]
+            Map respMap = this.postWX('GET', requestUrl, new HashMap(), appId)
             println respMap
             String errcode = respMap['errcode']
             access_token = respMap['access_token']
             Integer expires = respMap['expires_in'] as Integer
-            mainRedis.set(WEIXIN_ACCESS_TOKEN, access_token)
-            mainRedis.expire(WEIXIN_ACCESS_TOKEN, expires)
+            mainRedis.set(getAccessRedisKey(appId), access_token)
+            mainRedis.expire(getAccessRedisKey(appId), expires)
         }
         return access_token
     }
@@ -191,7 +193,7 @@ class WeixinMessage {
      * @param msg
      * @return
      */
-    private static Map postWX(String postMethod, String requestUrl, Map params) {
+    private static Map postWX(String postMethod, String requestUrl, Map params, String appId) {
         HttpResponse response
         Map map = new HashMap()
         if (postMethod == 'POST') {
@@ -219,10 +221,10 @@ class WeixinMessage {
             // 如果是40001 token问题 则需要再次生成token,防止token正好过期
             Integer errcode = map.get('errcode') as Integer
             if (errcode == 40001) {
-                mainRedis.del(WEIXIN_ACCESS_TOKEN)
+                mainRedis.del(getAccessRedisKey(appId))
                 requestUrl = requestUrl.substring(0, requestUrl.indexOf('access_token'))
-                requestUrl = requestUrl.concat('access_token=' + getAccessToken())
-                return postWX(postMethod, requestUrl, params)
+                requestUrl = requestUrl.concat('access_token=' + getAccessToken(appId))
+                return postWX(postMethod, requestUrl, params,appId)
             }
             EntityUtils.consume(entity);
         } else {
