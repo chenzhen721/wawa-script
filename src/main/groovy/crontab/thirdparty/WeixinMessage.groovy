@@ -50,6 +50,7 @@ class WeixinMessage {
     static mainRedis = new Jedis(jedis_host, main_jedis_port)
 
     static Map<String,String> APP_ID_SECRETS = ['wx45d43a50adf5a470':'40e8dc2daac9f04bfbac32a64eb6dfff', 'wxf64f0972d4922815':'4b9628580a15224181505883d588ed30']
+    static Map<String,String> TEMPLATE_IDS = ['wx45d43a50adf5a470':'"pedgM13fkPvhs6E0LV6ew-8E9ociJuRpnrTso-TlZH4"', 'wxf64f0972d4922815':'"pedgM13fkPvhs6E0LV6ew-8E9ociJuRpnrTso-TlZH4"']
     static String WEIXIN_URL = 'https://api.weixin.qq.com/cgi-bin/'
     static Integer requestCount = 0
     static Integer successCount = 0
@@ -58,7 +59,8 @@ class WeixinMessage {
     static final Long DAY_MILLION = 60 * 60 * 24 * 1000
     static Map errorCode = [:]
 
-
+    //test
+    static List<String> openIds = ["ok2Ip1hYtZOjKzacYzr06gskuNcs","ok2Ip1rk-Fx4PdJSdH25zKObb_oU"];
     static getProperties(String key, Object defaultValue) {
         try {
             if (props == null) {
@@ -78,6 +80,7 @@ class WeixinMessage {
         initErrorCode()
         Long begin = System.currentTimeMillis()
         sendMessage()
+        //testTemplateMsg();
         println "${WeixinMessage.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: total ${requestCount} , success ${successCount} " +
                 "fail ${requestCount - successCount} finish cost ${System.currentTimeMillis() - begin} ms"
     }
@@ -91,13 +94,22 @@ class WeixinMessage {
             APP_ID_SECRETS.keySet().each {String appId ->
                 String openId = getOpenIdByUid(appId, uid)
                 if(StringUtils.isNotBlank(openId)){
+                    Integer error = -1
+                    /*def custom_text = row['custom_text'] as DBObject
+                    if(custom_text != null){
+                        error = sendCustomImageText(custom_text, openId, appId)
+                    }*/
                     def template = row['template'] as DBObject
-                    Integer error = sendCustomImageText(template, openId,appId)
+                    if(template != null){
+                        error = sendTemplateMsg(template, openId, appId)
+                    }
                     //Integer error = 0
                     requestCount++
                     if (error == 0) {
                         successCount++
+                        row['success_send'] = 1;
                     }
+
                 }
             }
             row['send_time'] = now;
@@ -161,6 +173,39 @@ class WeixinMessage {
         Map respMap = this.postWX('POST', requestUrl, params, appId)
         Integer error = respMap['errcode'] as Integer
         println "sendCustomText:" + respMap
+        return error
+    }
+
+    static testTemplateMsg(){
+        def template = $$('template_id':"pedgM13fkPvhs6E0LV6ew-8E9ociJuRpnrTso-TlZH4")
+        template['url'] = "www.17laihou.com"
+        def data = new HashMap();
+        data['first'] = ['value':'哇!好友泽新抓中了娃娃，特来给您发钻石拉，赶紧抢了钻石去抓娃娃。','color':'#173177']
+        data['keyword1'] = ['value':'100钻石','color':'#173177']
+        data['keyword2'] = ['value':'2018年01月05日','color':'#173177']
+        data['remark'] = ['value':'钻石数量有限，先到先得，速速去抢!','color':'#FF0000']
+        template['data'] = data;
+        openIds.each {String openid ->
+            sendTemplateMsg(template, openid,'wx45d43a50adf5a470')
+        }
+
+    }
+    /**
+     * 发送模板消息
+     * @param data
+     */
+    private static Integer sendTemplateMsg(DBObject template, String openId, String appId) {
+        String requestUrl = WEIXIN_URL + 'message/template/send?access_token='.concat(getAccessToken(appId))
+        Map map = new HashMap()
+        map.put('touser', openId)
+        map.put('template_id', TEMPLATE_IDS[appId])
+        map.put('url', template['url'])
+        map.put('data', template['data'])
+        Map params = new HashMap()
+        params.put('sendObj', map)
+        Map respMap = this.postWX('POST', requestUrl, params, appId)
+        Integer error = respMap['errcode'] as Integer
+        println "sendTemplateMsg:" + respMap
         return error
     }
 

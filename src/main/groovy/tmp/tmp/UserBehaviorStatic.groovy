@@ -139,10 +139,6 @@ class UserBehaviorStatic {
         return catch_record.count($$(user_id:userId, timestamp:[$lt:firstTime] ,status:true)) >= 1
     }
 
-    static isPayUser(Integer userId){
-        return finance_log.count($$(user_id:userId, via: [$ne: 'Admin'])) >= 1
-    }
-
     //是否为邀请用户
     static fromInvitor(Integer userId){
         return invitor_logs.count($$(user_id:userId)) >= 1
@@ -168,7 +164,9 @@ class UserBehaviorStatic {
     static staticsCatchUser(){
         Integer totalplayUserCount = 0
         Integer catchUserCount = 0
+        Integer uncatchUserCount = 0
         Integer catchUserPayCount = 0
+        Integer uncatchUserPayCount = 0
         catch_record.aggregate([
                                 new BasicDBObject('$project', [user_id: '$user_id', toyId: '$toy._id']),
                                 new BasicDBObject('$group', [_id: '$user_id',  count: [$sum: 1], users: [$addToSet: '$user_id']])]
@@ -182,8 +180,13 @@ class UserBehaviorStatic {
                 playPeriodCount.put(period, ++periodCount);
                 if(freeCatchBingo(userId)){
                     catchUserCount++;
-                    if(isPayUser(userId)){
+                    if(isPay(userId)){
                         catchUserPayCount++;
+                    }
+                }else{
+                    uncatchUserCount++
+                    if(isPay(userId)){
+                        uncatchUserPayCount++;
                     }
                 }
             }
@@ -191,7 +194,8 @@ class UserBehaviorStatic {
         }
         println "抓取人数:${totalplayUserCount} \t充值前免费抓中人数:${catchUserCount}" +
                 "\t充值前免费抓中的付费用户:${catchUserPayCount} 占比: ${fmtNumber(catchUserPayCount / catchUserCount * 100)}%" +
-                "\t免费抓中未付费用户${catchUserCount-catchUserPayCount} 免费抓中未付费占比: ${fmtNumber( (catchUserCount-catchUserPayCount) / catchUserCount * 100)}%"
+                "\t免费抓中未付费用户:${catchUserCount-catchUserPayCount} 占比: ${fmtNumber( (catchUserCount-catchUserPayCount) / catchUserCount * 100)}%"+
+                "\t未抓中用户${uncatchUserCount}\t 未抓中付费用户:${uncatchUserPayCount} 占比: ${fmtNumber( uncatchUserPayCount / uncatchUserCount * 100)}%"
         playPeriodCount.each {Integer period, Integer userCount ->
             println " 第${period+1}天:${userCount}\t占比: ${fmtNumber(userCount/totalplayUserCount * 100)}%"
         }
@@ -216,9 +220,50 @@ class UserBehaviorStatic {
         println " 发货用户数:${uids.size()}\t充值用户数:${payUserCount}\t占比: ${fmtNumber(payUserCount/uids.size() * 100)}%"
     }
 
-
+    //是否付费用户
     static Boolean isPay(Integer userId){
         return finance_log.count($$(user_id:userId,via: [$ne: 'Admin'])) > 0
+    }
+
+    static DBCollection  weixin_msgs = mongo.getDB('xy_union').getCollection('weixin_msgs')
+    static DBCollection  diamond_add_logs = mongo.getDB('xylog').getCollection('diamond_add_logs')
+    static DBCollection red_packets = mongo.getDB('xy_activity').getCollection('red_packets')
+    //红包相关数据统计 产生红包数/发送用户人数/领取红包人数/领取后抓取人数/领取后充值人数/充值金额
+    static void redpacketData(){
+        Integer packets = red_packets.count($$(user_id:[$gt:0]))
+        def msgs = weixin_msgs.distinct("to_id", $$(openId:[$ne:null])).size()
+        def cur = diamond_add_logs.find($$(type:"diamondpacket_reward")).batchSize(10)
+        Integer userCount = 0
+        Integer userCatchCount = 0
+        Integer payUserCount = 0
+        Integer payCount = 0
+        Long totalAward = 0
+        Set<Integer> users =new HashSet<>();
+        while (cur.hasNext()) {
+            def row = cur.next()
+            Integer userId = row['user_id'] as Integer
+            Long award = (row['award'] as Map)["diamond"] as Long
+            Long timestamp = row['timestamp'] as Long
+            totalAward += award
+            if(users.add(userId)){
+                userCount++;
+                if(catch_record.count($$($$(user_id:userId, timestamp:[$gt:timestamp]))) > 0){
+                    userCatchCount++;
+                }
+                Long end = timestamp + 8 * 60 * 60 *1000l
+                if(finance_log.count($$($$(user_id:userId,via: [$ne: 'Admin'], timestamp:[$gt:timestamp, $lt:end]))) > 0){
+                    payUserCount++;
+                }
+                List<Integer> cnys = finance_log.find($$(user_id:userId,via: [$ne: 'Admin'], timestamp:[$gt:timestamp])).toArray()*.cny
+                if(cnys != null && cnys.size() >0){
+                    println "${userId}:${ cnys.sum() as Integer}"
+                    payCount += cnys.sum() as Integer
+                }
+            }
+
+        }
+        println " 产生红包数:${packets}\t发送用户人数:${msgs}\t领取红包人数: ${userCount}\t领取钻石: ${totalAward}\t领取后抓取人数: ${userCatchCount}" +
+                "\t领取后充值人数: ${payUserCount}\t充值金额: ${payCount}"
     }
 
     static fmtNumber(Double num){
@@ -240,8 +285,9 @@ class UserBehaviorStatic {
         //统计付费行为
         //staticsPayUser()
         //抓取行为
-        staticsCatchUser()
+        //staticsCatchUser()
         //staticsDeliverUserOfPay()
+        redpacketData();
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   UserBehaviorStatic, cost  ${System.currentTimeMillis() - l} ms"
     }
 
