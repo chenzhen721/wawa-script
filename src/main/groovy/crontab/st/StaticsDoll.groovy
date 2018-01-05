@@ -82,6 +82,7 @@ class StaticsDoll {
     //每日抓取人数
     static dollTotalDay(int i) {
         def begin = yesTday - i * DAY_MILLON
+        def end = begin + DAY_MILLON
         def date = new Date(begin)
         def YMD = new Date(begin).format('yyyyMMdd')
         def prefix = date.format('yyyyMMdd_')
@@ -104,7 +105,10 @@ class StaticsDoll {
             regsets.each {List item->
                 item.each {regs.add(it as Integer)}
             }
-            def set = [type: 'total_all', count: obj['count'], bingo_count: obj['bingo_count'], reg_count: obj['reg_count'], users: users, user_count: users.size(), reg_user_count: regs.size(), regs: regs]
+            //每日新增中抓中数
+            def query = [user_id: [$in: regs], status: true, timestamp: [$gte: begin, $lt: end], is_delete: [$ne: true]]
+            def reg_bingo_count = catch_record.count($$(query))
+            def set = [type: 'total_all', count: obj['count'], bingo_count: obj['bingo_count'], reg_count: obj['reg_count'], users: users, user_count: users.size(), reg_user_count: regs.size(), reg_bingo_count: reg_bingo_count, regs: regs]
             coll.update($$(_id: YMD + '_total_doll'), $$($set: set), true, false)
             // 更新数据总表 5抓取次数 6 抓中 7 人数 13新抓
             def stat_report = mongo.getDB('xy_admin').getCollection('stat_report')
