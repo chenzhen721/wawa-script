@@ -130,7 +130,7 @@ class Redpacket {
             List<Integer> packets = distribute(award_diamond, count);
             def toy = getToyInfo(userId)
             red_packets.insert($$(_id:_id, redpacket_id:redpacket_id,user_id:userId, friends:friends, packets:packets, draw_uids: [],toy:toy,
-                                    count:count, award_diamond:award_diamond, status:1, timestamp:time, expires:time+DAY_MILLION))
+                                    count:count, award_diamond:award_diamond, status:1, timestamp:time, expires:time+3*DAY_MILLION))
             return redpacket_id;
         }catch (Exception e){
             println e
@@ -146,16 +146,31 @@ class Redpacket {
             Long time = System.currentTimeMillis();
             //生成消息模板
             List<BasicDBObject> msgs = new ArrayList<>(friends.size());
-            BasicDBObject template = $$(_id:redpacket_id)
             String nickname = users.findOne($$(_id:userId),$$(nick_name:1))?.get('nick_name')
-            template['title']="${nickname}给你发来一个钻石红包，点击领取".toString()
-            template['description']= "哇！${nickname}又抓中娃娃了，并且给大家发了一大波钻石红包！赶紧去抢钻石抓娃娃".toString()
-            template['pic_url']= wx_pic_url
-            template['url']= site_domain + path + "?packet_id=${redpacket_id}".toString()
-            template['content']= ""
+/*
+            客服消息，必须用户48小时内在公众号内有活跃
+            BasicDBObject customMsg = $$(_id:redpacket_id)
+            customMsg['title']="${nickname}给你发来一个钻石红包，点击领取".toString()
+            customMsg['description']= "哇！${nickname}又抓中娃娃了，并且给大家发了一大波钻石红包！赶紧去抢钻石抓娃娃".toString()
+            customMsg['pic_url']= wx_pic_url
+            customMsg['url']= site_domain + path + "?packet_id=${redpacket_id}".toString()
+            customMsg['content']= ""
+*/
+            //模板消息
+            def template = $$(_id:redpacket_id)
+            template['path'] = path + "?packet_id=${redpacket_id}".toString()
+            def data = new HashMap();
+            data['first'] = ['value':"哇!好友${nickname}抓中了娃娃，特来给您发钻石拉，赶紧抢了钻石去抓娃娃。".toString(),'color':'#173177']
+            data['keyword1'] = ['value':'100钻石','color':'#173177']
+            data['keyword2'] = ['value':"${new Date().format('yyyy-MM-dd')}".toString(),'color':'#173177']
+            data['remark'] = ['value':'钻石数量有限，先到先得，速速去抢!','color':'#FF0000']
+            template['data'] = data;
             friends.each {Integer tid ->
-                def msg = $$(_id: redpacket_id+'_'+tid,from_id:userId,to_id:tid,timestamp:time,template:template, is_send:0, next_fire:time)
-                msgs.add(msg)
+                if(!userId.equals(tid)){
+                    def msg = $$(_id: redpacket_id+'_'+tid,from_id:userId,to_id:tid,timestamp:time,template:template, is_send:0, next_fire:time)
+                    //def msg = $$(_id: redpacket_id+'_'+tid,from_id:userId,to_id:tid,timestamp:time,custom_text:customMsg,template:template, is_send:0, next_fire:time)
+                    msgs.add(msg)
+                }
             }
             //push入待发送队列
             weixin_msg.insert(msgs)
