@@ -184,6 +184,7 @@ class StaticsRegPay {
             def days = 0 as Integer
             def loginbegin = begin
             def loginend = payend
+            println total_uids.size()
             total_uids.each {Integer id ->
                 def logins = day_login.find($$(user_id: id, timestamp: [$gte: loginbegin, $lt: loginend])).sort($$(timestamp: -1)).limit(1).toArray()
                 def time = logins[0]['timestamp'] as Long
@@ -191,7 +192,8 @@ class StaticsRegPay {
                 days = days + ((bigDecimal.divide(new BigDecimal(DAY_MILLON))) as Double).toInteger() + 1
             }
 
-            def rate = new BigDecimal(days).divide(new BigDecimal(pay['pay_user_count'] as Integer)) as Double
+            def user_count = pay['pay_user_count'] as Integer
+            def rate = user_count != 0 ? (days / user_count) as Double : 0
             if (n == 0) { //保存最新的
                 update.put('payuser_current', pay['pay_user_count']) //付费人数
                 update.put('paytotal_current', pay['pay_total']) //付费金额
@@ -211,7 +213,7 @@ class StaticsRegPay {
         }
 
         def update = new BasicDBObject()
-        def rate = new BigDecimal(total_days).divide(new BigDecimal(pay_user_count)) as Double
+        def rate = pay_user_count != 0 ? total_days / pay_user_count as Double : 0
         if (n == 0) { //保存最新的
             update.put('payuser_current', pay_user_count) //付费人数
             update.put('paytotal_current', pay_total) //付费金额
