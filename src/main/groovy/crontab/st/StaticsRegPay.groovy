@@ -222,7 +222,7 @@ class StaticsRegPay {
         update.put("history.${payymd}.paytotal_current".toString(), pay_total)
         update.put("history.${payymd}.paycount_current".toString(), pay_count)
         update.put("history.${payymd}.payuserlogin_rate_current".toString(), rate)
-        println update
+        //println update
         stat_regpay.update($$(_id: "${YMD}_regpay".toString()), $$($set: update), false, false)
     }
 
