@@ -66,14 +66,15 @@ class StaticsRegPay {
         def begin = yesTday - i * DAY_MILLON
         def end = begin + DAY_MILLON
         def regs = users.count(new BasicDBObject(timestamp: [$gte: begin, $lt: end]))
-
+        def a = true
         users.aggregate([
                 $$('$match', [timestamp: [$gte: begin, $lt: end]]),
                 $$('$project', [user_id: '$_id', qd: '$qd']),
                 $$('$group', [_id: '$qd', user_id: [$addToSet: '$user_id']])
         ]).results().each {BasicDBObject obj->
+            if (!a) return
             println obj
-            return
+            a = false
             //qd信息,  对应的users
 
         }
