@@ -260,12 +260,10 @@ class StaticsRegPay {
     static void main(String[] args) {
         try {
             long l = System.currentTimeMillis()
-            100.times {
-                regStatics(DAY + it)
-            }
+//            regStatics(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regStatics, cost  ${System.currentTimeMillis() - l} ms"
-
-            /*l = System.currentTimeMillis()
+DAY = 49 //todo
+            l = System.currentTimeMillis()
             [0, 1, 3, 7, 30].each {Integer i->
                 [0, 1, 3, 7, 30].each {Integer n->
                     regPayStatics(i + DAY, n + DAY)
@@ -273,7 +271,7 @@ class StaticsRegPay {
             }
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regPayStatics, cost  ${System.currentTimeMillis() - l} ms"
 
-            l = System.currentTimeMillis()
+            /*l = System.currentTimeMillis()
             6.times { Integer i ->
                 regpay_last5(i + DAY, DAY)
             }
