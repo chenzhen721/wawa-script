@@ -163,7 +163,7 @@ class StaticsRegPay {
     }
 
     /**
-     * i天的用户截止到n日的数据, 以及n日前5天内充值人数
+     * i天的用户截止到n日的数据
      * @return
      */
     static regpay_till_current(int i, int n) {
@@ -219,7 +219,7 @@ class StaticsRegPay {
         update.put("history.${payymd}.paytotal_current".toString(), pay_total)
         update.put("history.${payymd}.paycount_current".toString(), pay_count)
         update.put("history.${payymd}.payuserlogin_rate_current".toString(), total_days / pay_user_count)
-
+        println update
         stat_regpay.update($$(_id: "${YMD}_regpay".toString()), $$($set: update), false, false)
     }
 
@@ -264,12 +264,10 @@ class StaticsRegPay {
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regStatics, cost  ${System.currentTimeMillis() - l} ms"
 
             l = System.currentTimeMillis()
-            49.times{Integer DAY->
             [0, 1, 3, 7, 30].each {Integer i->
                 [0, 1, 3, 7, 30].each {Integer n->
                     regPayStatics(i + DAY, n)
                 }
-            }
             }
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regPayStatics, cost  ${System.currentTimeMillis() - l} ms"
 
@@ -279,7 +277,7 @@ class StaticsRegPay {
             }*/
             49.times {Integer i ->
                 i.times {Integer n->
-                    regpay_last5(i, n)
+                    //regpay_last5(i, n)
                 }
             }
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regpay_last5, cost  ${System.currentTimeMillis() - l} ms"
