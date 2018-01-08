@@ -265,13 +265,13 @@ class StaticsRegPay {
     static void main(String[] args) {
         try {
             long l = System.currentTimeMillis()
-            regStatics(DAY)
+            //regStatics(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regStatics, cost  ${System.currentTimeMillis() - l} ms"
 
             l = System.currentTimeMillis()
             [0, 1, 3, 7, 30].each {Integer i->
                 [0, 1, 3, 7, 30].each {Integer n->
-                    regPayStatics(i + DAY, n)
+                    //regPayStatics(i + DAY, n)
                 }
             }
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regPayStatics, cost  ${System.currentTimeMillis() - l} ms"
