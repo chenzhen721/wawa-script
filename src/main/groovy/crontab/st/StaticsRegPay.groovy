@@ -184,7 +184,7 @@ class StaticsRegPay {
             def days = 0 as Integer
             def loginbegin = begin
             def loginend = payend
-            println total_uids.size()
+
             total_uids.each {Integer id ->
                 def logins = day_login.find($$(user_id: id, timestamp: [$gte: loginbegin, $lt: loginend])).sort($$(timestamp: -1)).limit(1).toArray()
                 def time = logins[0]['timestamp'] as Long
