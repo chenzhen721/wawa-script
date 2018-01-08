@@ -49,7 +49,7 @@ class StaticsDoll {
         def begin = yesTday - i * DAY_MILLON
         def end = begin + DAY_MILLON
         def YMD = new Date(begin).format('yyyyMMdd')
-        def time = [timestamp: [$gte: begin, $lt: end]]
+        def time = [timestamp: [$gte: begin, $lt: end], is_delete: [$ne: true]]
         def query = new BasicDBObject(time)
         def regs = users.find(new BasicDBObject(time))*._id
         catch_record.aggregate([new BasicDBObject('$match', query),
@@ -82,7 +82,9 @@ class StaticsDoll {
     //每日抓取人数
     static dollTotalDay(int i) {
         def begin = yesTday - i * DAY_MILLON
+        def end = begin + DAY_MILLON
         def date = new Date(begin)
+        def YMD = new Date(begin).format('yyyyMMdd')
         def prefix = date.format('yyyyMMdd_')
         coll.aggregate([
                 $$('$match', [timestamp: begin, type: 'day']),
@@ -103,7 +105,10 @@ class StaticsDoll {
             regsets.each {List item->
                 item.each {regs.add(it as Integer)}
             }
-            def set = [type: 'total_all', count: obj['count'], bingo_count: obj['bingo_count'], reg_count: obj['reg_count'], users: users, user_count: users.size(), reg_user_count: regs.size(), regs: regs]
+            //每日新增中抓中数
+            def query = [user_id: [$in: regs], status: true, timestamp: [$gte: begin, $lt: end], is_delete: [$ne: true]]
+            def reg_bingo_count = catch_record.count($$(query))
+            def set = [type: 'total_all', count: obj['count'], bingo_count: obj['bingo_count'], reg_count: obj['reg_count'], users: users, user_count: users.size(), reg_user_count: regs.size(), reg_bingo_count: reg_bingo_count, regs: regs]
             coll.update($$(_id: YMD + '_total_doll'), $$($set: set), true, false)
             // 更新数据总表 5抓取次数 6 抓中 7 人数 13新抓
             def stat_report = mongo.getDB('xy_admin').getCollection('stat_report')
@@ -114,16 +119,27 @@ class StaticsDoll {
 
     // 历史总抓取人数,总抓取次数,总抓中次数
     static dollTotalStatics(int i){
-        def end = yesTday - (i + 1) * DAY_MILLON
-        def q = [timestamp: [$lt: end], type: 'day']
+        def begin = yesTday - i * DAY_MILLON
+        def YMD = new Date(begin).format('yyyyMMdd')
+        def ids = coll.distinct('toy_id', $$([type: 'day', timestamp: [$gte: begin, $lt: begin + DAY_MILLON]]))
+        def q = [timestamp: [$lt: begin + DAY_MILLON], type: 'day', toy_id: [$in: ids]]
         coll.aggregate([
                 new BasicDBObject('$match', q),
-                new BasicDBObject('$project', [toyId: '$toy_id', count:'$count', bingo_count:'$bingo_count', user_count:'$user_count']),
-                new BasicDBObject('$group', [_id: '$toyId', count: [$sum: '$count'], bingo_count: [$sum: '$bingo_count'], user_count: [$sum: '$user_count']])]
+                new BasicDBObject('$project', [toyId: '$toy_id', users: '$users', count:'$count', bingo_count:'$bingo_count']),
+                new BasicDBObject('$group', [_id: '$toyId', count: [$sum: '$count'], bingo_count: [$sum: '$bingo_count'],
+                   user_set: ['$addToSet': '$users']
+                ])]
         ).results().each {
             def obj = it as Map
+            //println it
+            def sets = obj.remove('user_set') as Set
+            def users = new HashSet()
+            sets.each {List item->
+                item.each {users.add(it as Integer)}
+
+            }
             def toyId = obj.remove('_id')
-            def log = $$(type:'total',toy_id:toyId, timestamp:zeroMill)
+            def log = $$(type:'total',toy_id:toyId, user_count: users.size(), timestamp:begin)
             log.putAll(obj)
             coll.update($$(_id: "${YMD}_${toyId}".toString() + '_total_doll'), new BasicDBObject('$set': log), true, false)
         }
@@ -145,10 +161,12 @@ class StaticsDoll {
             //统计每个娃娃每日抓取人数,抓取次数, 抓中次数,
             dollStatics(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   dollStatics, cost  ${System.currentTimeMillis() - l} ms"
+
             l = System.currentTimeMillis()
             // 总抓取人数,总抓取次数,总抓中次数
             dollTotalStatics(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   dollTotalStatics, cost  ${System.currentTimeMillis() - l} ms"
+
             l = System.currentTimeMillis()
             // 单日 总抓取人数,总抓取次数,总抓中次数
             dollTotalDay(DAY)
