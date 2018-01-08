@@ -187,19 +187,21 @@ class StaticsRegPay {
             total_uids.each {Integer id ->
                 def logins = day_login.find($$(user_id: id, timestamp: [$gte: loginbegin, $lt: loginend])).sort($$(timestamp: -1)).limit(1).toArray()
                 def time = logins[0]['timestamp'] as Long
-                days = days + (((time - begin) / DAY_MILLON) as Double).toInteger() + 1
+                def bigDecimal = new BigDecimal(time - begin)
+                days = days + ((bigDecimal.divide(new BigDecimal(DAY_MILLON))) as Double).toInteger() + 1
             }
 
+            def rate = new BigDecimal(days).divide(new BigDecimal(pay['pay_user_count'] as Integer)) as Double
             if (n == 0) { //保存最新的
                 update.put('payuser_current', pay['pay_user_count']) //付费人数
                 update.put('paytotal_current', pay['pay_total']) //付费金额
                 update.put('paycount_current', pay['pay_count']) //付费次数
-                update.put('payuserlogin_rate_current', days / (pay['pay_user_count'] as Integer)) //总登录天数
+                update.put('payuserlogin_rate_current', rate) //总登录天数
             }
             update.put("history.${payymd}.payuser_current".toString(), pay['pay_user_count'])
             update.put("history.${payymd}.paytotal_current".toString(), pay['pay_total'])
             update.put("history.${payymd}.paycount_current".toString(), pay['pay_count'])
-            update.put("history.${payymd}.payuserlogin_rate_current".toString(), days / (pay['pay_user_count'] as Integer))
+            update.put("history.${payymd}.payuserlogin_rate_current".toString(), rate)
 
             stat_regpay.update($$(_id: obj['_id']), $$($set: update), false, false)
             pay_user_count = pay_user_count + (pay['pay_user_count'] as Integer)
@@ -209,16 +211,17 @@ class StaticsRegPay {
         }
 
         def update = new BasicDBObject()
+        def rate = new BigDecimal(total_days).divide(new BigDecimal(pay_user_count)) as Double
         if (n == 0) { //保存最新的
             update.put('payuser_current', pay_user_count) //付费人数
             update.put('paytotal_current', pay_total) //付费金额
             update.put('paycount_current', pay_count) //付费次数
-            update.put('payuserlogin_rate_current', total_days / pay_user_count) //总登录天数
+            update.put('payuserlogin_rate_current',  rate) //总登录天数
         }
         update.put("history.${payymd}.payuser_current".toString(), pay_user_count)
         update.put("history.${payymd}.paytotal_current".toString(), pay_total)
         update.put("history.${payymd}.paycount_current".toString(), pay_count)
-        update.put("history.${payymd}.payuserlogin_rate_current".toString(), total_days / pay_user_count)
+        update.put("history.${payymd}.payuserlogin_rate_current".toString(), rate)
         println update
         stat_regpay.update($$(_id: "${YMD}_regpay".toString()), $$($set: update), false, false)
     }
