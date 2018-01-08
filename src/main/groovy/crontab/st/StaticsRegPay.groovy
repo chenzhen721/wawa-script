@@ -167,7 +167,7 @@ class StaticsRegPay {
      * @return
      */
     static regpay_till_current(int i, int n) {
-        if (n > i || i == 0) return
+        if (n > i) return
         def begin = yesTday - i * DAY_MILLON
         def YMD = new Date(begin).format('yyyyMMdd')
         def payend = yesTday - (n - 1) * DAY_MILLON
