@@ -145,6 +145,7 @@ class StaticsRegPay {
                 update.put('pay_last5', pay['pay_user_count'])
             }
             //记录history
+            println last5begin >= begin
             if (last5begin >= begin) {
                 update.put("history.${payymd}.pay_last5".toString(), pay['pay_user_count'])
             }
