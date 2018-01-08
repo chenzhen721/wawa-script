@@ -188,8 +188,7 @@ class StaticsRegPay {
             total_uids.each {Integer id ->
                 def logins = day_login.find($$(user_id: id, timestamp: [$gte: loginbegin, $lt: loginend])).sort($$(timestamp: -1)).limit(1).toArray()
                 def time = logins[0]['timestamp'] as Long
-                def bigDecimal = new BigDecimal(time - begin)
-                days = days + ((bigDecimal.divide(new BigDecimal(DAY_MILLON))) as Double).toInteger() + 1
+                days = days + (((time - begin) / DAY_MILLON) as Double).toInteger() + 1
             }
 
             def user_count = pay['pay_user_count'] as Integer
