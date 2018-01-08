@@ -145,7 +145,6 @@ class StaticsRegPay {
                 update.put('pay_last5', pay['pay_user_count'])
             }
             //记录history
-            println last5begin >= begin
             if (last5begin >= begin) {
                 update.put("history.${payymd}.pay_last5".toString(), pay['pay_user_count'])
             }
@@ -195,12 +194,12 @@ class StaticsRegPay {
                 update.put('payuser_current', pay['pay_user_count']) //付费人数
                 update.put('paytotal_current', pay['pay_total']) //付费金额
                 update.put('paycount_current', pay['pay_count']) //付费次数
-                update.put('payuserlogin_current', days) //总登录天数
+                update.put('payuserlogin_rate_current', days / (pay['pay_user_count'] as Integer)) //总登录天数
             }
             update.put("history.${payymd}.payuser_current".toString(), pay['pay_user_count'])
             update.put("history.${payymd}.paytotal_current".toString(), pay['pay_total'])
             update.put("history.${payymd}.paycount_current".toString(), pay['pay_count'])
-            update.put("history.${payymd}.payuserlogin_current".toString(), days)
+            update.put("history.${payymd}.payuserlogin_rate_current".toString(), days / (pay['pay_user_count'] as Integer))
 
             stat_regpay.update($$(_id: obj['_id']), $$($set: update), false, false)
             pay_user_count = pay_user_count + (pay['pay_user_count'] as Integer)
@@ -214,12 +213,12 @@ class StaticsRegPay {
             update.put('payuser_current', pay_user_count) //付费人数
             update.put('paytotal_current', pay_total) //付费金额
             update.put('paycount_current', pay_count) //付费次数
-            update.put('payuserlogin_current', total_days) //总登录天数
+            update.put('payuserlogin_rate_current', total_days / pay_user_count) //总登录天数
         }
         update.put("history.${payymd}.payuser_current".toString(), pay_user_count)
         update.put("history.${payymd}.paytotal_current".toString(), pay_total)
         update.put("history.${payymd}.paycount_current".toString(), pay_count)
-        update.put("history.${payymd}.payuserlogin_current".toString(), total_days)
+        update.put("history.${payymd}.payuserlogin_rate_current".toString(), total_days / pay_user_count)
 
         stat_regpay.update($$(_id: "${YMD}_regpay".toString()), $$($set: update), false, false)
     }
@@ -261,28 +260,39 @@ class StaticsRegPay {
     static void main(String[] args) {
         try {
             long l = System.currentTimeMillis()
-            /*regStatics(DAY)
+            regStatics(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regStatics, cost  ${System.currentTimeMillis() - l} ms"
 
             l = System.currentTimeMillis()
+            49.times{Integer DAY->
             [0, 1, 3, 7, 30].each {Integer i->
                 [0, 1, 3, 7, 30].each {Integer n->
                     regPayStatics(i + DAY, n)
                 }
             }
+            }
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regPayStatics, cost  ${System.currentTimeMillis() - l} ms"
 
             l = System.currentTimeMillis()
-            5.times { Integer i ->
+            /*5.times { Integer i ->
                 regpay_last5(i + DAY, 0)
+            }*/
+            49.times {Integer i ->
+                i.times {Integer n->
+                    regpay_last5(i, n)
+                }
             }
-            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regpay_last5, cost  ${System.currentTimeMillis() - l} ms"*/
-            DAY = 48 //todo
+            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regpay_last5, cost  ${System.currentTimeMillis() - l} ms"
+
             l = System.currentTimeMillis()
             /*60.times { Integer i->
-                regpay_till_current(i + DAY, DAY)
+                regpay_till_current(i + DAY, 0)
             }*/
-            regpay_till_current(DAY, 0)
+            49.times {Integer i ->
+                i.times { Integer n->
+                    regpay_till_current(i, n)
+                }
+            }
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regpay_till_current, cost  ${System.currentTimeMillis() - l} ms"
 
         } catch (Exception e){
