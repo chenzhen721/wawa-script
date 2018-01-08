@@ -49,8 +49,9 @@ class WeixinMessage {
     static Integer main_jedis_port = getProperties("main_jedis_port", 6379) as Integer
     static mainRedis = new Jedis(jedis_host, main_jedis_port)
 
-    static Map<String,String> APP_ID_SECRETS = ['wx45d43a50adf5a470':'40e8dc2daac9f04bfbac32a64eb6dfff', 'wxf64f0972d4922815':'4b9628580a15224181505883d588ed30']
-    static Map<String,String> TEMPLATE_IDS = ['wx45d43a50adf5a470':'"pedgM13fkPvhs6E0LV6ew-8E9ociJuRpnrTso-TlZH4"', 'wxf64f0972d4922815':'"pedgM13fkPvhs6E0LV6ew-8E9ociJuRpnrTso-TlZH4"']
+    static Map<String,String> APP_ID_SECRETS = ['wx45d43a50adf5a470':'40e8dc2daac9f04bfbac32a64eb6dfff', 'wxf64f0972d4922815':'fbf4fd32c00a82d5cbe5161c5e699a0e']
+    static Map<String,String> TEMPLATE_IDS = ['wx45d43a50adf5a470':'pedgM13fkPvhs6E0LV6ew-8E9ociJuRpnrTso-TlZH4', 'wxf64f0972d4922815':'Ie5KJJ7UhNAowE6MHqY_8S3GTNLt85BSr6NgOlwa2Uw']
+    static Map<String,String> DOMAIN_IDS = ['wx45d43a50adf5a470':'http://www.17laihou.com/', 'wxf64f0972d4922815':'http://aochu.17laihou.com/']
     static String WEIXIN_URL = 'https://api.weixin.qq.com/cgi-bin/'
     static Integer requestCount = 0
     static Integer successCount = 0
@@ -199,8 +200,8 @@ class WeixinMessage {
         Map map = new HashMap()
         map.put('touser', openId)
         map.put('template_id', TEMPLATE_IDS[appId])
-        map.put('url', template['url'])
-        map.put('data', template['data'])
+        map.put('url', DOMAIN_IDS[appId] + template['path'])
+        map.put('data', template['data'] as Map)
         Map params = new HashMap()
         params.put('sendObj', map)
         Map respMap = this.postWX('POST', requestUrl, params, appId)
@@ -219,13 +220,16 @@ class WeixinMessage {
         String requestUrl = WEIXIN_URL + 'token'
         if (access_token == null) {
             requestUrl += '?grant_type=client_credential&appid=' + appId + '&secret=' + APP_ID_SECRETS[appId]
+            println requestUrl
             Map respMap = this.postWX('GET', requestUrl, new HashMap(), appId)
             println respMap
             String errcode = respMap['errcode']
             access_token = respMap['access_token']
             Integer expires = respMap['expires_in'] as Integer
-            mainRedis.set(getAccessRedisKey(appId), access_token)
-            mainRedis.expire(getAccessRedisKey(appId), expires)
+            if(access_token != null){
+                mainRedis.set(getAccessRedisKey(appId), access_token)
+                mainRedis.expire(getAccessRedisKey(appId), expires)
+            }
         }
         return access_token
     }
@@ -244,7 +248,6 @@ class WeixinMessage {
         if (postMethod == 'POST') {
             Object sendObj = params['sendObj']
             String sendContent = StringEscapeUtils.unescapeJavaScript(JsonOutput.toJson(sendObj))
-
             HttpPost httpPost = new HttpPost(requestUrl);
             StringEntity entity = new StringEntity(sendContent, ContentType.APPLICATION_JSON);
             entity.setContentEncoding("UTF-8");

@@ -158,17 +158,19 @@ class Redpacket {
 */
             //模板消息
             def template = $$(_id:redpacket_id)
-            template['url'] = site_domain + path + "?packet_id=${redpacket_id}".toString()
+            template['path'] = path + "?packet_id=${redpacket_id}".toString()
             def data = new HashMap();
             data['first'] = ['value':"哇!好友${nickname}抓中了娃娃，特来给您发钻石拉，赶紧抢了钻石去抓娃娃。".toString(),'color':'#173177']
             data['keyword1'] = ['value':'100钻石','color':'#173177']
-            data['keyword2'] = ['value':"${new Date().format('yyyy-MM-dd')}}",'color':'#173177']
+            data['keyword2'] = ['value':"${new Date().format('yyyy-MM-dd')}".toString(),'color':'#173177']
             data['remark'] = ['value':'钻石数量有限，先到先得，速速去抢!','color':'#FF0000']
             template['data'] = data;
             friends.each {Integer tid ->
-                def msg = $$(_id: redpacket_id+'_'+tid,from_id:userId,to_id:tid,timestamp:time,template:template, is_send:0, next_fire:time)
-                //def msg = $$(_id: redpacket_id+'_'+tid,from_id:userId,to_id:tid,timestamp:time,custom_text:customMsg,template:template, is_send:0, next_fire:time)
-                msgs.add(msg)
+                if(!userId.equals(tid)){
+                    def msg = $$(_id: redpacket_id+'_'+tid,from_id:userId,to_id:tid,timestamp:time,template:template, is_send:0, next_fire:time)
+                    //def msg = $$(_id: redpacket_id+'_'+tid,from_id:userId,to_id:tid,timestamp:time,custom_text:customMsg,template:template, is_send:0, next_fire:time)
+                    msgs.add(msg)
+                }
             }
             //push入待发送队列
             weixin_msg.insert(msgs)

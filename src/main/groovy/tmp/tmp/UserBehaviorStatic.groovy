@@ -230,9 +230,10 @@ class UserBehaviorStatic {
     static DBCollection red_packets = mongo.getDB('xy_activity').getCollection('red_packets')
     //红包相关数据统计 产生红包数/发送用户人数/领取红包人数/领取后抓取人数/领取后充值人数/充值金额
     static void redpacketData(){
-        Integer packets = red_packets.count($$(user_id:[$gt:0]))
-        def msgs = weixin_msgs.distinct("to_id", $$(openId:[$ne:null])).size()
-        def cur = diamond_add_logs.find($$(type:"diamondpacket_reward")).batchSize(10)
+        Long begin = Date.parse("yyyy-MM-dd HH:mm:ss","2018-01-05 00:00:00").getTime()
+        Integer packets = red_packets.count($$(user_id:[$gt:0],timestamp:[$gte:begin]))
+        def msgs = weixin_msgs.distinct("to_id", $$(success_send:1,timestamp:[$gte:begin])).size()
+        def cur = diamond_add_logs.find($$(type:"diamondpacket_reward",timestamp:[$gte:begin])).batchSize(10)
         Integer userCount = 0
         Integer userCatchCount = 0
         Integer payUserCount = 0
@@ -250,7 +251,7 @@ class UserBehaviorStatic {
                 if(catch_record.count($$($$(user_id:userId, timestamp:[$gt:timestamp]))) > 0){
                     userCatchCount++;
                 }
-                Long end = timestamp + 8 * 60 * 60 *1000l
+                Long end = timestamp + 24 * 60 * 60 *1000l
                 if(finance_log.count($$($$(user_id:userId,via: [$ne: 'Admin'], timestamp:[$gt:timestamp, $lt:end]))) > 0){
                     payUserCount++;
                 }
@@ -263,7 +264,7 @@ class UserBehaviorStatic {
 
         }
         println " 产生红包数:${packets}\t发送用户人数:${msgs}\t领取红包人数: ${userCount}\t领取钻石: ${totalAward}\t领取后抓取人数: ${userCatchCount}" +
-                "\t领取后充值人数: ${payUserCount}\t充值金额: ${payCount}"
+                "\t领取后24小时内充值人数: ${payUserCount}\t充值金额: ${payCount}"
     }
 
     static fmtNumber(Double num){
