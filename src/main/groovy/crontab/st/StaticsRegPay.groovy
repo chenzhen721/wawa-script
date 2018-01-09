@@ -285,7 +285,7 @@ class StaticsRegPay {
             }*/
             50.times {Integer i ->
                 i.times {Integer n->
-                    //regpay_last5(i, n)
+                    regpay_last5(i, n)
                 }
             }
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regpay_last5, cost  ${System.currentTimeMillis() - l} ms"
