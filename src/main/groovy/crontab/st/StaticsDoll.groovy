@@ -180,7 +180,7 @@ class StaticsDoll {
 
         def query = $$(post_time: [$gte: begin, $lt: end], is_delete: false)
         //查询有多少商品需要统计
-        apply_post_logs.aggregate([
+        catch_success_log.aggregate([
                 $$('$match', query),
                 $$('$project', [_id: '$toy._id']),
                 $$('$group', [_id: '$_id', count: [$sum: 1]])
@@ -195,7 +195,7 @@ class StaticsDoll {
         }
 
         def q = $$(post_type: [$ne: 2], timestamp: [$lt: end], is_delete: false, is_award: false)
-        apply_post_logs.aggregate([
+        catch_success_log.aggregate([
                 $$('$match', q),
                 $$('$project', [_id: '$toy._id']),
                 $$('$group', [_id: '$_id', count: [$sum: 1]])
@@ -210,9 +210,9 @@ class StaticsDoll {
 
         //兑换成积分的娃娃的数量
         def match = $$(type: 'expire_points', timestamp: [$lt: end], is_delete: [$ne: true])
-        def logids = apply_post_logs.distinct('success_log_id', $$(match))
+        def logids = user_award_logs.distinct('success_log_id', $$(match))
 
-        apply_post_logs.aggregate([
+        user_award_logs.aggregate([
                 $$('$match', [_id: [$in: logids]]),
                 $$('$project', [_id: '$toy._id']),
                 $$('$group', [_id: '$_id', count: [$sum: 1]])
