@@ -265,12 +265,14 @@ class StaticsRegPay {
         try {
             long l = System.currentTimeMillis()
             50.times {
+                DAY = it
                 regStatics(DAY)
             }
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regStatics, cost  ${System.currentTimeMillis() - l} ms"
 
             l = System.currentTimeMillis()
             50.times {
+                DAY = it
                 [0, 1, 3, 7, 30].each { Integer i ->
                     [0, 1, 3, 7, 30].each { Integer n ->
                         regPayStatics(i + DAY, n)
