@@ -264,43 +264,37 @@ class StaticsRegPay {
     static void main(String[] args) {
         try {
             long l = System.currentTimeMillis()
-            50.times {
-                DAY = it
-                regStatics(DAY)
-            }
+            regStatics(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regStatics, cost  ${System.currentTimeMillis() - l} ms"
 
             l = System.currentTimeMillis()
-            50.times {
-                DAY = it
-                [0, 1, 3, 7, 30].each { Integer i ->
-                    [0, 1, 3, 7, 30].each { Integer n ->
-                        regPayStatics(i + DAY, n)
-                    }
+            [0, 1, 3, 7, 30].each { Integer i ->
+                [0, 1, 3, 7, 30].each { Integer n ->
+                    regPayStatics(i + DAY, n)
                 }
             }
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regPayStatics, cost  ${System.currentTimeMillis() - l} ms"
 
             l = System.currentTimeMillis()
-            /*5.times { Integer i ->
+            5.times { Integer i ->
                 regpay_last5(i + DAY, 0)
-            }*/
-            50.times {Integer i ->
+            }
+            /*50.times {Integer i ->
                 i.times {Integer n->
                     regpay_last5(i, n)
                 }
-            }
+            }*/
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regpay_last5, cost  ${System.currentTimeMillis() - l} ms"
 
             l = System.currentTimeMillis()
-            /*60.times { Integer i->
+            60.times { Integer i->
                 regpay_till_current(i + DAY, 0)
-            }*/
-            50.times {Integer i ->
+            }
+            /*50.times {Integer i ->
                 i.times { Integer n->
                     regpay_till_current(i, n)
                 }
-            }
+            }*/
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regpay_till_current, cost  ${System.currentTimeMillis() - l} ms"
 
         } catch (Exception e){
