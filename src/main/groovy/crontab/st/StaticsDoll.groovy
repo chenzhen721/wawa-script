@@ -256,7 +256,7 @@ class StaticsDoll {
             l = System.currentTimeMillis()
             // 库存统计
             stockStatics(DAY)
-            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   dollTotalDay, cost  ${System.currentTimeMillis() - l} ms"
+            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   stockStatics, cost  ${System.currentTimeMillis() - l} ms"
 
         }catch (Exception e){
             println "Exception : " + e
