@@ -264,13 +264,17 @@ class StaticsRegPay {
     static void main(String[] args) {
         try {
             long l = System.currentTimeMillis()
-            //regStatics(DAY)
+            50.times {
+                regStatics(DAY)
+            }
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regStatics, cost  ${System.currentTimeMillis() - l} ms"
 
             l = System.currentTimeMillis()
-            [0, 1, 3, 7, 30].each {Integer i->
-                [0, 1, 3, 7, 30].each {Integer n->
-                    //regPayStatics(i + DAY, n)
+            50.times {
+                [0, 1, 3, 7, 30].each { Integer i ->
+                    [0, 1, 3, 7, 30].each { Integer n ->
+                        regPayStatics(i + DAY, n)
+                    }
                 }
             }
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regPayStatics, cost  ${System.currentTimeMillis() - l} ms"
@@ -279,7 +283,7 @@ class StaticsRegPay {
             /*5.times { Integer i ->
                 regpay_last5(i + DAY, 0)
             }*/
-            49.times {Integer i ->
+            50.times {Integer i ->
                 i.times {Integer n->
                     //regpay_last5(i, n)
                 }
@@ -290,7 +294,7 @@ class StaticsRegPay {
             /*60.times { Integer i->
                 regpay_till_current(i + DAY, 0)
             }*/
-            49.times {Integer i ->
+            50.times {Integer i ->
                 i.times { Integer n->
                     regpay_till_current(i, n)
                 }
