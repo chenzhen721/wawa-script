@@ -42,9 +42,34 @@ class StaticsDoll {
     static String YMD = new Date(yesTday).format("yyyyMMdd")
     static DBCollection coll = mongo.getDB('xy_admin').getCollection('stat_doll')
     static DBCollection catch_record = mongo.getDB('xy_catch').getCollection('catch_record')
+    static DBCollection catch_toy = mongo.getDB('xy_catch').getCollection('catch_toy')
     static DBCollection users = mongo.getDB('xy').getCollection('users')
+    static DBCollection catch_success_log = mongo.getDB('xylog').getCollection('catch_success_log')
+    static DBCollection apply_post_logs = mongo.getDB('xylog').getCollection('apply_post_logs')
+    static DBCollection user_award_logs = mongo.getDB('xylog').getCollection('user_award_logs')
 
     // 每日抓取人数，次数，抓中次数
+    /**
+     * toy_id:娃娃编号
+     * name:娃娃名称
+     * head_pic: 娃娃图片
+     * 进入次数（目前没有）
+     * count:抓取次数
+     * bingo_count:抓中次数
+     * 下抓率（没有 依赖进入次数）
+     * rate: 实际抓中概率
+     * winrate: 设定概率
+     * price: 单次抓取价格
+     * cost: 娃娃成本
+     * post_count: 已寄出数量
+     * post_total: 已申请数量(需要计算)
+     * stock: 库存
+     * exchange_count: 兑换积分数量(需要计算)
+     * remaining: 剩余商品个数(需要计算)
+     *
+     * @param i
+     * @return
+     */
     static dollStatics(int i){
         def begin = yesTday - i * DAY_MILLON
         def end = begin + DAY_MILLON
@@ -73,8 +98,10 @@ class StaticsDoll {
             def q = $$(time)
             q.putAll(['toy._id': toyId, user_id: [$in: new_user]])
             def reg_count = catch_record.count($$(q))
+            def toy = catch_toy.findOne($$(_id: toyId))
             def log = $$(type:'day',toy_id:toyId, count:count, bingo_count:bingo, user_count:userSet.size(), users:userSet,
-                    reg_count: reg_count, regs: new_user, timestamp:begin)
+                    reg_count: reg_count, regs: new_user, winrate: toy['winrate'], rate: toy['rate'], price: toy['price'], cost: toy['cost'],
+                    stock: toy['stock'], timestamp: begin)
             coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
         }
     }
@@ -145,6 +172,60 @@ class StaticsDoll {
         }
     }
 
+    //商品库存、消耗计算
+    static stockStatics(int i) {
+        def begin = yesTday - i * DAY_MILLON
+        def end = begin + DAY_MILLON
+        def YMD = new Date(begin).format('yyyyMMdd')
+
+        def query = $$(post_time: [$gte: begin, $lt: end], is_delete: false)
+        //查询有多少商品需要统计
+        apply_post_logs.aggregate([
+                $$('$match', query),
+                $$('$project', [_id: '$toy._id']),
+                $$('$group', [_id: '$_id', count: [$sum: 1]])
+        ]).results().each {BasicDBObject obj ->
+            def toyId = obj['_id'] as Integer
+            def post_count = obj['count'] as Integer //当日邮寄数量
+            def post_total = apply_post_logs.count($$('toy._id': toyId, post_time: [$lt: end])) //总共邮寄数量，消耗
+            def toy = catch_toy.findOne($$(_id: toyId))
+            def log = $$(type:'day',toy_id:toyId, winrate: toy['winrate'], rate: toy['rate'], price: toy['price'], cost: toy['cost'],
+                    stock: toy['stock'], post_count: post_count, post_total: post_total, timestamp: begin)
+            coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
+        }
+
+        def q = $$(post_type: [$ne: 2], timestamp: [$lt: end], is_delete: false, is_award: false)
+        apply_post_logs.aggregate([
+                $$('$match', q),
+                $$('$project', [_id: '$toy._id']),
+                $$('$group', [_id: '$_id', count: [$sum: 1]])
+        ]).results().each {BasicDBObject obj->
+            def toyId = obj['_id'] as Integer
+            def remaining = obj['count'] as Integer //剩余娃娃
+            def toy = catch_toy.findOne($$(_id: toyId))
+            def log = $$(type:'day',toy_id:toyId, winrate: toy['winrate'], rate: toy['rate'], price: toy['price'], cost: toy['cost'],
+                    stock: toy['stock'], remaining: remaining, timestamp: begin)
+            coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
+        }
+
+        //兑换成积分的娃娃的数量
+        def match = $$(type: 'expire_points', timestamp: [$lt: end], is_delete: [$ne: true])
+        def logids = apply_post_logs.distinct('success_log_id', $$(match))
+
+        apply_post_logs.aggregate([
+                $$('$match', [_id: [$in: logids]]),
+                $$('$project', [_id: '$toy._id']),
+                $$('$group', [_id: '$_id', count: [$sum: 1]])
+        ]).results().each {BasicDBObject obj->
+            def toyId = obj['_id'] as Integer
+            def exchange_count = obj['count'] as Integer //兑换娃娃的个数
+            def toy = catch_toy.findOne($$(_id: toyId))
+            def log = $$(type:'day',toy_id:toyId, winrate: toy['winrate'], rate: toy['rate'], price: toy['price'], cost: toy['cost'],
+                    stock: toy['stock'], exchange_count: exchange_count, timestamp: begin)
+            coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
+        }
+    }
+
     public static BasicDBObject $$(String key, Object value) {
         return new BasicDBObject(key, value);
     }
@@ -171,6 +252,12 @@ class StaticsDoll {
             // 单日 总抓取人数,总抓取次数,总抓中次数
             dollTotalDay(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   dollTotalDay, cost  ${System.currentTimeMillis() - l} ms"
+
+            l = System.currentTimeMillis()
+            // 库存统计
+            stockStatics(DAY)
+            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   dollTotalDay, cost  ${System.currentTimeMillis() - l} ms"
+
         }catch (Exception e){
             println "Exception : " + e
         }
