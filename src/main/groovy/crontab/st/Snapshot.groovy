@@ -74,7 +74,7 @@ class Snapshot {
         long l = System.currentTimeMillis()
         long begin = l
         user_snapshot()
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${DailyReportSnapshot.class.getSimpleName()},user_snapshot cost  ${System.currentTimeMillis() - l} ms"
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${Snapshot.class.getSimpleName()},user_snapshot cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         jobFinish(begin)
@@ -96,7 +96,7 @@ class Snapshot {
         def timerName = 'UserAwardDailyStat'
         Long totalCost = System.currentTimeMillis() - begin
         saveTimerLogs(timerName, totalCost)
-        println "${new Date().format('yyyy-MM-dd')}:${DailyReportSnapshot.class.getSimpleName()}:finish  cost time:  ${System.currentTimeMillis() - begin} ms"
+        println "${new Date().format('yyyy-MM-dd')}:${Snapshot.class.getSimpleName()}:finish  cost time:  ${System.currentTimeMillis() - begin} ms"
     }
 
     //落地定时执行的日志

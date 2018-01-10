@@ -26,5 +26,8 @@
 ### 友盟联运统计
 01 08 * * * root source /etc/profile && /empty/crontab/TongjiActive.groovy >> /empty/crontab/logs/TongjiActive.log &
 
+### 新增付费统计
+30 02 * * * root source /etc/profile && /empty/crontab/StaticsRegPay.groovy >> /empty/crontab/logs/StaticsRegPay.log &
+
 
 
