@@ -100,7 +100,7 @@ class StaticsDoll {
             def reg_count = catch_record.count($$(q))
             def toy = catch_toy.findOne($$(_id: toyId))
             def log = $$(type:'day',toy_id:toyId, count:count, bingo_count:bingo, user_count:userSet.size(), users:userSet,
-                    reg_count: reg_count, regs: new_user, winrate: toy['winrate'], rate: toy['rate'], price: toy['price'], cost: toy['cost'],
+                    reg_count: reg_count, regs: new_user, winrate: toy['winrate'], rate: bingo/count, price: toy['price'], cost: toy['cost'],
                     stock: toy['stock']['total'] ?: 0, timestamp: begin)
             coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
         }
@@ -187,9 +187,9 @@ class StaticsDoll {
         ]).results().each {BasicDBObject obj ->
             def toyId = obj['_id'] as Integer
             def post_count = obj['count'] as Integer //当日邮寄数量
-            def post_total = apply_post_logs.count($$('toy._id': toyId, post_time: [$lt: end])) //总共邮寄数量，消耗
+            def post_total = catch_success_log.count($$('toy._id': toyId, post_time: [$lt: end])) //总共邮寄数量，消耗
             def toy = catch_toy.findOne($$(_id: toyId))
-            def log = $$(type:'day',toy_id:toyId, winrate: toy['winrate'], rate: toy['rate'], price: toy['price'], cost: toy['cost'],
+            def log = $$(type:'day',toy_id:toyId, winrate: toy['winrate'], price: toy['price'], cost: toy['cost'],
                     stock: toy['stock']['total'] ?: 0, post_count: post_count, post_total: post_total, timestamp: begin)
             coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
         }
@@ -203,7 +203,7 @@ class StaticsDoll {
             def toyId = obj['_id'] as Integer
             def remaining = obj['count'] as Integer //剩余娃娃
             def toy = catch_toy.findOne($$(_id: toyId))
-            def log = $$(type:'day',toy_id:toyId, winrate: toy['winrate'], rate: toy['rate'], price: toy['price'], cost: toy['cost'],
+            def log = $$(type:'day',toy_id:toyId, winrate: toy['winrate'], price: toy['price'], cost: toy['cost'],
                     stock: toy['stock']['total'] ?: 0, remaining: remaining, timestamp: begin)
             coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
         }
@@ -220,7 +220,7 @@ class StaticsDoll {
             def toyId = obj['_id'] as Integer
             def exchange_count = obj['count'] as Integer //兑换娃娃的个数
             def toy = catch_toy.findOne($$(_id: toyId))
-            def log = $$(type:'day',toy_id:toyId, winrate: toy['winrate'], rate: toy['rate'], price: toy['price'], cost: toy['cost'],
+            def log = $$(type:'day',toy_id:toyId, winrate: toy['winrate'], price: toy['price'], cost: toy['cost'],
                     stock: toy['stock']['total'] ?: 0, exchange_count: exchange_count, timestamp: begin)
             coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
         }
@@ -240,7 +240,10 @@ class StaticsDoll {
         try{
             long l = System.currentTimeMillis()
             //统计每个娃娃每日抓取人数,抓取次数, 抓中次数,
-            dollStatics(DAY)
+            51.times {
+                DAY = it
+                dollStatics(DAY)
+            }
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   dollStatics, cost  ${System.currentTimeMillis() - l} ms"
 
             l = System.currentTimeMillis()
@@ -255,7 +258,10 @@ class StaticsDoll {
 
             l = System.currentTimeMillis()
             // 库存统计
-            stockStatics(DAY)
+            51.times {
+                DAY = it
+                stockStatics(DAY)
+            }
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   stockStatics, cost  ${System.currentTimeMillis() - l} ms"
 
         }catch (Exception e){
