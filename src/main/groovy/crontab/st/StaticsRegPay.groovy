@@ -40,6 +40,8 @@ class StaticsRegPay {
     static DBCollection users = mongo.getDB('xy').getCollection('users')
     static DBCollection finance_log_DB = mongo.getDB('xy_admin').getCollection('finance_log')
     static DBCollection day_login = mongo.getDB("xylog").getCollection("day_login")
+    static DBCollection diamond_add_logs = mongo.getDB("xylog").getCollection("diamond_add_logs")
+    static DBCollection diamond_cost_logs = mongo.getDB("xylog").getCollection("diamond_cost_logs")
 
     /**
      * regs:[] //注册IDs
@@ -227,6 +229,126 @@ class StaticsRegPay {
         stat_regpay.update($$(_id: "${YMD}_regpay".toString()), $$($set: update), false, false)
     }
 
+    /**
+     * 统计钻石积分等
+     *
+     * diamond_add_current 到目前为止领取钻石数
+     * diamond_user_current 到目前为止获得赠送的人数
+     * invite_user_current 到目前为止邀请好友数
+     * invite_diamond_current 到目前为止邀请好友获得的钻石数
+     * diamond_cost_current 到目前为止消耗的钻石数
+     * charge_award_current 充值优惠钻石
+     * admin_add_current admin补单
+     *
+     * @return
+     */
+    def diamondPresentStatics(int i, int n) {
+        if (n > i) return
+        def begin = yesTday - i * DAY_MILLON
+        def YMD = new Date(begin).format('yyyyMMdd')
+        def diamondend = yesTday - (n - 1) * DAY_MILLON
+        def payend = yesTday - (n - 1) * DAY_MILLON
+        def payymd = new Date(payend - DAY_MILLON).format('yyyyMMdd')
+        Integer diamond_add_total = 0, diamond_user_total = 0, invite_user_total = 0, invite_diamond_total = 0,
+        diamond_cost_total = 0, charge_award_total = 0, admin_add_total = 0
+        //每个渠道数据，然后汇总到总表
+        stat_regpay.find($$(type: 'qd', timestamp: begin)).toArray().each { BasicDBObject obj ->
+            def regs = obj['regs'] as Set
+            def diamond_add_current = 0
+            def diamond_user_current = 0
+            def invite_user_current = 0
+            def invite_diamond_current = 0
+            def diamond_cost_current = 0
+            def charge_award_current = 0
+            def admin_add_current = 0
+            def update = new BasicDBObject()
+            //除充值以外的钻石
+            diamond_add_logs.aggregate([
+                    $$('$match', [user_id: [$in: regs], timestamp: [$lt: diamondend]]),
+                    $$('$group', [_id: '$type', diamond: [$sum: '$award.diamond'], count: [$sum: 1]])
+            ]).results().each {BasicDBObject item->
+                def diamond = item['diamond'] as Integer ?: 0
+                def count = item['count'] as Integer ?: 0
+                diamond_add_current = diamond_add_current + diamond
+                diamond_user_current = diamond_user_current + count
+                if ('invite_diamond' == item['_id']) {
+                    invite_diamond_current = invite_diamond_current + diamond
+                    invite_user_current = invite_user_current + count
+                }
+            }
+
+            //用户消耗的钻石数
+            diamond_cost_logs.aggregate([
+                    $$('$match', [user_id: [$in: regs], timestamp: [$lt: diamondend]]),
+                    $$('$group', [_id: '$type', diamond: [$sum: '$award.diamond']])
+            ]).results().each {BasicDBObject item ->
+                def diamond = item['diamond'] as Integer ?: 0
+                diamond_cost_current = diamond_cost_current + diamond
+            }
+
+            //充值奖励钻石
+            finance_log_DB.aggregate([
+                    $$('$match', [user_id: [$in: regs], via: [$ne: 'Admin'], 'ext.award': [$gt: 0], timestamp: [$lt: diamondend]]),
+                    $$('$group', [_id: null, diamond: [$sum: '$ext.award']])
+            ]).results().each {BasicDBObject item ->
+                charge_award_current = item['diamond'] as Integer ?: 0
+            }
+
+            //Admin奖励钻石
+            finance_log_DB.aggregate([
+                    $$('$match', [user_id: [$in: regs], via: 'Admin', timestamp: [$lt: diamondend]]),
+                    $$('$group', [_id: null, diamond: [$sum: '$diamond']])
+            ]).results().each {BasicDBObject item ->
+                admin_add_current = item['diamond'] as Integer ?: 0
+            }
+
+            if (n == 0) { //保存最新的
+                update.put('diamond_add_current', diamond_add_current) //
+                update.put('diamond_user_current', diamond_user_current) //
+                update.put('invite_user_current', invite_user_current) //
+                update.put('invite_diamond_current', invite_diamond_current) //
+                update.put('diamond_cost_current', diamond_cost_current) //
+                update.put('charge_award_current', charge_award_current) //
+                update.put('admin_add_current', admin_add_current) //
+            }
+            update.put("history.${payymd}.diamond_add_current".toString(), diamond_add_current)
+            update.put("history.${payymd}.diamond_user_current".toString(), diamond_user_current)
+            update.put("history.${payymd}.invite_user_current".toString(), invite_user_current)
+            update.put("history.${payymd}.invite_diamond_current".toString(), invite_diamond_current)
+            update.put("history.${payymd}.diamond_cost_current".toString(), diamond_cost_current)
+            update.put("history.${payymd}.charge_award_current".toString(), charge_award_current)
+            update.put("history.${payymd}.admin_add_current".toString(), admin_add_current)
+            stat_regpay.update($$(_id: obj['_id']), $$($set: update), false, false)
+
+            diamond_add_total = diamond_add_total + diamond_add_current
+            diamond_user_total = diamond_user_total + diamond_user_current
+            invite_user_total = invite_user_total + invite_user_current
+            invite_diamond_total = invite_diamond_total + invite_diamond_current
+            diamond_cost_total = diamond_cost_total + diamond_cost_current
+            charge_award_total = charge_award_total + charge_award_current
+            admin_add_total = admin_add_total + admin_add_current
+        }
+
+        def update = new BasicDBObject()
+        if (n == 0) { //保存最新的
+            update.put('diamond_add_current', diamond_add_total) //
+            update.put('diamond_user_current', diamond_user_total) //
+            update.put('invite_user_current', invite_user_total) //
+            update.put('invite_diamond_current', invite_diamond_total) //
+            update.put('diamond_cost_current', diamond_cost_total) //
+            update.put('charge_award_current', charge_award_total) //
+            update.put('admin_add_current', admin_add_total) //
+        }
+        update.put("history.${payymd}.diamond_add_current".toString(), diamond_add_total)
+        update.put("history.${payymd}.diamond_user_current".toString(), diamond_user_total)
+        update.put("history.${payymd}.invite_user_current".toString(), invite_user_total)
+        update.put("history.${payymd}.invite_diamond_current".toString(), invite_diamond_total)
+        update.put("history.${payymd}.diamond_cost_current".toString(), diamond_cost_total)
+        update.put("history.${payymd}.charge_award_current".toString(), charge_award_total)
+        update.put("history.${payymd}.admin_add_current".toString(), admin_add_total)
+        stat_regpay.update($$(_id: "${YMD}_regpay".toString()), $$($set: update), false, false)
+    }
+
     //查询用户regs，从begin到end 的 付费用户 总用户数 总付费金额
     private static Map regpay(def regs, def begin, def end) {
         def timestamp = [:]
@@ -293,6 +415,17 @@ class StaticsRegPay {
             /*50.times {Integer i ->
                 i.times { Integer n->
                     regpay_till_current(i, n)
+                }
+            }*/
+            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regpay_till_current, cost  ${System.currentTimeMillis() - l} ms"
+
+            l = System.currentTimeMillis()
+            60.times { Integer i->
+                diamondPresentStatics(i + DAY, 0)
+            }
+            /*50.times {Integer i ->
+                i.times { Integer n->
+                    diamondPresentStatics(i, n)
                 }
             }*/
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regpay_till_current, cost  ${System.currentTimeMillis() - l} ms"
