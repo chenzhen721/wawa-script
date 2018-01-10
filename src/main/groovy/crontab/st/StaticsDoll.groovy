@@ -212,7 +212,7 @@ class StaticsDoll {
         def match = $$(type: 'expire_points', timestamp: [$lt: end], is_delete: [$ne: true])
         def logids = user_award_logs.distinct('success_log_id', $$(match))
 
-        user_award_logs.aggregate([
+        catch_success_log.aggregate([
                 $$('$match', [_id: [$in: logids]]),
                 $$('$project', [_id: '$toy._id']),
                 $$('$group', [_id: '$_id', count: [$sum: 1]])
