@@ -50,7 +50,6 @@ class MsgGenerator {
     static DBCollection apply_post_logs = mongo.getDB('xylog').getCollection('apply_post_logs')
     static DBCollection catch_record = mongo.getDB('xy_catch').getCollection('catch_record')
     static DBCollection weixin_msg = mongo.getDB('xy_union').getCollection('weixin_msgs')
-    static DBCollection red_packets = mongo.getDB('xy_activity').getCollection('red_packets')
     static DBCollection users = mongo.getDB('xy').getCollection("users")
     static DBCollection xy_users = mongo.getDB('xy_user').getCollection('users')
     static String jedis_host = getProperties("main_jedis_host", "192.168.31.249")
@@ -74,6 +73,9 @@ class MsgGenerator {
         return props.get(key, defaultValue)
     }
 
+    static List<Integer> test_ids = [1352463, 1357719, 1202904, 1351843]
+    static Boolean test = Boolean.TRUE
+
     static void main(String[] args) {
         Long begin = System.currentTimeMillis()
         genenrate()
@@ -81,7 +83,7 @@ class MsgGenerator {
         println "${MsgGenerator.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms" +
                 "=========================================================================="
     }
-    static List<Integer> test_ids = [1352463,1357719]
+
     static Long per_end =  System.currentTimeMillis();
     static Long per_begin =  System.currentTimeMillis();
     static String redis_key = "weixin:msg:push:clock:"
@@ -152,8 +154,10 @@ class MsgGenerator {
             println "userId : ${new Date(timestamp).format('yyyy-MM-dd HH:mm:ss')}".toString()
         }
         userOfDolls.each {Integer userId, Set<String> toys ->
-            //println "${userId} ${getNickName(userId)}: ${toys.join(',')}, ${expireDays}天过期"
-            //pushMsg2Queue(userId, new ToyExpireTemplate(getNickName(userId),toys.join(','), expireDays))
+            if(isTest(userId)){
+                //println "${userId} ${getNickName(userId)}: ${toys.join(',')}, ${expireDays}天过期"
+                pushMsg2Queue(userId, new ToyExpireTemplate(getNickName(userId),toys.join(','), expireDays))
+            }
         }
     }
 
@@ -165,8 +169,11 @@ class MsgGenerator {
             Integer userId = user['_id'] as Integer
             String nick_name = user['nick_name'] as String
             Integer points = (user['bag'] as Map)['points']['count'] as Integer
-            //println "${userId} ${nick_name}: ${points}"
-            //pushMsg2Queue(userId, new PointsExpireTemplate(nick_name, points))
+
+            if(isTest(userId)) {
+                //println "${userId} ${nick_name}: ${points}"
+                pushMsg2Queue(userId, new PointsExpireTemplate(nick_name, points))
+            }
         }
     }
 
@@ -180,8 +187,10 @@ class MsgGenerator {
             Integer invitedUId = user['user_id'] as Integer //被邀请人
             Integer diamond_count = user['diamond_count'] as Integer
             Long timestamp = user['timestamp'] as Long
-            //println " ${getNickName(userId)} 邀请了: ${getNickName(invitedUId)} 获得:${diamond_count}"
-            //pushMsg2Queue(userId, new InviterTemplate(getNickName(userId), getNickName(invitedUId), diamond_count, timestamp))
+            if(isTest(userId)){
+                //println " ${getNickName(userId)} 邀请了: ${getNickName(invitedUId)} 获得:${diamond_count}"
+                pushMsg2Queue(userId, new InviterTemplate(getNickName(userId), getNickName(invitedUId), diamond_count, timestamp))
+            }
         }
     }
     //扫描用户邮寄信息
@@ -199,8 +208,10 @@ class MsgGenerator {
             Long timestamp = user['push_time'] as Long
             Set<String> toySets = new HashSet<>()
             toySets.addAll(toys*.name)
-            //println " ${getNickName(userId)} : ${address} 快递信息:${shipping_name} ${shipping_no}, 娃娃: ${toySets.join(',')}"
-            //pushMsg2Queue(userId, new DeliverTemplate(getNickName(userId),toySets.join(','),shipping_name,shipping_no,address))
+            if(isTest(userId)){
+                //println " ${getNickName(userId)} : ${address} 快递信息:${shipping_name} ${shipping_no}, 娃娃: ${toySets.join(',')}"
+                pushMsg2Queue(userId, new DeliverTemplate(getNickName(userId),toySets.join(','),shipping_name,shipping_no,address))
+            }
         }
     }
 
@@ -208,6 +219,12 @@ class MsgGenerator {
         return users.findOne($$(_id:userId), $$(nick_name:1))?.get('nick_name')
     }
 
+    static Boolean isTest(Integer userId){
+        if(test){
+            return test_ids.contains(userId)
+        }
+        return Boolean.TRUE
+    }
     //推送消息到消息队列待发送
     static pushMsg2Queue(Integer to_uid, WxTemplate wxTemplate){
         //获取用户appid和openid
