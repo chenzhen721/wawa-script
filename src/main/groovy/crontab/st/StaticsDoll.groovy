@@ -101,7 +101,7 @@ class StaticsDoll {
             def toy = catch_toy.findOne($$(_id: toyId))
             def log = $$(type:'day',toy_id:toyId, count:count, bingo_count:bingo, user_count:userSet.size(), users:userSet,
                     reg_count: reg_count, regs: new_user, winrate: toy['winrate'], rate: toy['rate'], price: toy['price'], cost: toy['cost'],
-                    stock: toy['stock'], timestamp: begin)
+                    stock: toy['stock']['total'] ?: 0, timestamp: begin)
             coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
         }
     }
@@ -190,7 +190,7 @@ class StaticsDoll {
             def post_total = apply_post_logs.count($$('toy._id': toyId, post_time: [$lt: end])) //总共邮寄数量，消耗
             def toy = catch_toy.findOne($$(_id: toyId))
             def log = $$(type:'day',toy_id:toyId, winrate: toy['winrate'], rate: toy['rate'], price: toy['price'], cost: toy['cost'],
-                    stock: toy['stock'], post_count: post_count, post_total: post_total, timestamp: begin)
+                    stock: toy['stock']['total'] ?: 0, post_count: post_count, post_total: post_total, timestamp: begin)
             coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
         }
 
@@ -204,7 +204,7 @@ class StaticsDoll {
             def remaining = obj['count'] as Integer //剩余娃娃
             def toy = catch_toy.findOne($$(_id: toyId))
             def log = $$(type:'day',toy_id:toyId, winrate: toy['winrate'], rate: toy['rate'], price: toy['price'], cost: toy['cost'],
-                    stock: toy['stock'], remaining: remaining, timestamp: begin)
+                    stock: toy['stock']['total'] ?: 0, remaining: remaining, timestamp: begin)
             coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
         }
 
@@ -221,7 +221,7 @@ class StaticsDoll {
             def exchange_count = obj['count'] as Integer //兑换娃娃的个数
             def toy = catch_toy.findOne($$(_id: toyId))
             def log = $$(type:'day',toy_id:toyId, winrate: toy['winrate'], rate: toy['rate'], price: toy['price'], cost: toy['cost'],
-                    stock: toy['stock'], exchange_count: exchange_count, timestamp: begin)
+                    stock: toy['stock']['total'] ?: 0, exchange_count: exchange_count, timestamp: begin)
             coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
         }
     }
