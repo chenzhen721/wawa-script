@@ -428,7 +428,7 @@ class StaticsRegPay {
                     diamondPresentStatics(i, n)
                 }
             }*/
-            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regpay_till_current, cost  ${System.currentTimeMillis() - l} ms"
+            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   diamondPresentStatics, cost  ${System.currentTimeMillis() - l} ms"
 
         } catch (Exception e){
             println "Exception : " + e
