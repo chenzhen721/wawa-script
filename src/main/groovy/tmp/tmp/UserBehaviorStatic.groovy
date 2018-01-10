@@ -213,11 +213,26 @@ class UserBehaviorStatic {
     static staticsDeliverUserOfPay(){
         def uids = apply_post_logs.distinct("user_id", $$(post_type:3))
         Integer payUserCount = 0
-        uids.each {Integer uid ->
-            if(isPay(uid))
-                payUserCount++;
+        Integer payUserToyCount = 0
+        Integer toyCount = 0
+        Integer toyPay = 0
+        def cur =apply_post_logs.find($$(post_type:3)).batchSize(100)
+        Set<Integer> users =new HashSet<>();
+        while (cur.hasNext()) {
+            def row = cur.next()
+            Integer userId = row['user_id'] as Integer
+            List toys = row['toys'] as List
+            if(isPay(userId)){
+                if(users.add(userId)){
+                    payUserCount++;
+                    toyPay += totalPay(userId)
+                }
+                payUserToyCount += toys.size()
+            }
+            toyCount += toys.size()
         }
-        println " 发货用户数:${uids.size()}\t充值用户数:${payUserCount}\t占比: ${fmtNumber(payUserCount/uids.size() * 100)}%"
+        println " 发货用户数:${uids.size()}\t充值用户数:${payUserCount}\t充值用户占比: ${fmtNumber(payUserCount/uids.size() * 100)}%\t充值额度:${toyPay}" +
+                "\t娃娃数量:${toyCount}\t充值用户娃娃数量: ${payUserToyCount}\t未充值用户娃娃数量: ${toyCount-payUserToyCount}"
     }
 
     //是否付费用户
@@ -267,6 +282,15 @@ class UserBehaviorStatic {
                 "\t领取后24小时内充值人数: ${payUserCount}\t充值金额: ${payCount}"
     }
 
+    static Integer totalPay(Integer userId){
+        Integer payCount = 0
+        List<Integer> cnys = finance_log.find($$(user_id:userId,via: [$ne: 'Admin'])).toArray()*.cny
+        if(cnys != null && cnys.size() >0){
+            payCount += cnys.sum() as Integer
+        }
+        return payCount
+    }
+
     static fmtNumber(Double num){
         String result = String .format("%.2f", num);
         return result
@@ -287,8 +311,9 @@ class UserBehaviorStatic {
         //staticsPayUser()
         //抓取行为
         //staticsCatchUser()
-        //staticsDeliverUserOfPay()
-        redpacketData();
+        //邮寄用户
+        staticsDeliverUserOfPay()
+        //redpacketData();
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   UserBehaviorStatic, cost  ${System.currentTimeMillis() - l} ms"
     }
 

@@ -91,27 +91,18 @@ class WeixinMessage {
         def cur = weixin_msg.find($$(is_send : 0, 'next_fire': [$lte: now])).batchSize(10)
         while (cur.hasNext()) {
             def row = cur.next()
-            Integer uid = row['to_id'] as Integer
-            APP_ID_SECRETS.keySet().each {String appId ->
-                String openId = getOpenIdByUid(appId, uid)
-                if(StringUtils.isNotBlank(openId)){
-                    Integer error = -1
-                    /*def custom_text = row['custom_text'] as DBObject
-                    if(custom_text != null){
-                        error = sendCustomImageText(custom_text, openId, appId)
-                    }*/
-                    def template = row['template'] as DBObject
-                    if(template != null){
-                        error = sendTemplateMsg(template, openId, appId)
-                    }
-                    //Integer error = 0
-                    requestCount++
-                    if (error == 0) {
-                        successCount++
-                        row['success_send'] = 1;
-                    }
-
-                }
+            String appId = row['app_id'] as String
+            String openId = row['open_id'] as String
+            if(openId == null || appId == null) return
+            Integer error = -1
+            def template = row['template'] as DBObject
+            if(template != null){
+                error = sendTemplateMsg(template, openId, appId)
+            }
+            requestCount++
+            if (error == 0) {
+                successCount++
+                row['success_send'] = 1;
             }
             row['send_time'] = now;
             row['is_send'] = 1;
@@ -199,8 +190,8 @@ class WeixinMessage {
         String requestUrl = WEIXIN_URL + 'message/template/send?access_token='.concat(getAccessToken(appId))
         Map map = new HashMap()
         map.put('touser', openId)
-        map.put('template_id', TEMPLATE_IDS[appId])
-        map.put('url', DOMAIN_IDS[appId] + template['path'])
+        map.put('template_id', template['id'])
+        map.put('url', template['url'])
         map.put('data', template['data'] as Map)
         Map params = new HashMap()
         params.put('sendObj', map)

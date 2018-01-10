@@ -50,6 +50,7 @@ class Redpacket {
     static DBCollection weixin_msg = mongo.getDB('xy_union').getCollection('weixin_msgs')
     static DBCollection red_packets = mongo.getDB('xy_activity').getCollection('red_packets')
     static DBCollection users = mongo.getDB('xy').getCollection("users")
+    static DBCollection xy_users = mongo.getDB('xy_user').getCollection('users')
     static String jedis_host = getProperties("main_jedis_host", "192.168.31.249")
     static String site_domain = getProperties("site.domain", "http://test.17laihou.com/")
     static Integer main_jedis_port = getProperties("main_jedis_port", 6379) as Integer
@@ -138,36 +139,43 @@ class Redpacket {
         }
     }
 
+    static Map<String,String> TEMPLATE_IDS = ['wx45d43a50adf5a470':'pedgM13fkPvhs6E0LV6ew-8E9ociJuRpnrTso-TlZH4', 'wxf64f0972d4922815':'Ie5KJJ7UhNAowE6MHqY_8S3GTNLt85BSr6NgOlwa2Uw']
+    static Map<String,String> DOMAIN_IDS = ['wx45d43a50adf5a470':'http://www.17laihou.com/', 'wxf64f0972d4922815':'http://aochu.17laihou.com/']
     static final String path = 'activity/packet'
     static final String wx_pic_url = 'https://mmbiz.qpic.cn/mmbiz_png/kGE3RectqDwSvWBwjb6OJeSoCcjN7IhuJqsBd50UFqjulmmYdVADeMVAibtUhhmAkQFElCRiclxL8RpynXUSyXoA/0?wx_fmt=png'
     //添加到微信待发送消息队列
     static push2Msg(Integer userId, List<Integer> friends, String redpacket_id){
         try{
             Long time = System.currentTimeMillis();
-            //生成消息模板
+            //生成消息
             List<BasicDBObject> msgs = new ArrayList<>(friends.size());
             String nickname = users.findOne($$(_id:userId),$$(nick_name:1))?.get('nick_name')
-/*
-            客服消息，必须用户48小时内在公众号内有活跃
-            BasicDBObject customMsg = $$(_id:redpacket_id)
-            customMsg['title']="${nickname}给你发来一个钻石红包，点击领取".toString()
-            customMsg['description']= "哇！${nickname}又抓中娃娃了，并且给大家发了一大波钻石红包！赶紧去抢钻石抓娃娃".toString()
-            customMsg['pic_url']= wx_pic_url
-            customMsg['url']= site_domain + path + "?packet_id=${redpacket_id}".toString()
-            customMsg['content']= ""
-*/
-            //模板消息
-            def template = $$(_id:redpacket_id)
-            template['path'] = path + "?packet_id=${redpacket_id}".toString()
-            def data = new HashMap();
-            data['first'] = ['value':"哇!好友${nickname}抓中了娃娃，特来给您发钻石拉，赶紧抢了钻石去抓娃娃。".toString(),'color':'#173177']
-            data['keyword1'] = ['value':'100钻石','color':'#173177']
-            data['keyword2'] = ['value':"${new Date().format('yyyy-MM-dd')}".toString(),'color':'#173177']
-            data['remark'] = ['value':'钻石数量有限，先到先得，速速去抢!','color':'#FF0000']
-            template['data'] = data;
+
             friends.each {Integer tid ->
-                if(!userId.equals(tid)){
-                    def msg = $$(_id: redpacket_id+'_'+tid,from_id:userId,to_id:tid,timestamp:time,template:template, is_send:0, next_fire:time)
+                //不能给自己发红包
+                if(userId.equals(tid))return
+                //获取微信openid和appid
+                def user = xy_users.findOne($$(mm_no:tid.toString()), $$(weixin:1))
+                if(user == null) {
+                    return
+                }
+                def weixin = user['weixin'] as Map
+                if(weixin == null || weixin.size() == 0){
+                    return
+                }
+                //TODO 多个公众号并行,临时处理
+                weixin.each {String app_id, String open_id ->
+                    //模板消息
+                    def template = $$(id:TEMPLATE_IDS[app_id])
+                    template['url'] = DOMAIN_IDS[app_id]+path + "?packet_id=${redpacket_id}".toString()
+                    def data = new HashMap();
+                    data['first'] = ['value':"哇!好友${nickname}抓中了娃娃，特来给您发钻石拉，赶紧抢了钻石去抓娃娃。".toString(),'color':'#173177']
+                    data['keyword1'] = ['value':'100钻石','color':'#173177']
+                    data['keyword2'] = ['value':"${new Date().format('yyyy-MM-dd')}".toString(),'color':'#173177']
+                    data['remark'] = ['value':'钻石数量有限，先到先得，速速去抢!','color':'#FF0000']
+                    template['data'] = data;
+
+                    def msg = $$(_id: redpacket_id+'_'+tid,from_id:userId,to_id:tid,app_id:app_id,open_id:open_id,timestamp:time,template:template, is_send:0, next_fire:time)
                     //def msg = $$(_id: redpacket_id+'_'+tid,from_id:userId,to_id:tid,timestamp:time,custom_text:customMsg,template:template, is_send:0, next_fire:time)
                     msgs.add(msg)
                 }
