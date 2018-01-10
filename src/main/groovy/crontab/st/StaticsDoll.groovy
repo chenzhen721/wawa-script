@@ -100,7 +100,7 @@ class StaticsDoll {
             def reg_count = catch_record.count($$(q))
             def toy = catch_toy.findOne($$(_id: toyId))
             def log = $$(type:'day',toy_id:toyId, count:count, bingo_count:bingo, user_count:userSet.size(), users:userSet,
-                    reg_count: reg_count, regs: new_user, winrate: toy['winrate'], rate: bingo/count, price: toy['price'], cost: toy['cost'],
+                    reg_count: reg_count, regs: new_user, winrate: toy['winrate'], rate: (bingo/count).toDouble(), price: toy['price'], cost: toy['cost'],
                     stock: toy['stock']['total'] ?: 0, timestamp: begin)
             coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
         }
@@ -209,7 +209,7 @@ class StaticsDoll {
         }
 
         //兑换成积分的娃娃的数量
-        def match = $$(type: 'expire_points', timestamp: [$lt: end], is_delete: [$ne: true])
+        def match = $$(type: 'expire_points', timestamp: [$gte: begin, $lt: end], is_delete: [$ne: true])
         def logids = user_award_logs.distinct('success_log_id', $$(match))
 
         catch_success_log.aggregate([
@@ -240,10 +240,7 @@ class StaticsDoll {
         try{
             long l = System.currentTimeMillis()
             //统计每个娃娃每日抓取人数,抓取次数, 抓中次数,
-            51.times {
-                DAY = it
-                dollStatics(DAY)
-            }
+            dollStatics(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   dollStatics, cost  ${System.currentTimeMillis() - l} ms"
 
             l = System.currentTimeMillis()
@@ -258,10 +255,7 @@ class StaticsDoll {
 
             l = System.currentTimeMillis()
             // 库存统计
-            51.times {
-                DAY = it
-                stockStatics(DAY)
-            }
+            stockStatics(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   stockStatics, cost  ${System.currentTimeMillis() - l} ms"
 
         }catch (Exception e){
