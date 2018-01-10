@@ -493,7 +493,7 @@ class StaticsRegPay {
 
             l = System.currentTimeMillis()
             orderStatics(DAY)
-            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   diamondPresentStatics, cost  ${System.currentTimeMillis() - l} ms"
+            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   orderStatics, cost  ${System.currentTimeMillis() - l} ms"
 
         } catch (Exception e){
             println "Exception : " + e
