@@ -81,7 +81,7 @@ class MsgGenerator {
         genenrate()
         //test()
         println "${MsgGenerator.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms" +
-                "=========================================================================="
+                "\n=========================================================================="
     }
 
     static Long per_end =  System.currentTimeMillis();
