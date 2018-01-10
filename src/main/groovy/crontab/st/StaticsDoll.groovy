@@ -44,7 +44,7 @@ class StaticsDoll {
     static DBCollection catch_record = mongo.getDB('xy_catch').getCollection('catch_record')
     static DBCollection catch_toy = mongo.getDB('xy_catch').getCollection('catch_toy')
     static DBCollection users = mongo.getDB('xy').getCollection('users')
-    static DBCollection catch_success_log = mongo.getDB('xylog').getCollection('catch_success_log')
+    static DBCollection catch_success_log = mongo.getDB('xylog').getCollection('catch_success_logs')
     static DBCollection apply_post_logs = mongo.getDB('xylog').getCollection('apply_post_logs')
     static DBCollection user_award_logs = mongo.getDB('xylog').getCollection('user_award_logs')
 
@@ -100,8 +100,8 @@ class StaticsDoll {
             def reg_count = catch_record.count($$(q))
             def toy = catch_toy.findOne($$(_id: toyId))
             def log = $$(type:'day',toy_id:toyId, count:count, bingo_count:bingo, user_count:userSet.size(), users:userSet,
-                    reg_count: reg_count, regs: new_user, winrate: toy['winrate'], rate: toy['rate'], price: toy['price'], cost: toy['cost'],
-                    stock: toy['stock'], timestamp: begin)
+                    reg_count: reg_count, regs: new_user, winrate: toy['winrate'], rate: (bingo/count).toDouble(), price: toy['price'], cost: toy['cost'],
+                    stock: toy['stock']['total'] ?: 0, timestamp: begin)
             coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
         }
     }
@@ -187,10 +187,10 @@ class StaticsDoll {
         ]).results().each {BasicDBObject obj ->
             def toyId = obj['_id'] as Integer
             def post_count = obj['count'] as Integer //当日邮寄数量
-            def post_total = apply_post_logs.count($$('toy._id': toyId, post_time: [$lt: end])) //总共邮寄数量，消耗
+            def post_total = catch_success_log.count($$('toy._id': toyId, post_time: [$lt: end])) //总共邮寄数量，消耗
             def toy = catch_toy.findOne($$(_id: toyId))
-            def log = $$(type:'day',toy_id:toyId, winrate: toy['winrate'], rate: toy['rate'], price: toy['price'], cost: toy['cost'],
-                    stock: toy['stock'], post_count: post_count, post_total: post_total, timestamp: begin)
+            def log = $$(type:'day',toy_id:toyId, winrate: toy['winrate'], price: toy['price'], cost: toy['cost'],
+                    stock: toy['stock']['total'] ?: 0, post_count: post_count, post_total: post_total, timestamp: begin)
             coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
         }
 
@@ -203,16 +203,16 @@ class StaticsDoll {
             def toyId = obj['_id'] as Integer
             def remaining = obj['count'] as Integer //剩余娃娃
             def toy = catch_toy.findOne($$(_id: toyId))
-            def log = $$(type:'day',toy_id:toyId, winrate: toy['winrate'], rate: toy['rate'], price: toy['price'], cost: toy['cost'],
-                    stock: toy['stock'], remaining: remaining, timestamp: begin)
+            def log = $$(type:'day',toy_id:toyId, winrate: toy['winrate'], price: toy['price'], cost: toy['cost'],
+                    stock: toy['stock']['total'] ?: 0, remaining: remaining, timestamp: begin)
             coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
         }
 
         //兑换成积分的娃娃的数量
-        def match = $$(type: 'expire_points', timestamp: [$lt: end], is_delete: [$ne: true])
+        def match = $$(type: 'expire_points', timestamp: [$gte: begin, $lt: end], is_delete: [$ne: true])
         def logids = user_award_logs.distinct('success_log_id', $$(match))
 
-        user_award_logs.aggregate([
+        catch_success_log.aggregate([
                 $$('$match', [_id: [$in: logids]]),
                 $$('$project', [_id: '$toy._id']),
                 $$('$group', [_id: '$_id', count: [$sum: 1]])
@@ -220,8 +220,8 @@ class StaticsDoll {
             def toyId = obj['_id'] as Integer
             def exchange_count = obj['count'] as Integer //兑换娃娃的个数
             def toy = catch_toy.findOne($$(_id: toyId))
-            def log = $$(type:'day',toy_id:toyId, winrate: toy['winrate'], rate: toy['rate'], price: toy['price'], cost: toy['cost'],
-                    stock: toy['stock'], exchange_count: exchange_count, timestamp: begin)
+            def log = $$(type:'day',toy_id:toyId, winrate: toy['winrate'], price: toy['price'], cost: toy['cost'],
+                    stock: toy['stock']['total'] ?: 0, exchange_count: exchange_count, timestamp: begin)
             coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
         }
     }
