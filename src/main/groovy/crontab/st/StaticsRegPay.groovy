@@ -242,7 +242,7 @@ class StaticsRegPay {
      *
      * @return
      */
-    def diamondPresentStatics(int i, int n) {
+    static diamondPresentStatics(int i, int n) {
         if (n > i) return
         def begin = yesTday - i * DAY_MILLON
         def YMD = new Date(begin).format('yyyyMMdd')
@@ -280,7 +280,7 @@ class StaticsRegPay {
             //用户消耗的钻石数
             diamond_cost_logs.aggregate([
                     $$('$match', [user_id: [$in: regs], timestamp: [$lt: diamondend]]),
-                    $$('$group', [_id: '$type', diamond: [$sum: '$award.diamond']])
+                    $$('$group', [_id: null, diamond: [$sum: '$cost']])
             ]).results().each {BasicDBObject item ->
                 def diamond = item['diamond'] as Integer ?: 0
                 diamond_cost_current = diamond_cost_current + diamond
