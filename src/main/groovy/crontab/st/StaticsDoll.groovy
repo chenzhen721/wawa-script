@@ -179,10 +179,6 @@ class StaticsDoll {
         def YMD = new Date(begin).format('yyyyMMdd')
 
         def query = $$(post_time: [$gte: begin, $lt: end], is_delete: false)
-        println catch_success_log.aggregate([
-                $$('$match', query),
-                $$('$project', [_id: '$toy._id'])
-        ]).results()
         //查询有多少商品需要统计
         catch_success_log.aggregate([
                 $$('$match', query),
