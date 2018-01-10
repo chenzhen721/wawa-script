@@ -414,7 +414,7 @@ class StaticsRegPay {
         //总充值额度
         def finance = stat_daily.findOne("${YMD}_finance".toString())
 
-        def update = $$(timestamp: begin, type: '', total_pay: finance['total'] as Integer ?: 0, postage: postage, goods_cost: goods_cost,
+        def update = $$(timestamp: begin, type: 'order', total_pay: finance['total'] as Integer ?: 0, postage: postage, goods_cost: goods_cost,
                 goods_count: goods_count, total_cost: total_cost, order_count: order_count, user_count: uids.size(), _id: "${YMD}_order".toString())
         stat_daily.update($$(_id: "${YMD}_order".toString()), $$($set: update), true, false)
     }
