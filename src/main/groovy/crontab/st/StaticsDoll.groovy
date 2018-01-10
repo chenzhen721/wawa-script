@@ -44,7 +44,7 @@ class StaticsDoll {
     static DBCollection catch_record = mongo.getDB('xy_catch').getCollection('catch_record')
     static DBCollection catch_toy = mongo.getDB('xy_catch').getCollection('catch_toy')
     static DBCollection users = mongo.getDB('xy').getCollection('users')
-    static DBCollection catch_success_log = mongo.getDB('xylog').getCollection('catch_success_log')
+    static DBCollection catch_success_log = mongo.getDB('xylog').getCollection('catch_success_logs')
     static DBCollection apply_post_logs = mongo.getDB('xylog').getCollection('apply_post_logs')
     static DBCollection user_award_logs = mongo.getDB('xylog').getCollection('user_award_logs')
 
@@ -179,6 +179,10 @@ class StaticsDoll {
         def YMD = new Date(begin).format('yyyyMMdd')
 
         def query = $$(post_time: [$gte: begin, $lt: end], is_delete: false)
+        println catch_success_log.aggregate([
+                $$('$match', query),
+                $$('$project', [_id: '$toy._id'])
+        ]).results()
         //查询有多少商品需要统计
         catch_success_log.aggregate([
                 $$('$match', query),
