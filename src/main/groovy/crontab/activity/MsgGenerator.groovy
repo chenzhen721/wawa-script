@@ -78,7 +78,8 @@ class MsgGenerator {
         Long begin = System.currentTimeMillis()
         genenrate()
         //test()
-        println "${MsgGenerator.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms"
+        println "${MsgGenerator.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms" +
+                "=========================================================================="
     }
     static List<Integer> test_ids = [1352463,1357719]
     static Long per_end =  System.currentTimeMillis();
