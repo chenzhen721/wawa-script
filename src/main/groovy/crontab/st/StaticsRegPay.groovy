@@ -37,11 +37,14 @@ class StaticsRegPay {
     static Long yesTday = zeroMill - DAY_MILLON
     static String YMD = new Date(yesTday).format("yyyyMMdd")
     static DBCollection stat_regpay = mongo.getDB('xy_admin').getCollection('stat_regpay')
+    static DBCollection stat_order = mongo.getDB('xy_admin').getCollection('stat_order')
+    static DBCollection stat_daily = mongo.getDB('xy_admin').getCollection('stat_daily')
     static DBCollection users = mongo.getDB('xy').getCollection('users')
     static DBCollection finance_log_DB = mongo.getDB('xy_admin').getCollection('finance_log')
     static DBCollection day_login = mongo.getDB("xylog").getCollection("day_login")
     static DBCollection diamond_add_logs = mongo.getDB("xylog").getCollection("diamond_add_logs")
     static DBCollection diamond_cost_logs = mongo.getDB("xylog").getCollection("diamond_cost_logs")
+    static DBCollection apply_post_logs = mongo.getDB("xylog").getCollection("apply_post_logs")
 
     /**
      * regs:[] //注册IDs
@@ -373,6 +376,64 @@ class StaticsRegPay {
         return [uids: total_uids, pay_user_count: total_uids.size(), pay_total: total_cny, pay_count: pay_count]
     }
 
+    /**
+     * 订单统计
+     * total_pay: 总营收
+     * total_cost: 总成本
+     * order_count: 寄出单数
+     * goods_count: 商品个数
+     * goods_cost: 商品价值
+     * postage: 快递费用
+     * user_count: 邮寄用户数
+     *
+     * @param i
+     * @return
+     */
+    static orderStatics(int i) {
+        def begin = yesTday - i * DAY_MILLON
+        def end = begin + DAY_MILLON
+        def YMD = new Date(begin).format('yyyyMMdd')
+        int postage = 0, goods_cost = 0, total_cost = 0, order_count = 0, goods_count = 0
+        Set uids = new HashSet()
+        apply_post_logs.find($$(push_time: [$gte: begin, $lt: end])).toArray().each {BasicDBObject obj ->
+            def toys = obj['toys'] as List
+            def count = toys.size()
+            order_count = order_count + 1
+            goods_count = goods_count + count
+            postage = postage + cost(count)
+            toys.each {BasicDBObject toy ->
+                def toy_cost = toy['cost'] as Integer
+                if (toy_cost != null) {
+                    goods_cost = goods_cost + toy_cost
+                }
+            }
+            uids.add(obj['user_id'] as Integer)
+        }
+        total_cost = postage + total_cost
+
+        //总充值额度
+        def finance = stat_daily.findOne("${YMD}_finance".toString())
+
+        def update = $$(timestamp: begin, total_pay: finance['total'] as Integer ?: 0, postage: postage, goods_cost: goods_cost,
+                goods_count: goods_count, total_cost: total_cost, order_count: order_count, user_count: uids.size(), _id: "${YMD}_order".toString())
+        stat_daily.update($$(_id: "${YMD}_order".toString()), $$($set: update), true, false)
+    }
+
+    private static int cost(int count) {
+        if (count <= 2) {
+            return 0
+        }
+        if (count >= 3 && count <= 6) {
+            return 7
+        }
+        if (count >= 6 && count <= 9) {
+            return 14
+        }
+        if (count > 9) {
+            return 21
+        }
+    }
+
     public static BasicDBObject $$(String key, Object value) {
         return new BasicDBObject(key, value);
     }
@@ -428,6 +489,10 @@ class StaticsRegPay {
                     diamondPresentStatics(i, n)
                 }
             }*/
+            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   diamondPresentStatics, cost  ${System.currentTimeMillis() - l} ms"
+
+            l = System.currentTimeMillis()
+            orderStatics(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   diamondPresentStatics, cost  ${System.currentTimeMillis() - l} ms"
 
         } catch (Exception e){
