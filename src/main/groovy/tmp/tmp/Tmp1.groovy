@@ -2,6 +2,7 @@
 package tmp.tmp
 
 import com.mongodb.BasicDBObject
+import com.mongodb.DBCollection
 @Grapes([
         @Grab('org.mongodb:mongo-java-driver:2.14.2'),
         @Grab('commons-lang:commons-lang:2.6'),
@@ -55,15 +56,8 @@ class Tmp1 {
         def finance_log_DB = mongo.getDB('xy_admin').getCollection('finance_log')
         def apply_post_logs = mongo.getDB('xylog').getCollection('apply_post_logs')
         def catch_success_logs = mongo.getDB('xylog').getCollection('catch_success_logs')
-
-        def n = 0
-        apply_post_logs.find($$(push_time: [$exists: true], is_delete: false)).toArray().each {BasicDBObject obj->
-            def toys = obj['toys'] as List
-            def record_ids = obj['record_ids'] as Set
-            n = n + record_ids.size()
-        }
-        println n
-
+        def diamond_cost_logs = mongo.getDB("xylog").getCollection("diamond_cost_logs")
+        def diamond_add_logs = mongo.getDB("xylog").getCollection("diamond_add_logs")
 
 
 
