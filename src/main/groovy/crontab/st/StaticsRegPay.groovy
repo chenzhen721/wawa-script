@@ -250,10 +250,10 @@ class StaticsRegPay {
         def begin = yesTday - i * DAY_MILLON
         def YMD = new Date(begin).format('yyyyMMdd')
         def diamondend = yesTday - (n - 1) * DAY_MILLON
-        def payend = yesTday - (n - 1) * DAY_MILLON
-        def payymd = new Date(payend - DAY_MILLON).format('yyyyMMdd')
+        def payymd = new Date(diamondend - DAY_MILLON).format('yyyyMMdd')
+        println payymd
         Integer diamond_add_total = 0, diamond_user_total = 0, invite_user_total = 0, invite_diamond_total = 0,
-        diamond_cost_total = 0, charge_award_total = 0, admin_add_total = 0
+                diamond_cost_total = 0, charge_award_total = 0, admin_add_total = 0
         //每个渠道数据，然后汇总到总表
         stat_regpay.find($$(type: 'qd', timestamp: begin)).toArray().each { BasicDBObject obj ->
             def regs = obj['regs'] as Set
@@ -349,6 +349,7 @@ class StaticsRegPay {
         update.put("history.${payymd}.diamond_cost_current".toString(), diamond_cost_total)
         update.put("history.${payymd}.charge_award_current".toString(), charge_award_total)
         update.put("history.${payymd}.admin_add_current".toString(), admin_add_total)
+        println update
         stat_regpay.update($$(_id: "${YMD}_regpay".toString()), $$($set: update), false, false)
     }
 
@@ -412,7 +413,7 @@ class StaticsRegPay {
         total_cost = postage + total_cost
 
         //总充值额度
-        def finance = stat_daily.findOne("${YMD}_finance".toString())
+        def finance = stat_daily.findOne("${YMD}_finance".toString()) ?: [:]
 
         def update = $$(timestamp: begin, type: 'order', total_pay: finance['total'] as Integer ?: 0, postage: postage, goods_cost: goods_cost,
                 goods_count: goods_count, total_cost: total_cost, order_count: order_count, user_count: uids.size(), _id: "${YMD}_order".toString())
@@ -447,52 +448,38 @@ class StaticsRegPay {
     static void main(String[] args) {
         try {
             long l = System.currentTimeMillis()
-            regStatics(DAY)
+            //regStatics(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regStatics, cost  ${System.currentTimeMillis() - l} ms"
 
             l = System.currentTimeMillis()
-            [0, 1, 3, 7, 30].each { Integer i ->
+            /*[0, 1, 3, 7, 30].each { Integer i ->
                 [0, 1, 3, 7, 30].each { Integer n ->
-                    regPayStatics(i + DAY, n)
+                    regPayStatics(i + 2, n)
                 }
-            }
+            }*/
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regPayStatics, cost  ${System.currentTimeMillis() - l} ms"
 
             l = System.currentTimeMillis()
-            5.times { Integer i ->
+            /*5.times { Integer i ->
                 regpay_last5(i + DAY, 0)
-            }
-            /*50.times {Integer i ->
-                i.times {Integer n->
-                    regpay_last5(i, n)
-                }
             }*/
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regpay_last5, cost  ${System.currentTimeMillis() - l} ms"
 
             l = System.currentTimeMillis()
-            60.times { Integer i->
+            /*60.times { Integer i->
                 regpay_till_current(i + DAY, 0)
-            }
-            /*50.times {Integer i ->
-                i.times { Integer n->
-                    regpay_till_current(i, n)
-                }
             }*/
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regpay_till_current, cost  ${System.currentTimeMillis() - l} ms"
 
             l = System.currentTimeMillis()
-            60.times { Integer i->
+            /*60.times { Integer i->
                 diamondPresentStatics(i + DAY, 0)
-            }
-            /*50.times {Integer i ->
-                i.times { Integer n->
-                    diamondPresentStatics(i, n)
-                }
             }*/
+            diamondPresentStatics(2, 2)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   diamondPresentStatics, cost  ${System.currentTimeMillis() - l} ms"
 
             l = System.currentTimeMillis()
-            orderStatics(DAY)
+            //orderStatics(DAY)
             println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   orderStatics, cost  ${System.currentTimeMillis() - l} ms"
 
         } catch (Exception e){
