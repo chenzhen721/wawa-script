@@ -20,6 +20,7 @@ import com.mongodb.MongoURI
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import groovy.json.StringEscapeUtils
+import org.apache.commons.codec.binary.Base64
 import org.apache.commons.lang.StringUtils
 import org.apache.commons.lang.math.RandomUtils
 import org.apache.http.HttpEntity
@@ -80,6 +81,8 @@ class MsgGenerator {
         Long begin = System.currentTimeMillis()
         genenrate()
         //test()
+        //TODO 娃娃上新临时调用
+        //scanUserRenewToys("新娃娃1，新娃娃2")
         println "${MsgGenerator.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms" +
                 "\n=========================================================================="
     }
@@ -88,7 +91,9 @@ class MsgGenerator {
     static Long per_begin =  System.currentTimeMillis();
     static String redis_key = "weixin:msg:push:clock:"
 
+    //开始扫描匹配的用户，推送微信模板消息
     static void genenrate(){
+        //获取上次截止时间，作为本次扫描的时间段
         per_end = System.currentTimeMillis();
         per_begin = ((mainRedis.getSet(LAST_SCAN_REDIS_KEY, per_end.toString()) ?: per_end) as Long)
         println "from :${new Date(per_begin).format('yyyy-MM-dd HH:mm:ss')}, to : ${new Date(per_end).format('yyyy-MM-dd HH:mm:ss')} ms"
@@ -110,11 +115,12 @@ class MsgGenerator {
             scanUserPoints()
             println "每周5晚上9点 scanUserPoints :${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms"
         }
-        /*test
+/*
         scanToyExpire(3)
         scanToyExpire(1)
         scanUserPoints()
-        */
+*/
+
         //邀请用户获得钻石
         Long begin = System.currentTimeMillis()
         scanUserInviterAward()
@@ -128,11 +134,11 @@ class MsgGenerator {
 
     static test(){
         test_ids.each {Integer userId ->
-            pushMsg2Queue(userId, new ToyExpireTemplate('宁姐','海绵宝宝', 3))
-            pushMsg2Queue(userId, new PointsExpireTemplate('宁姐', 200))
-            pushMsg2Queue(userId, new InviterTemplate('宁姐','张三', 10, 1515554460000))
-            pushMsg2Queue(userId, new DeliverTemplate('宁姐','海绵宝宝','申通快递','5210213132','上海闵行区合川大厦6m'))
-            pushMsg2Queue(userId, new ToyRenewTemplate('宁姐','海绵宝宝'))
+            pushMsg2Queue(userId, new ToyExpireTemplate(userId, '宁姐','海绵宝宝', 3))
+            pushMsg2Queue(userId, new PointsExpireTemplate(userId, '宁姐', 200))
+            pushMsg2Queue(userId, new InviterTemplate(userId, '宁姐','张三', 10, 1515554460000))
+            pushMsg2Queue(userId, new DeliverTemplate(userId, '宁姐','海绵宝宝','申通快递','5210213132','上海闵行区合川大厦6m'))
+            pushMsg2Queue(userId, new ToyRenewTemplate(userId, '宁姐','海绵宝宝'))
         }
     }
 
@@ -159,7 +165,7 @@ class MsgGenerator {
         userOfDolls.each {Integer userId, Set<String> toys ->
             if(isTest(userId)){
                 //println "${userId} ${getNickName(userId)}: ${toys.join(',')}, ${expireDays}天过期"
-                pushMsg2Queue(userId, new ToyExpireTemplate(getNickName(userId),toys.join(','), expireDays))
+                pushMsg2Queue(userId, new ToyExpireTemplate(userId, getNickName(userId),toys.join(','), expireDays))
             }
         }
     }
@@ -175,7 +181,7 @@ class MsgGenerator {
 
             if(isTest(userId)) {
                 //println "${userId} ${nick_name}: ${points}"
-                pushMsg2Queue(userId, new PointsExpireTemplate(nick_name, points))
+                pushMsg2Queue(userId, new PointsExpireTemplate(userId, nick_name, points))
             }
         }
     }
@@ -192,7 +198,7 @@ class MsgGenerator {
             Long timestamp = user['timestamp'] as Long
             if(isTest(userId)){
                 //println " ${getNickName(userId)} 邀请了: ${getNickName(invitedUId)} 获得:${diamond_count}"
-                pushMsg2Queue(userId, new InviterTemplate(getNickName(userId), getNickName(invitedUId), diamond_count, timestamp))
+                pushMsg2Queue(userId, new InviterTemplate(userId, getNickName(userId), getNickName(invitedUId), diamond_count, timestamp))
             }
         }
     }
@@ -213,7 +219,21 @@ class MsgGenerator {
             toySets.addAll(toys*.name)
             if(isTest(userId)){
                 //println " ${getNickName(userId)} : ${address} 快递信息:${shipping_name} ${shipping_no}, 娃娃: ${toySets.join(',')}"
-                pushMsg2Queue(userId, new DeliverTemplate(getNickName(userId),toySets.join(','),shipping_name,shipping_no,address))
+                pushMsg2Queue(userId, new DeliverTemplate(userId, getNickName(userId),toySets.join(','),shipping_name,shipping_no,address))
+            }
+        }
+    }
+
+    //用户推送娃娃上新提醒
+    static void scanUserRenewToys(String toyNames){
+        def cur = users.find($$("last_login":[$gt: zeroMill - 15 * DAY_MILLION]), $$(nick_name:1)).batchSize(500)
+        while (cur.hasNext()){
+            def user = cur.next()
+            Integer userId = user['_id'] as Integer
+            String nick_name = user['nick_name'] as String
+            if(isTest(userId)) {
+                //println "${userId} ${nick_name}: ${points}"
+                pushMsg2Queue(userId, new ToyRenewTemplate(userId, nick_name,toyNames))
             }
         }
     }
@@ -287,9 +307,6 @@ class MsgGenerator {
             cal.setTimeInMillis(timestamp);
         }
         int hourOfDay = cal.get(Calendar.HOUR_OF_DAY);
-     /*   if (hourOfDay == 0)
-            hourOfDay = 24;*/
-
         return hourOfDay;
     }
 }
@@ -304,8 +321,10 @@ class MsgGenerator {
 class ToyExpireTemplate extends WxTemplate{
     static Map<String,String> template_ids = ['wx45d43a50adf5a470':'64GFNFZVbdvpCT0G5BOBIMPOYkypMSisKkuujc9Cacs', 'wxf64f0972d4922815':'P1nqV2mcWKlNLpCa-IS3A6hpGTiOq_N6cCLC5eyRxE0']
 
-    public ToyExpireTemplate(String nickName, String toyName, Integer day){
+    public ToyExpireTemplate(Integer uid, String nickName, String toyName, Integer day){
         this.path = 'user/center';
+        this.event_id = 'ToyExpire';
+        this.uid = uid;
         this.data["first"] = ['value':"亲爱的${nickName}，您抓到的娃娃要过期啦".toString(),'color':'#173177']
         this.data["keyword1"] = ['value':"${toyName}".toString(),'color':'#173177']
         this.data["keyword2"] = ['value':"${day}天".toString(),'color':'#173177']
@@ -327,8 +346,10 @@ class ToyExpireTemplate extends WxTemplate{
 class PointsExpireTemplate extends WxTemplate{
     static Map<String,String> template_ids = ['wx45d43a50adf5a470':'FKcFyAqMOloOZgxkVleI6GI5eWBLKX0ujqcfLT0uLt0', 'wxf64f0972d4922815':'N73mxREncvMZJfao16nfMtS0nPwZJ0l7MhTPwoGq2fY']
 
-    public PointsExpireTemplate(String nickName, Integer points){
+    public PointsExpireTemplate(Integer uid, String nickName, Integer points){
         this.path = 'user/center';
+        this.event_id = 'PointsExpire';
+        this.uid = uid;
         this.data["first"] = ['value':"",'color':'#173177']
         this.data["FieldName"] = ['value':nickName,'color':'#173177']
         this.data["Account"] = ['value':"您的积分余额已满足兑换条件咯",'color':'#173177']
@@ -355,8 +376,10 @@ class PointsExpireTemplate extends WxTemplate{
 class InviterTemplate extends WxTemplate{
     static Map<String,String> template_ids = ['wx45d43a50adf5a470':'9Szzu0vCp1XDz8mS51BM8BClv4XeQuBUXJ-CBvGbgCM', 'wxf64f0972d4922815':'YQa06vsqhXGTio3jNpSKdPdWTInMJH1Aizpe7HjeUh0']
 
-    public InviterTemplate(String nickName, String invitorName, Integer diamond, Long registerTime){
+    public InviterTemplate(Integer uid, String nickName, String invitorName, Integer diamond, Long registerTime){
         this.path = 'user/center';
+        this.event_id = 'Inviter';
+        this.uid = uid;
         this.data["first"] = ['value':"${nickName}，您的好友通过您的邀请，加入阿喵抓娃娃，您获得${diamond}钻石！".toString(),'color':'#173177']
         this.data["keyword1"] = ['value':"${invitorName}".toString(),'color':'#173177']
         this.data["keyword2"] = ['value':"${new Date(registerTime).format('yyyy-MM-dd')}".toString(),'color':'#173177']
@@ -380,8 +403,10 @@ class InviterTemplate extends WxTemplate{
  */
 class DeliverTemplate extends WxTemplate{
     static Map<String,String> template_ids = ['wx45d43a50adf5a470':'JoEnK4uR1tGlKpFNwWaqHDw4hVSMu5qDwxuHNf93gwk', 'wxf64f0972d4922815':'DKsQMNCC8CkwDcaCoZaQU2wyMTpEUiuYfe_5LZ3URpE']
-    public DeliverTemplate(String nickName, String toyName, String comName, String no, String address){
+    public DeliverTemplate(Integer uid, String nickName, String toyName, String comName, String no, String address){
         this.path = '';
+        this.event_id = 'DeliverInfo';
+        this.uid = uid;
         this.data["first"] = ['value':"亲爱的${nickName}，您申请的商品已经寄出，请注意查收！".toString(),'color':'#173177']
         this.data["keyword1"] = ['value':"${toyName}".toString(),'color':'#173177']
         this.data["keyword2"] = ['value':"${comName}".toString(),'color':'#173177']
@@ -404,8 +429,10 @@ class DeliverTemplate extends WxTemplate{
  */
 class ToyRenewTemplate extends WxTemplate{
     static Map<String,String> template_ids = ['wx45d43a50adf5a470':'ktMO_XUO3BeWrPeXiVTTx_gmTGOqTdelt4YpZA-gqRI', 'wxf64f0972d4922815':'eAZMbdfp072nYir240cyU1Pr4p1w3d6B5VtpIs71B2s']
-    public ToyRenewTemplate(String nickName, String toyName){
+    public ToyRenewTemplate(Integer uid, String nickName, String toyName){
         this.path = '';
+        this.uid = uid;
+        this.event_id = 'ToyRenew';
         this.data["first"] = ['value':"${nickName}，新娃娃已经到货了。".toString(),'color':'#173177']
         this.data["keyword1"] = ['value':"暂无",'color':'#173177']
         this.data["keyword2"] = ['value':"${toyName}".toString(),'color':'#173177']
@@ -421,13 +448,20 @@ abstract class WxTemplate{
     protected String url;
     protected String path;
     protected Map data = new HashMap();
-    protected static Map<String,String> domain_ids = ['wx45d43a50adf5a470':'http://www.17laihou.com/', 'wxf64f0972d4922815':'http://aochu.17laihou.com/']
+    protected String event_id;
+    protected Integer uid;
+    protected static final String STATIC_API_URL = "http://aochu-api.17laihou.com/statistic/weixin_template";
+    protected static Map<String,String> DOMAIN_IDS = ['wx45d43a50adf5a470':'http://www.17laihou.com/', 'wxf64f0972d4922815':'http://aochu.17laihou.com/']
 
     public String getId(){return this.id}
     public String getUrl(){return this.url}
     public Map getData(){return this.data}
+
     public Map generate(String appId){
-        return ['id': this.getTemplateId(appId), url:domain_ids[appId] + path, data:this.getData()];
+        String redirect = DOMAIN_IDS[appId] + path;
+        String trace_id = "${event_id}_${uid}_${System.currentTimeMillis()}".toString()
+        String url = STATIC_API_URL+"?event=${event_id}&uid=${uid}&trace_id=${trace_id}&redirect_url=${URLEncoder.encode(redirect, "UTF-8")}".toString()
+        return ['id': this.getTemplateId(appId), url:url, data:this.getData()];
     }
     protected abstract String getTemplateId(String appId);
 }
