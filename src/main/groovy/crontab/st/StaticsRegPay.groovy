@@ -251,7 +251,7 @@ class StaticsRegPay {
         def YMD = new Date(begin).format('yyyyMMdd')
         def diamondend = yesTday - (n - 1) * DAY_MILLON
         def payymd = new Date(diamondend - DAY_MILLON).format('yyyyMMdd')
-        println payymd
+
         Integer diamond_add_total = 0, diamond_user_total = 0, invite_user_total = 0, invite_diamond_total = 0,
                 diamond_cost_total = 0, charge_award_total = 0, admin_add_total = 0
         //每个渠道数据，然后汇总到总表
@@ -349,7 +349,7 @@ class StaticsRegPay {
         update.put("history.${payymd}.diamond_cost_current".toString(), diamond_cost_total)
         update.put("history.${payymd}.charge_award_current".toString(), charge_award_total)
         update.put("history.${payymd}.admin_add_current".toString(), admin_add_total)
-        println update
+
         stat_regpay.update($$(_id: "${YMD}_regpay".toString()), $$($set: update), false, false)
     }
 
