@@ -75,7 +75,7 @@ class MsgGenerator {
     }
 
     static List<Integer> test_ids = [1352463, 1357719, 1202904, 1351843]
-    static Boolean test = Boolean.TRUE
+    static Boolean test = Boolean.FALSE
 
     static void main(String[] args) {
         Long begin = System.currentTimeMillis()
@@ -99,12 +99,12 @@ class MsgGenerator {
         println "from :${new Date(per_begin).format('yyyy-MM-dd HH:mm:ss')}, to : ${new Date(per_end).format('yyyy-MM-dd HH:mm:ss')} ms"
 
         Long now = System.currentTimeMillis()
-        //过期娃娃提醒 剩三天 每天晚上6点
+        //过期娃娃提醒 剩三天和剩余一天 每天晚上6点
         if(getHourOfDay(now).equals(18)
                 && mainRedis.sadd(redis_key+'toyexpire',new Date(now).format('yyyy-MM-dd')) == 1){
             Long begin = System.currentTimeMillis()
-            scanToyExpire(3)
             scanToyExpire(1)
+            scanToyExpire(3)
             println "每天晚上6点 scanToyExpire :${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms"
         }
 
@@ -145,6 +145,7 @@ class MsgGenerator {
 
     //过期时间10天
     static Integer EXPIRE_DAYS = 10
+    static Set<Integer> alreadyPushUsers = new HashSet<>()
     //扫描快过期娃娃
     static scanToyExpire(Integer expireDays){
         Long begin = zeroMill - ((EXPIRE_DAYS-expireDays) * DAY_MILLION)
@@ -163,7 +164,7 @@ class MsgGenerator {
             toys.add(toy)
         }
         userOfDolls.each {Integer userId, Set<String> toys ->
-            if(isTest(userId)){
+            if(isTest(userId) && alreadyPushUsers.add(userId)){
                 //println "${userId} ${getNickName(userId)}: ${toys.join(',')}, ${expireDays}天过期"
                 pushMsg2Queue(userId, new ToyExpireTemplate(userId, getNickName(userId),toys.join(','), expireDays))
             }
