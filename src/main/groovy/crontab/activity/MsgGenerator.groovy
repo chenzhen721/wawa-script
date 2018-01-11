@@ -305,7 +305,7 @@ class ToyExpireTemplate extends WxTemplate{
     static Map<String,String> template_ids = ['wx45d43a50adf5a470':'64GFNFZVbdvpCT0G5BOBIMPOYkypMSisKkuujc9Cacs', 'wxf64f0972d4922815':'P1nqV2mcWKlNLpCa-IS3A6hpGTiOq_N6cCLC5eyRxE0']
 
     public ToyExpireTemplate(String nickName, String toyName, Integer day){
-        this.path = '/user/center';
+        this.path = 'user/center';
         this.data["first"] = ['value':"亲爱的${nickName}，您抓到的娃娃要过期啦".toString(),'color':'#173177']
         this.data["keyword1"] = ['value':"${toyName}".toString(),'color':'#173177']
         this.data["keyword2"] = ['value':"${day}天".toString(),'color':'#173177']
@@ -328,7 +328,7 @@ class PointsExpireTemplate extends WxTemplate{
     static Map<String,String> template_ids = ['wx45d43a50adf5a470':'FKcFyAqMOloOZgxkVleI6GI5eWBLKX0ujqcfLT0uLt0', 'wxf64f0972d4922815':'N73mxREncvMZJfao16nfMtS0nPwZJ0l7MhTPwoGq2fY']
 
     public PointsExpireTemplate(String nickName, Integer points){
-        this.path = '/user/center';
+        this.path = 'user/center';
         this.data["first"] = ['value':"",'color':'#173177']
         this.data["FieldName"] = ['value':nickName,'color':'#173177']
         this.data["Account"] = ['value':"您的积分余额已满足兑换条件咯",'color':'#173177']
@@ -356,7 +356,7 @@ class InviterTemplate extends WxTemplate{
     static Map<String,String> template_ids = ['wx45d43a50adf5a470':'9Szzu0vCp1XDz8mS51BM8BClv4XeQuBUXJ-CBvGbgCM', 'wxf64f0972d4922815':'YQa06vsqhXGTio3jNpSKdPdWTInMJH1Aizpe7HjeUh0']
 
     public InviterTemplate(String nickName, String invitorName, Integer diamond, Long registerTime){
-        this.path = '/user/center';
+        this.path = 'user/center';
         this.data["first"] = ['value':"${nickName}，您的好友通过您的邀请，加入阿喵抓娃娃，您获得${diamond}钻石！".toString(),'color':'#173177']
         this.data["keyword1"] = ['value':"${invitorName}".toString(),'color':'#173177']
         this.data["keyword2"] = ['value':"${new Date(registerTime).format('yyyy-MM-dd')}".toString(),'color':'#173177']
