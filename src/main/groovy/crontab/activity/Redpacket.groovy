@@ -141,6 +141,7 @@ class Redpacket {
 
     static Map<String,String> TEMPLATE_IDS = ['wx45d43a50adf5a470':'pedgM13fkPvhs6E0LV6ew-8E9ociJuRpnrTso-TlZH4', 'wxf64f0972d4922815':'Ie5KJJ7UhNAowE6MHqY_8S3GTNLt85BSr6NgOlwa2Uw']
     static Map<String,String> DOMAIN_IDS = ['wx45d43a50adf5a470':'http://www.17laihou.com/', 'wxf64f0972d4922815':'http://aochu.17laihou.com/']
+    static final String STATIC_API_URL = "http://aochu-api.17laihou.com/statistic/weixin_template";
     static final String path = 'activity/packet'
     static final String wx_pic_url = 'https://mmbiz.qpic.cn/mmbiz_png/kGE3RectqDwSvWBwjb6OJeSoCcjN7IhuJqsBd50UFqjulmmYdVADeMVAibtUhhmAkQFElCRiclxL8RpynXUSyXoA/0?wx_fmt=png'
     //添加到微信待发送消息队列
@@ -167,7 +168,10 @@ class Redpacket {
                 weixin.each {String app_id, String open_id ->
                     //模板消息
                     def template = $$(id:TEMPLATE_IDS[app_id])
-                    template['url'] = DOMAIN_IDS[app_id]+path + "?packet_id=${redpacket_id}".toString()
+                    String redirect = DOMAIN_IDS[app_id]+path + "?packet_id=${redpacket_id}".toString()
+                    String trace_id = "redpacket_${tid}_${System.currentTimeMillis()}".toString()
+                    String url = STATIC_API_URL+"?event=redpacket&uid=${tid}&trace_id=${trace_id}&redirect_url=${URLEncoder.encode(redirect, "UTF-8")}".toString()
+                    template['url'] = url
                     def data = new HashMap();
                     data['first'] = ['value':"哇!好友${nickname}抓中了娃娃，特来给您发钻石拉，赶紧抢了钻石去抓娃娃。".toString(),'color':'#173177']
                     data['keyword1'] = ['value':'100钻石','color':'#173177']
