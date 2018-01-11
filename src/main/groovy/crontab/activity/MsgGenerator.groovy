@@ -110,7 +110,11 @@ class MsgGenerator {
             scanUserPoints()
             println "每周5晚上9点 scanUserPoints :${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms"
         }
-
+        /*test
+        scanToyExpire(3)
+        scanToyExpire(1)
+        scanUserPoints()
+        */
         //邀请用户获得钻石
         Long begin = System.currentTimeMillis()
         scanUserInviterAward()
@@ -151,7 +155,6 @@ class MsgGenerator {
                 userOfDolls.put(userId, toys)
             }
             toys.add(toy)
-            println "userId : ${new Date(timestamp).format('yyyy-MM-dd HH:mm:ss')}".toString()
         }
         userOfDolls.each {Integer userId, Set<String> toys ->
             if(isTest(userId)){
@@ -229,7 +232,6 @@ class MsgGenerator {
     static pushMsg2Queue(Integer to_uid, WxTemplate wxTemplate){
         //获取用户appid和openid
         def user = xy_users.findOne($$(mm_no:to_uid.toString()), $$(weixin:1))
-        println user
         if(user == null) {
             return
         }
