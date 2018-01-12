@@ -35,6 +35,9 @@ import org.apache.http.util.EntityUtils
 import redis.clients.jedis.Jedis
 
 import java.text.SimpleDateFormat
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
 class WeixinMessage {
 
@@ -50,8 +53,6 @@ class WeixinMessage {
     static mainRedis = new Jedis(jedis_host, main_jedis_port)
 
     static Map<String,String> APP_ID_SECRETS = ['wx45d43a50adf5a470':'40e8dc2daac9f04bfbac32a64eb6dfff', 'wxf64f0972d4922815':'fbf4fd32c00a82d5cbe5161c5e699a0e']
-    static Map<String,String> TEMPLATE_IDS = ['wx45d43a50adf5a470':'pedgM13fkPvhs6E0LV6ew-8E9ociJuRpnrTso-TlZH4', 'wxf64f0972d4922815':'Ie5KJJ7UhNAowE6MHqY_8S3GTNLt85BSr6NgOlwa2Uw']
-    static Map<String,String> DOMAIN_IDS = ['wx45d43a50adf5a470':'http://www.17laihou.com/', 'wxf64f0972d4922815':'http://aochu.17laihou.com/']
     static String WEIXIN_URL = 'https://api.weixin.qq.com/cgi-bin/'
     static Integer requestCount = 0
     static Integer successCount = 0
@@ -88,27 +89,33 @@ class WeixinMessage {
 
     static void sendMessage(){
         Long now = System.currentTimeMillis()
-        def cur = weixin_msg.find($$(is_send : 0, 'next_fire': [$lte: now])).batchSize(10)
+        def cur = weixin_msg.find($$(is_send : 0, 'next_fire': [$lte: now])).batchSize(1000)
         while (cur.hasNext()) {
             def row = cur.next()
-            String appId = row['app_id'] as String
-            String openId = row['open_id'] as String
+            final String appId = row['app_id'] as String
+            final String openId = row['open_id'] as String
             if(openId == null || appId == null) return
-            Integer error = -1
-            def template = row['template'] as DBObject
-            if(template != null){
-                error = sendTemplateMsg(template, openId, appId)
-            }
-            requestCount++
-            if (error == 0) {
-                successCount++
-                row['success_send'] = 1;
-            }
-            row['send_time'] = now;
-            row['is_send'] = 1;
-            weixin_msg.save(row)
-        }
+            threadPool.execute(new Runnable() {
+                @Override
+                void run() {
+                    Integer error = -1
+                    def template = row['template'] as DBObject
+                    if(template != null){
+                        error = sendTemplateMsg(template, openId, appId)
+                    }
+                    requestCount++
+                    if (error == 0) {
+                        successCount++
+                        row['success_send'] = 1;
+                    }
+                    row['send_time'] = now;
+                    row['is_send'] = 1;
+                    weixin_msg.save(row)
+                }
+            })
 
+        }
+        threadPool.shutdown();
     }
 
     static String getOpenIdByUid(String appId, Integer uid){
@@ -195,7 +202,7 @@ class WeixinMessage {
         map.put('data', template['data'] as Map)
         Map params = new HashMap()
         params.put('sendObj', map)
-        Map respMap = this.postWX('POST', requestUrl, params, appId)
+        Map respMap = postWX('POST', requestUrl, params, appId)
         Integer error = respMap['errcode'] as Integer
         println "sendTemplateMsg:" + respMap
         return error
@@ -212,7 +219,7 @@ class WeixinMessage {
         if (access_token == null) {
             requestUrl += '?grant_type=client_credential&appid=' + appId + '&secret=' + APP_ID_SECRETS[appId]
             println requestUrl
-            Map respMap = this.postWX('GET', requestUrl, new HashMap(), appId)
+            Map respMap = postWX('GET', requestUrl, new HashMap(), appId)
             println respMap
             String errcode = respMap['errcode']
             access_token = respMap['access_token']
@@ -285,6 +292,10 @@ class WeixinMessage {
         return httpClient
     }
 
+    static final ThreadPoolExecutor threadPool =
+            new ThreadPoolExecutor(1, 10,
+                    60L, TimeUnit.SECONDS,
+                    new LinkedBlockingQueue<Runnable>()) ;
     /**
      * @return
      */
