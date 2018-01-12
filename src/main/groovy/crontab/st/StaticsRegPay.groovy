@@ -412,7 +412,7 @@ class StaticsRegPay {
                 }
                 def toy_cost = catch_toy.findOne($$(_id: toy['_id'] as Integer), $$(cost: 1))
                 if (toy_cost != null) {
-                    total_cost = total_cost + (toy_cost as Integer)
+                    total_cost = total_cost + (toy_cost['cost'] as Integer)
                 }
             }
             uids.add(obj['user_id'] as Integer)
