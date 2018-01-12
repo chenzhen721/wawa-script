@@ -245,12 +245,14 @@ class UserBehaviorStatic {
     static DBCollection red_packets = mongo.getDB('xy_activity').getCollection('red_packets')
     //红包相关数据统计 产生红包数/发送用户人数/领取红包人数/领取后抓取人数/领取后充值人数/充值金额
     static void redpacketData(){
-        Long begin = Date.parse("yyyy-MM-dd HH:mm:ss","2018-01-05 00:00:00").getTime()
+        Long begin = Date.parse("yyyy-MM-dd HH:mm:ss","2018-01-08 00:00:00").getTime()
         Integer packets = red_packets.count($$(user_id:[$gt:0],timestamp:[$gte:begin]))
         def msgs = weixin_msgs.distinct("to_id", $$(success_send:1,timestamp:[$gte:begin])).size()
         def cur = diamond_add_logs.find($$(type:"diamondpacket_reward",timestamp:[$gte:begin])).batchSize(10)
         Integer userCount = 0
         Integer userCatchCount = 0
+        Integer userCatchGotCount = 0
+        Integer userCatchGotpayCount = 0
         Integer payUserCount = 0
         Integer payCount = 0
         Long totalAward = 0
@@ -266,9 +268,15 @@ class UserBehaviorStatic {
                 if(catch_record.count($$($$(user_id:userId, timestamp:[$gt:timestamp]))) > 0){
                     userCatchCount++;
                 }
+                Boolean catched = catch_record.count($$($$(user_id:userId, status:true,timestamp:[$gt:timestamp]))) > 0
+                if(catched){
+                    userCatchGotCount++;
+                }
                 Long end = timestamp + 24 * 60 * 60 *1000l
                 if(finance_log.count($$($$(user_id:userId,via: [$ne: 'Admin'], timestamp:[$gt:timestamp, $lt:end]))) > 0){
                     payUserCount++;
+                    if(catched)
+                        userCatchGotpayCount++
                 }
                 List<Integer> cnys = finance_log.find($$(user_id:userId,via: [$ne: 'Admin'], timestamp:[$gt:timestamp])).toArray()*.cny
                 if(cnys != null && cnys.size() >0){
@@ -278,8 +286,8 @@ class UserBehaviorStatic {
             }
 
         }
-        println " 产生红包数:${packets}\t发送用户人数:${msgs}\t领取红包人数: ${userCount}\t领取钻石: ${totalAward}\t领取后抓取人数: ${userCatchCount}" +
-                "\t领取后24小时内充值人数: ${payUserCount}\t充值金额: ${payCount}"
+        println "抓中娃娃推送好友红包>>  本周 >> 推送用户数:${msgs}\t 领取红包人数: ${userCount}\t领取钻石: ${totalAward}\t领取后抓取人数: ${userCatchCount}" +
+                "\t抓中人数: ${userCatchGotCount}\t抓中后24小时内充值人数: ${userCatchGotpayCount} \t领取后24小时内充值人数: ${payUserCount}\t充值金额: ${payCount}"
     }
 
     static Integer totalPay(Integer userId){
@@ -312,8 +320,8 @@ class UserBehaviorStatic {
         //抓取行为
         //staticsCatchUser()
         //邮寄用户
-        staticsDeliverUserOfPay()
-        //redpacketData();
+        //staticsDeliverUserOfPay()
+        redpacketData();
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   UserBehaviorStatic, cost  ${System.currentTimeMillis() - l} ms"
     }
 

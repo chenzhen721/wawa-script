@@ -39,7 +39,7 @@ import redis.clients.jedis.Jedis
 import java.text.SimpleDateFormat
 
 /**
- * 用户抓中娃娃推送好友红包
+ * 微信模板消息生成
  */
 class MsgGenerator {
 
@@ -81,8 +81,6 @@ class MsgGenerator {
         Long begin = System.currentTimeMillis()
         genenrate()
         //test()
-        //TODO 娃娃上新临时调用
-        //scanUserRenewToys("新娃娃1，新娃娃2")
         println "${MsgGenerator.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms" +
                 "\n=========================================================================="
     }
@@ -134,11 +132,11 @@ class MsgGenerator {
 
     static test(){
         test_ids.each {Integer userId ->
-            pushMsg2Queue(userId, new ToyExpireTemplate(userId, '宁姐','海绵宝宝', 3))
-            pushMsg2Queue(userId, new PointsExpireTemplate(userId, '宁姐', 200))
-            pushMsg2Queue(userId, new InviterTemplate(userId, '宁姐','张三', 10, 1515554460000))
-            pushMsg2Queue(userId, new DeliverTemplate(userId, '宁姐','海绵宝宝','申通快递','5210213132','上海闵行区合川大厦6m'))
-            pushMsg2Queue(userId, new ToyRenewTemplate(userId, '宁姐','海绵宝宝'))
+            //pushMsg2Queue(userId, new ToyExpireTemplate(userId, '宁姐','海绵宝宝', 3))
+            //pushMsg2Queue(userId, new PointsExpireTemplate(userId, '宁姐', 200))
+            //pushMsg2Queue(userId, new InviterTemplate(userId, '宁姐','张三', 10, 1515554460000))
+            //pushMsg2Queue(userId, new DeliverTemplate(userId, '宁姐','海绵宝宝','申通快递','5210213132','上海闵行区合川大厦6m'))
+            pushMsg2Queue(userId, new ToyRenewTemplate(userId, '兄弟','王者荣耀梦奇布偶、王者荣耀288皮肤','点击详情查看，抓王者荣耀劲爆新品~'))
         }
     }
 
@@ -226,7 +224,7 @@ class MsgGenerator {
     }
 
     //用户推送娃娃上新提醒
-    static void scanUserRenewToys(String toyNames){
+    static void scanUserRenewToys(String toyNames, String remark){
         def cur = users.find($$("last_login":[$gt: zeroMill - 15 * DAY_MILLION]), $$(nick_name:1)).batchSize(500)
         while (cur.hasNext()){
             def user = cur.next()
@@ -234,7 +232,7 @@ class MsgGenerator {
             String nick_name = user['nick_name'] as String
             if(isTest(userId)) {
                 //println "${userId} ${nick_name}: ${points}"
-                pushMsg2Queue(userId, new ToyRenewTemplate(userId, nick_name,toyNames))
+                pushMsg2Queue(userId, new ToyRenewTemplate(userId, nick_name, toyNames, remark))
             }
         }
     }
@@ -430,14 +428,14 @@ class DeliverTemplate extends WxTemplate{
  */
 class ToyRenewTemplate extends WxTemplate{
     static Map<String,String> template_ids = ['wx45d43a50adf5a470':'ktMO_XUO3BeWrPeXiVTTx_gmTGOqTdelt4YpZA-gqRI', 'wxf64f0972d4922815':'eAZMbdfp072nYir240cyU1Pr4p1w3d6B5VtpIs71B2s']
-    public ToyRenewTemplate(Integer uid, String nickName, String toyName){
+    public ToyRenewTemplate(Integer uid, String nickName, String toyName, String remark){
         this.path = '';
         this.uid = uid;
         this.event_id = 'ToyRenew';
-        this.data["first"] = ['value':"${nickName}，新娃娃已经到货了。".toString(),'color':'#173177']
+        this.data["first"] = ['value':"${nickName}，有新商品上线啦!".toString(),'color':'#173177']
         this.data["keyword1"] = ['value':"暂无",'color':'#173177']
         this.data["keyword2"] = ['value':"${toyName}".toString(),'color':'#173177']
-        this.data["remark"] = ['value':"点击详情，立即查看新娃娃",'color':'#173177']
+        this.data["remark"] = ['value':remark,'color':'#173177']
     }
     public String getTemplateId(String appId){
         return template_ids[appId]
