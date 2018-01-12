@@ -46,6 +46,7 @@ class UserBehaviorStatic {
     static DBCollection finance_log  = mongo.getDB('xy_admin').getCollection('finance_log')
     static DBCollection catch_record = mongo.getDB('xy_catch').getCollection('catch_record')
     static DBCollection invitor_logs = mongo.getDB('xylog').getCollection('invitor_logs')
+    static DBCollection event_logs = mongo.getDB('xylog').getCollection('event_logs')
     static DBCollection apply_post_logs = mongo.getDB('xylog').getCollection('apply_post_logs')
 
     static class CatchRateUser {
@@ -244,29 +245,28 @@ class UserBehaviorStatic {
     static DBCollection  diamond_add_logs = mongo.getDB('xylog').getCollection('diamond_add_logs')
     static DBCollection red_packets = mongo.getDB('xy_activity').getCollection('red_packets')
     //红包相关数据统计 产生红包数/发送用户人数/领取红包人数/领取后抓取人数/领取后充值人数/充值金额
-    static void redpacketData(){
-        Long begin = Date.parse("yyyy-MM-dd HH:mm:ss","2018-01-08 00:00:00").getTime()
-        Integer packets = red_packets.count($$(user_id:[$gt:0],timestamp:[$gte:begin]))
-        def msgs = weixin_msgs.distinct("to_id", $$(success_send:1,timestamp:[$gte:begin])).size()
-        def cur = diamond_add_logs.find($$(type:"diamondpacket_reward",timestamp:[$gte:begin])).batchSize(10)
+    static void msgPushStatistic(String eventName, String eventId){
+        Long begin = Date.parse("yyyy-MM-dd HH:mm:ss","2018-01-12 00:00:00").getTime()
+        def msgs = weixin_msgs.distinct("to_id", $$(success_send:1,timestamp:[$gte:begin],'template.data.remark.value':'点击详情查看，抓王者荣耀劲爆新品~')).size()
+        def cur = event_logs.find($$(event:eventId,timestamp:[$gte:begin])).batchSize(10)
         Integer userCount = 0
         Integer userCatchCount = 0
+        Integer catchCountTotal = 0
         Integer userCatchGotCount = 0
         Integer userCatchGotpayCount = 0
         Integer payUserCount = 0
         Integer payCount = 0
-        Long totalAward = 0
         Set<Integer> users =new HashSet<>();
         while (cur.hasNext()) {
             def row = cur.next()
             Integer userId = row['user_id'] as Integer
-            Long award = (row['award'] as Map)["diamond"] as Long
             Long timestamp = row['timestamp'] as Long
-            totalAward += award
             if(users.add(userId)){
                 userCount++;
-                if(catch_record.count($$($$(user_id:userId, timestamp:[$gt:timestamp]))) > 0){
+                Long catchCount = catch_record.count($$($$(user_id:userId, timestamp:[$gt:timestamp])));
+                if(catchCount > 0){
                     userCatchCount++;
+                    catchCountTotal += catchCount
                 }
                 Boolean catched = catch_record.count($$($$(user_id:userId, status:true,timestamp:[$gt:timestamp]))) > 0
                 if(catched){
@@ -280,14 +280,13 @@ class UserBehaviorStatic {
                 }
                 List<Integer> cnys = finance_log.find($$(user_id:userId,via: [$ne: 'Admin'], timestamp:[$gt:timestamp])).toArray()*.cny
                 if(cnys != null && cnys.size() >0){
-                    println "${userId}:${ cnys.sum() as Integer}"
                     payCount += cnys.sum() as Integer
                 }
             }
 
         }
-        println "抓中娃娃推送好友红包>>  本周 >> 推送用户数:${msgs}\t 领取红包人数: ${userCount}\t领取钻石: ${totalAward}\t领取后抓取人数: ${userCatchCount}" +
-                "\t抓中人数: ${userCatchGotCount}\t抓中后24小时内充值人数: ${userCatchGotpayCount} \t领取后24小时内充值人数: ${payUserCount}\t充值金额: ${payCount}"
+        println "${eventName}推送 >> 推送用户数:${msgs}\t 点击人数: ${userCount}\t抓取人数: ${userCatchCount}\t抓取次数: ${catchCountTotal}" +
+                " \t充值人数: ${payUserCount}\t总充值金额: ${payCount} 元\t抓中人数: ${userCatchGotCount}\t抓中后充值人数: ${userCatchGotpayCount}"
     }
 
     static Integer totalPay(Integer userId){
@@ -321,7 +320,7 @@ class UserBehaviorStatic {
         //staticsCatchUser()
         //邮寄用户
         //staticsDeliverUserOfPay()
-        redpacketData();
+        msgPushStatistic('上新商品','ToyRenew');
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   UserBehaviorStatic, cost  ${System.currentTimeMillis() - l} ms"
     }
 
