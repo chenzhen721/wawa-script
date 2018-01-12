@@ -45,6 +45,8 @@ class StaticsRegPay {
     static DBCollection diamond_add_logs = mongo.getDB("xylog").getCollection("diamond_add_logs")
     static DBCollection diamond_cost_logs = mongo.getDB("xylog").getCollection("diamond_cost_logs")
     static DBCollection apply_post_logs = mongo.getDB("xylog").getCollection("apply_post_logs")
+    static DBCollection catch_record = mongo.getDB("xy_catch").getCollection("catch_record")
+    static DBCollection catch_toy = mongo.getDB("xy_catch").getCollection("catch_toy")
 
     /**
      * regs:[] //注册IDs
@@ -403,14 +405,19 @@ class StaticsRegPay {
             goods_count = goods_count + count
             postage = postage + cost(count)
             toys.each {BasicDBObject toy ->
-                def toy_cost = toy['cost'] as Integer
-                if (toy_cost != null) {
-                    goods_cost = goods_cost + toy_cost
+                def record_id = toy['record_id'] as Integer
+                def record = catch_record.findOne($$(_id: record_id), $$(cost: 1))
+                if (record != null) {
+                    goods_cost = goods_cost + (record['cost'] as Integer)
                 }
+                /*def toy_cost = catch_toy.findOne($$(_id: toy['_id'] as Integer), $$(cost: 1))
+                if (toy_cost != null) {
+                    total_cost = total_cost + (toy_cost['cost'] as Integer)
+                }*/
             }
             uids.add(obj['user_id'] as Integer)
         }
-        total_cost = postage + total_cost
+        total_cost = postage + goods_cost
 
         //总充值额度
         def finance = stat_daily.findOne("${YMD}_finance".toString()) ?: [:]
@@ -427,7 +434,7 @@ class StaticsRegPay {
         if (count >= 3 && count <= 6) {
             return 7
         }
-        if (count >= 6 && count <= 9) {
+        if (count > 6 && count <= 9) {
             return 14
         }
         if (count > 9) {
