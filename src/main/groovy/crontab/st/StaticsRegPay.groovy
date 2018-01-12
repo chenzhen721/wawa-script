@@ -250,10 +250,10 @@ class StaticsRegPay {
         def begin = yesTday - i * DAY_MILLON
         def YMD = new Date(begin).format('yyyyMMdd')
         def diamondend = yesTday - (n - 1) * DAY_MILLON
-        def payend = yesTday - (n - 1) * DAY_MILLON
-        def payymd = new Date(payend - DAY_MILLON).format('yyyyMMdd')
+        def payymd = new Date(diamondend - DAY_MILLON).format('yyyyMMdd')
+
         Integer diamond_add_total = 0, diamond_user_total = 0, invite_user_total = 0, invite_diamond_total = 0,
-        diamond_cost_total = 0, charge_award_total = 0, admin_add_total = 0
+                diamond_cost_total = 0, charge_award_total = 0, admin_add_total = 0
         //每个渠道数据，然后汇总到总表
         stat_regpay.find($$(type: 'qd', timestamp: begin)).toArray().each { BasicDBObject obj ->
             def regs = obj['regs'] as Set
@@ -349,6 +349,7 @@ class StaticsRegPay {
         update.put("history.${payymd}.diamond_cost_current".toString(), diamond_cost_total)
         update.put("history.${payymd}.charge_award_current".toString(), charge_award_total)
         update.put("history.${payymd}.admin_add_current".toString(), admin_add_total)
+
         stat_regpay.update($$(_id: "${YMD}_regpay".toString()), $$($set: update), false, false)
     }
 
@@ -412,7 +413,7 @@ class StaticsRegPay {
         total_cost = postage + total_cost
 
         //总充值额度
-        def finance = stat_daily.findOne("${YMD}_finance".toString())
+        def finance = stat_daily.findOne("${YMD}_finance".toString()) ?: [:]
 
         def update = $$(timestamp: begin, type: 'order', total_pay: finance['total'] as Integer ?: 0, postage: postage, goods_cost: goods_cost,
                 goods_count: goods_count, total_cost: total_cost, order_count: order_count, user_count: uids.size(), _id: "${YMD}_order".toString())
@@ -462,7 +463,7 @@ class StaticsRegPay {
             5.times { Integer i ->
                 regpay_last5(i + DAY, 0)
             }
-            /*50.times {Integer i ->
+            /*61.times {Integer i ->
                 i.times {Integer n->
                     regpay_last5(i, n)
                 }
@@ -473,7 +474,7 @@ class StaticsRegPay {
             60.times { Integer i->
                 regpay_till_current(i + DAY, 0)
             }
-            /*50.times {Integer i ->
+            /*61.times {Integer i ->
                 i.times { Integer n->
                     regpay_till_current(i, n)
                 }
@@ -484,7 +485,7 @@ class StaticsRegPay {
             60.times { Integer i->
                 diamondPresentStatics(i + DAY, 0)
             }
-            /*50.times {Integer i ->
+            /*61.times {Integer i ->
                 i.times { Integer n->
                     diamondPresentStatics(i, n)
                 }
