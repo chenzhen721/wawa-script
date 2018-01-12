@@ -148,7 +148,7 @@ class MsgGenerator {
     static scanToyExpire(Integer expireDays){
         Long begin = zeroMill - ((EXPIRE_DAYS-expireDays) * DAY_MILLION)
         Long end = begin + DAY_MILLION
-        List dolls = catch_success_logs.find($$(is_award: false, is_delete:false, post_type: 0, timestamp:[$gt:begin, $lt:end])).sort($$(user_id:-1)).toArray()
+        List dolls = catch_success_logs.find($$(is_award: false, is_delete:false, post_type: 0, timestamp:[$gte:begin, $lt:end])).sort($$(user_id:-1)).toArray()
         Map<Integer,Set<String>> userOfDolls = new HashMap<>();
         dolls.each {DBObject doll ->
             Integer userId = doll['user_id'] as Integer
@@ -187,7 +187,7 @@ class MsgGenerator {
 
     //扫描用户邀请好友加入获得钻石
     static void scanUserInviterAward(){
-        def cur = invitor_logs.find($$(diamond_count :[$gt:0], "is_used":[$ne:true], timestamp:[$gt:per_begin, $lt:per_end]),
+        def cur = invitor_logs.find($$(diamond_count :[$gt:0], "is_used":[$ne:true], timestamp:[$gte:per_begin, $lt:per_end]),
                                                         $$(diamond_count:1,user_id:1,invitor:1,timestamp:1)).batchSize(100)
         while (cur.hasNext()){
             def user = cur.next()
@@ -203,7 +203,7 @@ class MsgGenerator {
     }
     //扫描用户邮寄信息
     static void scanUserDeliverInfo(){
-        def cur = apply_post_logs.find($$(post_type:3, "post_info":[$ne:null], push_time:[$gt:per_begin, $lt:per_end]),
+        def cur = apply_post_logs.find($$(post_type:3, "post_info":[$ne:null], push_time:[$gte:per_begin, $lt:per_end]),
                             $$(user_id:1,toys:1, post_info:1, timestamp:1,address_list:1)).batchSize(100)
         while (cur.hasNext()){
             def user = cur.next()
