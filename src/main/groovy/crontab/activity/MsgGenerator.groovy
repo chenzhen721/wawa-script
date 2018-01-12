@@ -262,9 +262,8 @@ class MsgGenerator {
         weixin.each {String app_id, String open_id ->
             Long time = System.currentTimeMillis()
             def template = wxTemplate.generate(app_id)
-            def msg = $$(_id: to_uid+'_'+app_id+'_'+time, to_id:to_uid,
-                    app_id:app_id,open_id:open_id, timestamp:time,
-                    template:template, is_send:0, next_fire:time)
+            def msg = $$(_id: to_uid+'_'+app_id+'_'+time, to_id:to_uid,app_id:app_id,open_id:open_id,
+                            event:wxTemplate.getEvent_id(),timestamp:time,template:template, is_send:0, next_fire:time)
             weixin_msg.insert(msg)
         }
 
@@ -455,11 +454,12 @@ abstract class WxTemplate{
     public String getId(){return this.id}
     public String getUrl(){return this.url}
     public Map getData(){return this.data}
+    public String getEvent_id(){return this.event_id}
 
     public Map generate(String appId){
         String redirect = DOMAIN_IDS[appId] + path;
         String trace_id = "${event_id}_${uid}_${System.currentTimeMillis()}".toString()
-        String url = STATIC_API_URL+"?event=${event_id}&uid=${uid}&trace_id=${trace_id}&redirect_url=${URLEncoder.encode(redirect, "UTF-8")}".toString()
+        String url = STATIC_API_URL+"?event=${getEvent_id()}&uid=${uid}&trace_id=${trace_id}&redirect_url=${URLEncoder.encode(redirect, "UTF-8")}".toString()
         return ['id': this.getTemplateId(appId), url:url, data:this.getData()];
     }
     protected abstract String getTemplateId(String appId);
