@@ -405,7 +405,7 @@ class StaticsRegPay {
             goods_count = goods_count + count
             postage = postage + cost(count)
             toys.each {BasicDBObject toy ->
-                def record_id = toy['record_id'] as Integer
+                def record_id = toy['record_id'] as String
                 def record = catch_record.findOne($$(_id: record_id), $$(cost: 1))
                 if (record != null) {
                     goods_cost = goods_cost + (record['cost'] as Integer)
