@@ -410,14 +410,14 @@ class StaticsRegPay {
                 if (record != null) {
                     goods_cost = goods_cost + (record['cost'] as Integer)
                 }
-                def toy_cost = catch_toy.findOne($$(_id: toy['_id'] as Integer), $$(cost: 1))
+                /*def toy_cost = catch_toy.findOne($$(_id: toy['_id'] as Integer), $$(cost: 1))
                 if (toy_cost != null) {
                     total_cost = total_cost + (toy_cost['cost'] as Integer)
-                }
+                }*/
             }
             uids.add(obj['user_id'] as Integer)
         }
-        total_cost = postage + total_cost
+        total_cost = postage + goods_cost
 
         //总充值额度
         def finance = stat_daily.findOne("${YMD}_finance".toString()) ?: [:]
