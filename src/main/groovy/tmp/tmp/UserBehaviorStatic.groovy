@@ -46,7 +46,9 @@ class UserBehaviorStatic {
     static DBCollection finance_log  = mongo.getDB('xy_admin').getCollection('finance_log')
     static DBCollection catch_record = mongo.getDB('xy_catch').getCollection('catch_record')
     static DBCollection invitor_logs = mongo.getDB('xylog').getCollection('invitor_logs')
+    static DBCollection order_logs = mongo.getDB('xylog').getCollection('order_logs')
     static DBCollection event_logs = mongo.getDB('xylog').getCollection('event_logs')
+    static DBCollection users = mongo.getDB('xy').getCollection('users')
     static DBCollection apply_post_logs = mongo.getDB('xylog').getCollection('apply_post_logs')
 
     static class CatchRateUser {
@@ -140,9 +142,19 @@ class UserBehaviorStatic {
         return catch_record.count($$(user_id:userId, timestamp:[$lt:firstTime] ,status:true)) >= 1
     }
 
-    //是否为邀请用户
+    //是否为被邀请用户
     static fromInvitor(Integer userId){
         return invitor_logs.count($$(user_id:userId)) >= 1
+    }
+
+    //是否成功邀请过用户
+    static isInvitor(Integer userId){
+        return invitor_logs.count($$(invitor:userId)) >= 1
+    }
+
+    //邀请过来的用户
+    static List invitiedUsers(Integer userId){
+        return invitor_logs.find($$(invitor:userId)).toArray()*.user_id
     }
 
     //来自公众号用户
@@ -165,9 +177,11 @@ class UserBehaviorStatic {
     static staticsCatchUser(){
         Integer totalplayUserCount = 0
         Integer catchUserCount = 0
-        Integer uncatchUserCount = 0
         Integer catchUserPayCount = 0
+        Integer catchUserInvitedCount = 0
+        Integer uncatchUserCount = 0
         Integer uncatchUserPayCount = 0
+        Integer uncatchUserInvitedCount = 0
         catch_record.aggregate([
                                 new BasicDBObject('$project', [user_id: '$user_id', toyId: '$toy._id']),
                                 new BasicDBObject('$group', [_id: '$user_id',  count: [$sum: 1], users: [$addToSet: '$user_id']])]
@@ -184,6 +198,7 @@ class UserBehaviorStatic {
                     if(isPay(userId)){
                         catchUserPayCount++;
                     }
+
                 }else{
                     uncatchUserCount++
                     if(isPay(userId)){
@@ -200,6 +215,79 @@ class UserBehaviorStatic {
         playPeriodCount.each {Integer period, Integer userCount ->
             println " 第${period+1}天:${userCount}\t占比: ${fmtNumber(userCount/totalplayUserCount * 100)}%"
         }
+    }
+
+    //统计量子云
+    /**
+     *
+     抓取的人数
+     前三次抓取到娃娃的人数
+     前三次抓取到娃娃的付费人数
+     前三次抓取到娃娃且成功邀请了至少一个好友的人数
+     前三次未抓取到娃娃的付费人数
+     前三次未抓取到娃娃且成功邀请了至少一个好友的人数
+     * @return
+     */
+    static staticsLiangziyunCatchUser(){
+        Integer userCount = 0
+        Integer totalplayUserCount = 0
+        Integer catchUserCount = 0
+        Integer catchUserPayCount = 0
+        Integer catchUserInvitedCount = 0
+        Integer uncatchUserCount = 0
+        Integer uncatchUserPayCount = 0
+        Integer uncatchUserInvitedCount = 0
+
+        Integer catchCount = 0
+        Integer catchBingoCount = 0
+        Integer invitedUserCount = 0
+        Map<Long, Integer> userCatchCounts = new HashMap<>();
+        def cur = users.find($$(qd:"wawa_liangziyun", timestamp:[$gte:1516032000000,$lt:1516118400000])).batchSize(100)
+        while (cur.hasNext()) {
+            def row = cur.next()
+            Integer userId = row['_id'] as Integer
+            userCount++
+            def catchQuery = new BasicDBObject('user_id', userId)//抓取次数
+            def count = catch_record.count(catchQuery) as Long;
+            catchCount += count
+            def bingoQuery = catchQuery.append('status',true) //抓中次数
+            def bingoCount = catch_record.count(bingoQuery) as Long;
+            catchBingoCount += bingoCount
+
+            Integer userCounts = userCatchCounts.get(count) ?: 0
+            userCatchCounts.put(count, ++userCounts)
+            if(count > 0){
+                totalplayUserCount++;
+                if(freeCatchBingo(userId)){
+                    catchUserCount++;
+                    if(isPay(userId)){
+                        catchUserPayCount++;
+                    }
+                    if(isInvitor(userId)){
+                        catchUserInvitedCount++;
+                        invitedUserCount += invitiedUsers(userId).size()
+                    }
+                }else{
+                    uncatchUserCount++
+                    if(isPay(userId)){
+                        uncatchUserPayCount++;
+                    }
+                    if(isInvitor(userId)){
+                        uncatchUserInvitedCount++;
+                        invitedUserCount += invitiedUsers(userId).size()
+                    }
+                }
+            }
+
+        }
+        println "总人数:${userCount} \t抓取人数:${totalplayUserCount} \t抓中人数:${catchUserCount}\t平均命中率${fmtNumber(catchBingoCount / catchCount * 100)}%" +
+                "\t抓中付费用户:${catchUserPayCount} 占比: ${fmtNumber(catchUserPayCount / catchUserCount * 100)}%" +
+                "\t抓中用户邀请了至少一个好友的人数:${catchUserInvitedCount}" +
+                "\t未抓中用户${uncatchUserCount}\t 未抓中付费用户:${uncatchUserPayCount} 占比: ${fmtNumber( uncatchUserPayCount / uncatchUserCount * 100)}%" +
+                "\t未抓中用户邀请了至少一个好友的人数:${uncatchUserInvitedCount}\t一共邀请:${invitedUserCount}"
+
+
+        println userCatchCounts;
     }
 
     //付费周期
@@ -289,6 +377,95 @@ class UserBehaviorStatic {
                 " \t充值人数: ${payUserCount}\t总充值金额: ${payCount} 元\t抓中人数: ${userCatchGotCount}\t抓中后充值人数: ${userCatchGotpayCount}"
     }
 
+    static List<String> guangfangs = ['wawa_default','wawa_kuailai_gzh','wawa_share_erweima','wawa_amiao_gzh','guanfangweibo','gongzhonghao']
+    static List<String> channels = ['tjwlz','haibo','qxyl','wawa_liangziyun']
+    static void staticChannlePay(){
+        Long begin = Date.parse("yyyy-MM-dd HH:mm:ss","2018-01-01 00:00:00").getTime()
+        int i = 0
+        while (++i < 15){
+            Integer payTotalCount = 0
+            Integer payguanfangTotalCount = 0
+            Integer payChannelTotalCount = 0
+            List<Integer> cnys = finance_log.find($$(via: [$ne: 'Admin'], timestamp:[$gte:begin, $lt:begin+DAY_MILLON])).toArray()*.cny
+            if(cnys != null && cnys.size() >0){
+                payTotalCount += cnys.sum() as Integer
+            }
+            List<Integer> guanfangCnys = finance_log.find($$(qd:[$in:guangfangs],via: [$ne: 'Admin'], timestamp:[$gte:begin, $lt:begin+DAY_MILLON])).toArray()*.cny
+            if(guanfangCnys != null && guanfangCnys.size() >0){
+                payguanfangTotalCount += guanfangCnys.sum() as Integer
+            }
+            List<Integer> channelCnys = finance_log.find($$(qd:[$in:channels],via: [$ne: 'Admin'], timestamp:[$gte:begin, $lt:begin+DAY_MILLON])).toArray()*.cny
+            if(channelCnys != null && channelCnys.size() >0){
+                payChannelTotalCount += channelCnys.sum() as Integer
+            }
+            println "${new Date(begin).format('yyyy-MM-dd HH:mm:ss')} : 总:${payTotalCount} " +
+                    "\t官方:${payguanfangTotalCount} \t占比:${fmtNumber(payguanfangTotalCount/payTotalCount * 100)}%" +
+                    "\t渠道:${payTotalCount-payguanfangTotalCount} \t占比:${fmtNumber((payTotalCount-payguanfangTotalCount)/payTotalCount * 100)}%"
+            begin = begin+DAY_MILLON
+        }
+
+    }
+
+    //统计用户点击充值按钮后完成支付的情况
+    static void staticPaiedAfterClickButton(){
+        Long begin = Date.parse("yyyy-MM-dd HH:mm:ss","2018-01-11 00:00:00").getTime()
+        int i = 0
+        while (++i <= 7){
+            Integer userCount = 1
+            Integer payUserCount = 1
+            Integer payTotalCount = 1
+            Integer OrderTotalCount = 1
+            Integer OrderPayTotalCount = 1
+            Set<Integer> users =new HashSet<>();
+            Map<Integer, Integer> userClickCount = new HashMap<>();
+            order_logs.find($$( timestamp:[$gte:begin, $lt:begin+DAY_MILLON])).toArray().each {DBObject order ->
+                OrderTotalCount++;
+                Long timestamp = order['timestamp'] as Long
+                String _id = order['_id'] as String
+                String[] ids = _id.split("_")
+                Integer userId = ids[0] as Integer
+                Long end = timestamp + 4 * 60 * 60 *1000l
+                if(users.add(userId)){
+                    userCount++;
+                    if(finance_log.count($$(user_id:userId,via: [$ne: 'Admin'], timestamp:[$gte:timestamp, $lt:end])) > 0){
+                        payUserCount++;
+                    }
+                    if(finance_log.count($$($$(user_id:userId,via: [$ne: 'Admin']))) > 0){
+                        payTotalCount++;
+                        OrderPayTotalCount++
+                    }
+                }
+                Integer clickCount = userClickCount.get(userId) ?: 0
+                userClickCount.put(userId, ++clickCount);
+            }
+            def uids = finance_log.distinct("to_id", $$(via: [$ne: 'Admin'], timestamp:[$gte:begin, $lt:begin+DAY_MILLON]))
+            Integer maxCount=1;
+            Integer maxUserID=1;
+            Integer minCount=1;
+            userClickCount.each {Integer userId, Integer count ->
+                if(count >= maxCount){
+                    maxCount = count
+                    maxUserID = userId
+                }
+                minCount = count <= minCount ? count : minCount
+
+            }
+            userClickCount.sort {
+
+            }
+            println "${new Date(begin).format('yyyy-MM-dd HH:mm:ss')} : " +
+                    "\t生成支付订单人数${uids.size()+userCount}\t 未支付人数:${userCount} " +
+                    "\t4小时内支付成功过的人数:${payUserCount} \t占比:${fmtNumber(payUserCount/userCount * 100)}%" +
+                    "\t历史上支付成功过的人数:${payTotalCount} \t占比:${fmtNumber(payTotalCount/userCount * 100)}%" +
+                    "\t从未支付成功过的人数:${userCount-payTotalCount} \t占比:${fmtNumber((userCount-payTotalCount) / userCount * 100)}%" +
+                    "\t从未支付成功订单:${OrderTotalCount} \t历史上支付成功的人所产生的未支付订单:${OrderPayTotalCount}\t占比:${fmtNumber(OrderPayTotalCount/ OrderTotalCount * 100)}%"
+
+            println "最大点击数:${maxUserID}:${maxCount}"
+            begin = begin+DAY_MILLON
+        }
+
+    }
+
     static Integer totalPay(Integer userId){
         Integer payCount = 0
         List<Integer> cnys = finance_log.find($$(user_id:userId,via: [$ne: 'Admin'])).toArray()*.cny
@@ -320,7 +497,13 @@ class UserBehaviorStatic {
         //staticsCatchUser()
         //邮寄用户
         //staticsDeliverUserOfPay()
-        msgPushStatistic('上新商品','ToyRenew');
+        //msgPushStatistic('上新商品','ToyRenew');
+        //统计渠道充值
+        //staticChannlePay();
+        //统计用户点击充值按钮后完成支付的情况
+        //staticPaiedAfterClickButton()
+        //量子云相关数据统计
+        staticsLiangziyunCatchUser()
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   UserBehaviorStatic, cost  ${System.currentTimeMillis() - l} ms"
     }
 

@@ -35,6 +35,7 @@ import org.apache.http.util.EntityUtils
 import redis.clients.jedis.Jedis
 
 import java.text.SimpleDateFormat
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -54,11 +55,11 @@ class WeixinMessage {
 
     static Map<String,String> APP_ID_SECRETS = ['wx45d43a50adf5a470':'40e8dc2daac9f04bfbac32a64eb6dfff', 'wxf64f0972d4922815':'fbf4fd32c00a82d5cbe5161c5e699a0e']
     static String WEIXIN_URL = 'https://api.weixin.qq.com/cgi-bin/'
-    static Integer requestCount = 0
-    static Integer successCount = 0
+    public static Integer requestCount = 0
+    public static Integer successCount = 0
     // 过期时间
     static final Long MIS_FIRE = 60 * 60 * 1000
-    static final Long DAY_MILLION = 60 * 60 * 24 * 1000
+    static final Long DAY_MILLION = 24 * 60 * 60 * 1000
     static Map errorCode = [:]
 
     //test
@@ -78,20 +79,70 @@ class WeixinMessage {
     static String getAccessRedisKey(String appId){
         return  "weixin:${appId}:token".toString()
     }
+    static String redis_lock_key = 'WeixinMessage:redis:lock'
+    public static CountDownLatch downLatch = new CountDownLatch(0)
+
+    static final ThreadPoolExecutor threadPool =
+            new ThreadPoolExecutor(1, 10,
+                    60L, TimeUnit.SECONDS,
+                    new LinkedBlockingQueue<Runnable>()) ;
+
     static void main(String[] args) {
-        initErrorCode()
         Long begin = System.currentTimeMillis()
-        sendMessage()
+        if(mainRedis.setnx(redis_lock_key, begin.toString()) == 1){
+            mainRedis.expire(redis_lock_key, 60 * 60 * 1000)
+            sendMessage()
+            downLatch.await();
+            mainRedis.del(redis_lock_key)
+            println "${WeixinMessage.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: total ${requestCount} , success ${successCount} " +
+                    "fail ${requestCount - successCount} finish cost ${System.currentTimeMillis() - begin} ms"
+        }else{
+            println "${WeixinMessage.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: already running..........."
+        }
         //testTemplateMsg();
-        println "${WeixinMessage.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: total ${requestCount} , success ${successCount} " +
-                "fail ${requestCount - successCount} finish cost ${System.currentTimeMillis() - begin} ms"
     }
 
     static void sendMessage(){
         Long now = System.currentTimeMillis()
-        def cur = weixin_msg.find($$(is_send : 0, 'next_fire': [$lte: now])).batchSize(1000)
+        def msgs = weixin_msg.find($$(is_send:0,'next_fire': [$lte: now])).sort($$(next_fire:-1)).limit(5000).toArray()
+        println "msgs size : ${msgs.size()}".toString()
+        if(msgs.size() == 0) return;
+        initErrorCode();
+        downLatch = new CountDownLatch(msgs.size())
+        msgs.each {row ->
+            final String appId = row['app_id'] as String
+            final String openId = row['open_id'] as String
+            final String _id = row['_id'] as String
+            threadPool.execute(new Runnable() {
+                @Override
+                void run() {
+                    try{
+                        Integer error = -1
+                        def template = row['template'] as DBObject
+                        if(template != null){
+                            error = sendTemplateMsg(template, openId, appId)
+                        }
+                        WeixinMessage.requestCount++
+                        if (error == 0) {
+                            WeixinMessage.successCount++
+                            row['success_send'] = 1;
+                        }
+                        row['send_time'] = now;
+                        row['is_send'] = 1;
+                        weixin_msg.save(row)
+                    }catch (Exception e){
+                        println "Exception :"+e;
+                    }finally{
+                        downLatch.countDown();
+                    }
+                }
+            })
+        }
+        threadPool.shutdown();
+/*
+        def cur = weixin_msg.find($$(is_send : 0, app_id:[$ne:null], openId:[$ne:null], 'next_fire': [$lte: now])).batchSize(1000)
         while (cur.hasNext()) {
-            def row = cur.next()
+            final row = cur.next()
             final String appId = row['app_id'] as String
             final String openId = row['open_id'] as String
             if(openId == null || appId == null) return
@@ -103,9 +154,9 @@ class WeixinMessage {
                     if(template != null){
                         error = sendTemplateMsg(template, openId, appId)
                     }
-                    requestCount++
+                    WeixinMessage.requestCount++
                     if (error == 0) {
-                        successCount++
+                        WeixinMessage.successCount++
                         row['success_send'] = 1;
                     }
                     row['send_time'] = now;
@@ -116,6 +167,7 @@ class WeixinMessage {
 
         }
         threadPool.shutdown();
+        */
     }
 
     static String getOpenIdByUid(String appId, Integer uid){
@@ -213,11 +265,10 @@ class WeixinMessage {
      * 微信每日调用accessToken次数有限(2000次/日,有效7200秒)
      * @param req
      */
-    private static String getAccessToken(String appId) {
+    static String getAccessToken(String appId) {
         String access_token = mainRedis.get(getAccessRedisKey(appId))
-        String requestUrl = WEIXIN_URL + 'token'
         if (access_token == null) {
-            requestUrl += '?grant_type=client_credential&appid=' + appId + '&secret=' + APP_ID_SECRETS[appId]
+            String requestUrl = WEIXIN_URL + 'token?grant_type=client_credential&appid=' + appId + '&secret=' + APP_ID_SECRETS[appId]
             println requestUrl
             Map respMap = postWX('GET', requestUrl, new HashMap(), appId)
             println respMap
@@ -225,8 +276,7 @@ class WeixinMessage {
             access_token = respMap['access_token']
             Integer expires = respMap['expires_in'] as Integer
             if(access_token != null){
-                mainRedis.set(getAccessRedisKey(appId), access_token)
-                mainRedis.expire(getAccessRedisKey(appId), expires)
+                mainRedis.setex(getAccessRedisKey(appId), expires, access_token)
             }
         }
         return access_token
@@ -292,10 +342,7 @@ class WeixinMessage {
         return httpClient
     }
 
-    static final ThreadPoolExecutor threadPool =
-            new ThreadPoolExecutor(1, 10,
-                    60L, TimeUnit.SECONDS,
-                    new LinkedBlockingQueue<Runnable>()) ;
+
     /**
      * @return
      */
