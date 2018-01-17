@@ -97,8 +97,8 @@ class MsgGenerator {
         println "from :${new Date(per_begin).format('yyyy-MM-dd HH:mm:ss')}, to : ${new Date(per_end).format('yyyy-MM-dd HH:mm:ss')} ms"
 
         Long now = System.currentTimeMillis()
-        //过期娃娃提醒 剩三天和剩余一天 每天晚上6点
-        if(getHourOfDay(now).equals(18)
+        //过期娃娃提醒 剩三天和剩余一天 每天13点
+        if(getHourOfDay(now).equals(13)
                 && mainRedis.sadd(redis_key+'toyexpire',new Date(now).format('yyyy-MM-dd')) == 1){
             Long begin = System.currentTimeMillis()
             scanToyExpire(1)
