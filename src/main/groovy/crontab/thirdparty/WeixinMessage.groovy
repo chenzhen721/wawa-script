@@ -59,7 +59,7 @@ class WeixinMessage {
     public static Integer successCount = 0
     // 过期时间
     static final Long MIS_FIRE = 60 * 60 * 1000
-    static final Long DAY_MILLION = 60 * 60 * 24 * 1000
+    static final Long DAY_MILLION = 24 * 60 * 60 * 1000
     static Map errorCode = [:]
 
     //test
@@ -79,6 +79,7 @@ class WeixinMessage {
     static String getAccessRedisKey(String appId){
         return  "weixin:${appId}:token".toString()
     }
+    static String redis_lock_key = 'WeixinMessage:redis:lock'
     public static CountDownLatch downLatch = new CountDownLatch(0)
 
     static final ThreadPoolExecutor threadPool =
@@ -89,21 +90,29 @@ class WeixinMessage {
     static void main(String[] args) {
         initErrorCode()
         Long begin = System.currentTimeMillis()
-        sendMessage()
-        downLatch.await();
+        if(mainRedis.setnx(redis_lock_key, System.currentTimeMillis().toString())){
+            mainRedis.expire(redis_lock_key, 60 * 60 * 1000)
+            sendMessage()
+            downLatch.await();
+            mainRedis.del(redis_lock_key)
+            println "${WeixinMessage.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: total ${requestCount} , success ${successCount} " +
+                    "fail ${requestCount - successCount} finish cost ${System.currentTimeMillis() - begin} ms"
+        }else{
+            println "${WeixinMessage.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: already running..........."
+        }
         //testTemplateMsg();
-        println "${WeixinMessage.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: total ${requestCount} , success ${successCount} " +
-                "fail ${requestCount - successCount} finish cost ${System.currentTimeMillis() - begin} ms"
+
     }
 
     static void sendMessage(){
         Long now = System.currentTimeMillis()
-        def msgs = weixin_msg.find($$(is_send : 0,'next_fire': [$lte: now])).sort($$(next_fire:-1)).limit(5000).toArray()
+        def msgs = weixin_msg.find($$(is_send:0,'next_fire': [$lte: now])).sort($$(next_fire:-1)).limit(5000).toArray()
         println "msgs size : ${msgs.size()}".toString()
         downLatch = new CountDownLatch(msgs.size())
         msgs.each {row ->
             final String appId = row['app_id'] as String
             final String openId = row['open_id'] as String
+            final String _id = row['_id'] as String
             threadPool.execute(new Runnable() {
                 @Override
                 void run() {
