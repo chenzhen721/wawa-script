@@ -256,29 +256,36 @@ class StaticsRegPay {
 
         Integer diamond_add_total = 0, diamond_user_total = 0, invite_user_total = 0, invite_diamond_total = 0,
                 diamond_cost_total = 0, charge_award_total = 0, admin_add_total = 0
+        Set uids_total = new HashSet()
         //每个渠道数据，然后汇总到总表
         stat_regpay.find($$(type: 'qd', timestamp: begin)).toArray().each { BasicDBObject obj ->
             def regs = obj['regs'] as Set
             def diamond_add_current = 0
-            def diamond_user_current = 0
+            //def diamond_user_current = 0
             def invite_user_current = 0
             def invite_diamond_current = 0
             def diamond_cost_current = 0
             def charge_award_current = 0
+            def sign_diamond_current = 0
             def admin_add_current = 0
+            def uids = [] as Set
             def update = new BasicDBObject()
             //除充值以外的钻石
             diamond_add_logs.aggregate([
                     $$('$match', [user_id: [$in: regs], timestamp: [$lt: diamondend]]),
-                    $$('$group', [_id: '$type', diamond: [$sum: '$award.diamond'], count: [$sum: 1]])
+                    $$('$group', [_id: '$type', diamond: [$sum: '$award.diamond'], users: [$addToSet: '$user_id'], count: [$sum: 1]])
             ]).results().each {BasicDBObject item->
                 def diamond = item['diamond'] as Integer ?: 0
-                def count = item['count'] as Integer ?: 0
+                def users = item['users'] as Set ?: []
+                uids.addAll(users)
                 diamond_add_current = diamond_add_current + diamond
-                diamond_user_current = diamond_user_current + count
+                //diamond_user_current = diamond_user_current + count
                 if ('invite_diamond' == item['_id']) {
                     invite_diamond_current = invite_diamond_current + diamond
-                    invite_user_current = invite_user_current + count
+                    invite_user_current = invite_user_current + users.size()
+                }
+                if ('sign_diamond' == item['_id']) {
+                    sign_diamond_current = sign_diamond_current + diamond
                 }
             }
 
@@ -307,13 +314,14 @@ class StaticsRegPay {
                 admin_add_current = item['diamond'] as Integer ?: 0
             }
 
+            def diamond_user_current = uids.size()
             if (n == 0) { //保存最新的
                 update.put('diamond_add_current', diamond_add_current) //
                 update.put('diamond_user_current', diamond_user_current) //
                 update.put('invite_user_current', invite_user_current) //
                 update.put('invite_diamond_current', invite_diamond_current) //
                 update.put('diamond_cost_current', diamond_cost_current) //
-                update.put('charge_award_current', charge_award_current) //
+                update.put('charge_award_current', charge_award_current + sign_diamond_current) //
                 update.put('admin_add_current', admin_add_current) //
             }
             update.put("history.${payymd}.diamond_add_current".toString(), diamond_add_current)
@@ -321,7 +329,7 @@ class StaticsRegPay {
             update.put("history.${payymd}.invite_user_current".toString(), invite_user_current)
             update.put("history.${payymd}.invite_diamond_current".toString(), invite_diamond_current)
             update.put("history.${payymd}.diamond_cost_current".toString(), diamond_cost_current)
-            update.put("history.${payymd}.charge_award_current".toString(), charge_award_current)
+            update.put("history.${payymd}.charge_award_current".toString(), charge_award_current + sign_diamond_current)
             update.put("history.${payymd}.admin_add_current".toString(), admin_add_current)
             stat_regpay.update($$(_id: obj['_id']), $$($set: update), false, false)
 
@@ -330,14 +338,15 @@ class StaticsRegPay {
             invite_user_total = invite_user_total + invite_user_current
             invite_diamond_total = invite_diamond_total + invite_diamond_current
             diamond_cost_total = diamond_cost_total + diamond_cost_current
-            charge_award_total = charge_award_total + charge_award_current
+            charge_award_total = charge_award_total + charge_award_current + sign_diamond_current
             admin_add_total = admin_add_total + admin_add_current
+            uids_total.addAll(uids)
         }
 
         def update = new BasicDBObject()
         if (n == 0) { //保存最新的
             update.put('diamond_add_current', diamond_add_total) //
-            update.put('diamond_user_current', diamond_user_total) //
+            update.put('diamond_user_current', uids_total.size()) //
             update.put('invite_user_current', invite_user_total) //
             update.put('invite_diamond_current', invite_diamond_total) //
             update.put('diamond_cost_current', diamond_cost_total) //
@@ -345,7 +354,7 @@ class StaticsRegPay {
             update.put('admin_add_current', admin_add_total) //
         }
         update.put("history.${payymd}.diamond_add_current".toString(), diamond_add_total)
-        update.put("history.${payymd}.diamond_user_current".toString(), diamond_user_total)
+        update.put("history.${payymd}.diamond_user_current".toString(), uids_total.size())
         update.put("history.${payymd}.invite_user_current".toString(), invite_user_total)
         update.put("history.${payymd}.invite_diamond_current".toString(), invite_diamond_total)
         update.put("history.${payymd}.diamond_cost_current".toString(), diamond_cost_total)
