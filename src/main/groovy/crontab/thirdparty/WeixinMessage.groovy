@@ -88,9 +88,8 @@ class WeixinMessage {
                     new LinkedBlockingQueue<Runnable>()) ;
 
     static void main(String[] args) {
-        initErrorCode()
         Long begin = System.currentTimeMillis()
-        if(mainRedis.setnx(redis_lock_key, System.currentTimeMillis().toString())){
+        if(mainRedis.setnx(redis_lock_key, begin.toString())){
             mainRedis.expire(redis_lock_key, 60 * 60 * 1000)
             sendMessage()
             downLatch.await();
@@ -108,6 +107,8 @@ class WeixinMessage {
         Long now = System.currentTimeMillis()
         def msgs = weixin_msg.find($$(is_send:0,'next_fire': [$lte: now])).sort($$(next_fire:-1)).limit(5000).toArray()
         println "msgs size : ${msgs.size()}".toString()
+        if(msgs.size() == 0) return;
+        initErrorCode();
         downLatch = new CountDownLatch(msgs.size())
         msgs.each {row ->
             final String appId = row['app_id'] as String
