@@ -100,7 +100,6 @@ class WeixinMessage {
             println "${WeixinMessage.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: already running..........."
         }
         //testTemplateMsg();
-
     }
 
     static void sendMessage(){
