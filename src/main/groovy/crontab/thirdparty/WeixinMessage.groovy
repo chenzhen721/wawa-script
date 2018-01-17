@@ -98,7 +98,8 @@ class WeixinMessage {
 
     static void sendMessage(){
         Long now = System.currentTimeMillis()
-        def msgs = weixin_msg.find($$(is_send : 0, app_id:[$ne:null], openId:[$ne:null], 'next_fire': [$lte: now])).limit(5000).toArray()
+        def msgs = weixin_msg.find($$(is_send : 0,'next_fire': [$lte: now])).sort($$(next_fire:-1)).limit(5000).toArray()
+        println "msgs size : ${msgs.size()}".toString()
         downLatch = new CountDownLatch(msgs.size())
         msgs.each {row ->
             final String appId = row['app_id'] as String
@@ -255,11 +256,10 @@ class WeixinMessage {
      * 微信每日调用accessToken次数有限(2000次/日,有效7200秒)
      * @param req
      */
-    private static String getAccessToken(String appId) {
+    static String getAccessToken(String appId) {
         String access_token = mainRedis.get(getAccessRedisKey(appId))
-        String requestUrl = WEIXIN_URL + 'token'
         if (access_token == null) {
-            requestUrl += '?grant_type=client_credential&appid=' + appId + '&secret=' + APP_ID_SECRETS[appId]
+            String requestUrl = WEIXIN_URL + 'token?grant_type=client_credential&appid=' + appId + '&secret=' + APP_ID_SECRETS[appId]
             println requestUrl
             Map respMap = postWX('GET', requestUrl, new HashMap(), appId)
             println respMap
@@ -267,8 +267,7 @@ class WeixinMessage {
             access_token = respMap['access_token']
             Integer expires = respMap['expires_in'] as Integer
             if(access_token != null){
-                mainRedis.set(getAccessRedisKey(appId), access_token)
-                mainRedis.expire(getAccessRedisKey(appId), expires)
+                mainRedis.setex(getAccessRedisKey(appId), expires, access_token)
             }
         }
         return access_token
