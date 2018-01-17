@@ -35,6 +35,7 @@ import org.apache.http.util.EntityUtils
 import redis.clients.jedis.Jedis
 
 import java.text.SimpleDateFormat
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -54,8 +55,8 @@ class WeixinMessage {
 
     static Map<String,String> APP_ID_SECRETS = ['wx45d43a50adf5a470':'40e8dc2daac9f04bfbac32a64eb6dfff', 'wxf64f0972d4922815':'fbf4fd32c00a82d5cbe5161c5e699a0e']
     static String WEIXIN_URL = 'https://api.weixin.qq.com/cgi-bin/'
-    static Integer requestCount = 0
-    static Integer successCount = 0
+    public static Integer requestCount = 0
+    public static Integer successCount = 0
     // 过期时间
     static final Long MIS_FIRE = 60 * 60 * 1000
     static final Long DAY_MILLION = 60 * 60 * 24 * 1000
@@ -78,10 +79,18 @@ class WeixinMessage {
     static String getAccessRedisKey(String appId){
         return  "weixin:${appId}:token".toString()
     }
+    public static CountDownLatch downLatch = new CountDownLatch(0)
+
+    static final ThreadPoolExecutor threadPool =
+            new ThreadPoolExecutor(1, 10,
+                    60L, TimeUnit.SECONDS,
+                    new LinkedBlockingQueue<Runnable>()) ;
+
     static void main(String[] args) {
         initErrorCode()
         Long begin = System.currentTimeMillis()
         sendMessage()
+        downLatch.await();
         //testTemplateMsg();
         println "${WeixinMessage.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: total ${requestCount} , success ${successCount} " +
                 "fail ${requestCount - successCount} finish cost ${System.currentTimeMillis() - begin} ms"
@@ -89,9 +98,41 @@ class WeixinMessage {
 
     static void sendMessage(){
         Long now = System.currentTimeMillis()
-        def cur = weixin_msg.find($$(is_send : 0, 'next_fire': [$lte: now])).batchSize(1000)
+        def msgs = weixin_msg.find($$(is_send : 0, app_id:[$ne:null], openId:[$ne:null], 'next_fire': [$lte: now])).limit(5000).toArray()
+        downLatch = new CountDownLatch(msgs.size())
+        msgs.each {row ->
+            final String appId = row['app_id'] as String
+            final String openId = row['open_id'] as String
+            threadPool.execute(new Runnable() {
+                @Override
+                void run() {
+                    try{
+                        Integer error = -1
+                        def template = row['template'] as DBObject
+                        if(template != null){
+                            error = sendTemplateMsg(template, openId, appId)
+                        }
+                        WeixinMessage.requestCount++
+                        if (error == 0) {
+                            WeixinMessage.successCount++
+                            row['success_send'] = 1;
+                        }
+                        row['send_time'] = now;
+                        row['is_send'] = 1;
+                        weixin_msg.save(row)
+                    }catch (Exception e){
+                        println "Exception :"+e;
+                    }finally{
+                        downLatch.countDown();
+                    }
+                }
+            })
+        }
+        threadPool.shutdown();
+/*
+        def cur = weixin_msg.find($$(is_send : 0, app_id:[$ne:null], openId:[$ne:null], 'next_fire': [$lte: now])).batchSize(1000)
         while (cur.hasNext()) {
-            def row = cur.next()
+            final row = cur.next()
             final String appId = row['app_id'] as String
             final String openId = row['open_id'] as String
             if(openId == null || appId == null) return
@@ -103,9 +144,9 @@ class WeixinMessage {
                     if(template != null){
                         error = sendTemplateMsg(template, openId, appId)
                     }
-                    requestCount++
+                    WeixinMessage.requestCount++
                     if (error == 0) {
-                        successCount++
+                        WeixinMessage.successCount++
                         row['success_send'] = 1;
                     }
                     row['send_time'] = now;
@@ -116,6 +157,7 @@ class WeixinMessage {
 
         }
         threadPool.shutdown();
+        */
     }
 
     static String getOpenIdByUid(String appId, Integer uid){
@@ -292,10 +334,7 @@ class WeixinMessage {
         return httpClient
     }
 
-    static final ThreadPoolExecutor threadPool =
-            new ThreadPoolExecutor(1, 10,
-                    60L, TimeUnit.SECONDS,
-                    new LinkedBlockingQueue<Runnable>()) ;
+
     /**
      * @return
      */
