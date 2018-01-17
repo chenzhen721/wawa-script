@@ -106,8 +106,8 @@ class MsgGenerator {
             println "每天晚上6点 scanToyExpire :${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms"
         }
 
-        //用户剩余积分提醒 每周5晚上9点
-        if(getDayOfWeek(now).equals(5) && getHourOfDay(now).equals(21)
+        //用户剩余积分提醒 每周日晚上9点
+        if(getDayOfWeek(now).equals(7) && getHourOfDay(now).equals(21)
                 && mainRedis.sadd(redis_key+'userpoints',new Date(now).format('yyyy-MM-dd')) == 1){
             Long begin = System.currentTimeMillis()
             scanUserPoints()
@@ -203,7 +203,7 @@ class MsgGenerator {
     }
     //扫描用户邮寄信息
     static void scanUserDeliverInfo(){
-        def cur = apply_post_logs.find($$(post_type:3, "post_info":[$ne:null], push_time:[$gte:per_begin, $lt:per_end]),
+        def cur = apply_post_logs.find($$(post_type:3, "post_info":[$ne:null], 'post_info.next_time':[$gte:per_begin, $lt:per_end]),
                             $$(user_id:1,toys:1, post_info:1, timestamp:1,address_list:1)).batchSize(100)
         while (cur.hasNext()){
             def user = cur.next()
@@ -216,6 +216,7 @@ class MsgGenerator {
             Long timestamp = user['push_time'] as Long
             Set<String> toySets = new HashSet<>()
             toySets.addAll(toys*.name)
+            println "DeliverInfo : ${userId} : ${toySets.join(',')}"
             if(isTest(userId)){
                 //println " ${getNickName(userId)} : ${address} 快递信息:${shipping_name} ${shipping_no}, 娃娃: ${toySets.join(',')}"
                 pushMsg2Queue(userId, new DeliverTemplate(userId, getNickName(userId),toySets.join(','),shipping_name,shipping_no,address))
