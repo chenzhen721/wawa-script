@@ -89,7 +89,7 @@ class WeixinMessage {
 
     static void main(String[] args) {
         Long begin = System.currentTimeMillis()
-        if(mainRedis.setnx(redis_lock_key, begin.toString())){
+        if(mainRedis.setnx(redis_lock_key, begin.toString()) == 1){
             mainRedis.expire(redis_lock_key, 60 * 60 * 1000)
             sendMessage()
             downLatch.await();
