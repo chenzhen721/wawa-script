@@ -317,9 +317,11 @@ class MsgGenerator {
         weixin.each {String app_id, String open_id ->
             Long time = System.currentTimeMillis()
             def template = wxTemplate.generate(app_id)
-            def msg = $$(_id: to_uid+'_'+app_id+'_'+time, to_id:to_uid,app_id:app_id,open_id:open_id,
-                            event:wxTemplate.getEvent_id(),timestamp:time,template:template, is_send:0, next_fire:time)
-            weixin_msg.insert(msg)
+            if(template){
+                def msg = $$(_id: to_uid+'_'+app_id+'_'+time, to_id:to_uid,app_id:app_id,open_id:open_id,
+                        event:wxTemplate.getEvent_id(),timestamp:time,template:template, is_send:0, next_fire:time)
+                weixin_msg.insert(msg)
+            }
         }
 
     }
@@ -477,7 +479,7 @@ abstract class WxTemplate{
     protected Integer uid;
     protected static final String STATIC_API_URL = "http://aochu-api.17laihou.com/statistic/weixin_template";
     protected static Map<String,String> DOMAIN_IDS = ['wx45d43a50adf5a470':'http://www.17laihou.com/', 'wxf64f0972d4922815':'http://aochu.17laihou.com/']
-    protected static Map<String,String> template_ids = ['wx45d43a50adf5a470':'ktMO_XUO3BeWrPeXiVTTx_gmTGOqTdelt4YpZA-gqRI', 'wxf64f0972d4922815':'eAZMbdfp072nYir240cyU1Pr4p1w3d6B5VtpIs71B2s']
+    protected static Map<String,String> TEMPLATE_IDS = ['wx45d43a50adf5a470':'ktMO_XUO3BeWrPeXiVTTx_gmTGOqTdelt4YpZA-gqRI', 'wxf64f0972d4922815':'eAZMbdfp072nYir240cyU1Pr4p1w3d6B5VtpIs71B2s']
 
     public String getId(){return this.id}
     public String getUrl(){return this.url}
@@ -485,9 +487,10 @@ abstract class WxTemplate{
     public String getEvent_id(){return this.event_id}
 
     public Map generate(String appId){
+        if(!TEMPLATE_IDS.containsKey(appId)) return null
         String redirect = DOMAIN_IDS[appId] + path;
         String trace_id = "${event_id}_${uid}_${System.currentTimeMillis()}".toString()
         String url = STATIC_API_URL+"?event=${getEvent_id()}&uid=${uid}&trace_id=${trace_id}&redirect_url=${URLEncoder.encode(redirect, "UTF-8")}".toString()
-        return ['id': template_ids[appId], url:url, data:this.getData()];
+        return ['id': TEMPLATE_IDS[appId], url:url, data:this.getData()];
     }
 }
