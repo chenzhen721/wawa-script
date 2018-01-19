@@ -104,7 +104,7 @@ class WeixinMessage {
 
     static void sendMessage(){
         Long now = System.currentTimeMillis()
-        def msgs = weixin_msg.find($$(is_send:0,'next_fire': [$lte: now])).sort($$(next_fire:-1)).limit(5000).toArray()
+        def msgs = weixin_msg.find($$(is_send:0,'next_fire': [$lte: now])).sort($$(next_fire:-1)).limit(1000).toArray()
         println "msgs size : ${msgs.size()}".toString()
         if(msgs.size() == 0) return;
         initErrorCode();
