@@ -365,15 +365,8 @@ class MsgGenerator {
         return hourOfDay;
     }
 }
-
-/**
-    购物车商品过期提醒
-     {{first.DATA}}
-     过期商品：{{keyword1.DATA}}
-     剩余时间：{{keyword2.DATA}}
-     {{remark.DATA}}
- */
 class ToyExpireTemplate extends WxTemplate{
+    static Map<String,String> template_ids = ['wx45d43a50adf5a470':'64GFNFZVbdvpCT0G5BOBIMPOYkypMSisKkuujc9Cacs', 'wxf64f0972d4922815':'P1nqV2mcWKlNLpCa-IS3A6hpGTiOq_N6cCLC5eyRxE0']
 
     public ToyExpireTemplate(Integer uid, String nickName, String toyName, Integer day){
         this.path = 'user/center';
@@ -385,6 +378,9 @@ class ToyExpireTemplate extends WxTemplate{
         this.data["remark"] = ['value':"过期后娃娃将从背包中消失，点击详情立即申请邮寄或者兑换成积分~~",'color':'#173177']
     }
 
+    public String getTemplateId(String appId){
+        return template_ids[appId]
+    }
 }
 /**
  *积分过期提醒
@@ -395,6 +391,8 @@ class ToyExpireTemplate extends WxTemplate{
  {{Remark.DATA}}
  */
 class PointsExpireTemplate extends WxTemplate{
+    static Map<String,String> template_ids = ['wx45d43a50adf5a470':'FKcFyAqMOloOZgxkVleI6GI5eWBLKX0ujqcfLT0uLt0', 'wxf64f0972d4922815':'N73mxREncvMZJfao16nfMtS0nPwZJ0l7MhTPwoGq2fY']
+
     public PointsExpireTemplate(Integer uid, String nickName, Integer points){
         this.path = 'user/center';
         this.event_id = 'PointsExpire';
@@ -407,18 +405,24 @@ class PointsExpireTemplate extends WxTemplate{
         this.data["CreditTotal"] = ['value':"${points}积分".toString(),'color':'#173177']
         this.data["Remark"] = ['value':"点击详情，立即兑换积分！！",'color':'#173177']
     }
+
+    public String getTemplateId(String appId){
+        return template_ids[appId]
+    }
 }
 
 /**
  *  邀请的好友注册时获得钻石
  *
  *   {{first.DATA}}
-     注册用户：{{keyword1.DATA}}
-     注册时间：{{keyword2.DATA}}
-     注册来源：{{keyword3.DATA}}
-     {{remark.DATA}}
+ 注册用户：{{keyword1.DATA}}
+ 注册时间：{{keyword2.DATA}}
+ 注册来源：{{keyword3.DATA}}
+ {{remark.DATA}}
  */
 class InviterTemplate extends WxTemplate{
+    static Map<String,String> template_ids = ['wx45d43a50adf5a470':'9Szzu0vCp1XDz8mS51BM8BClv4XeQuBUXJ-CBvGbgCM', 'wxf64f0972d4922815':'YQa06vsqhXGTio3jNpSKdPdWTInMJH1Aizpe7HjeUh0']
+
     public InviterTemplate(Integer uid, String nickName, String invitorName, Integer diamond, Long registerTime){
         this.path = 'user/center';
         this.event_id = 'Inviter';
@@ -428,6 +432,10 @@ class InviterTemplate extends WxTemplate{
         this.data["keyword2"] = ['value':"${new Date(registerTime).format('yyyy-MM-dd')}".toString(),'color':'#173177']
         this.data["keyword3"] = ['value':"您分享的二维码",'color':'#173177']
         this.data["remark"] = ['value':"您在阿喵抓娃娃的好友队伍越来越强大了哦！点击详情 邀请更多好友一起抓娃娃吧~",'color':'#173177']
+    }
+
+    public String getTemplateId(String appId){
+        return template_ids[appId]
     }
 }
 
@@ -441,6 +449,7 @@ class InviterTemplate extends WxTemplate{
  {{remark.DATA}}
  */
 class DeliverTemplate extends WxTemplate{
+    static Map<String,String> template_ids = ['wx45d43a50adf5a470':'JoEnK4uR1tGlKpFNwWaqHDw4hVSMu5qDwxuHNf93gwk', 'wxf64f0972d4922815':'DKsQMNCC8CkwDcaCoZaQU2wyMTpEUiuYfe_5LZ3URpE']
     public DeliverTemplate(Integer uid, String nickName, String toyName, String comName, String no, String address){
         this.path = '';
         this.event_id = 'DeliverInfo';
@@ -452,13 +461,17 @@ class DeliverTemplate extends WxTemplate{
         this.data["keyword4"] = ['value':"${address}".toString(),'color':'#173177']
         this.data["remark"] = ['value':"阿喵抓娃娃，更多新品已上线，点击“详情” 快来抓我吧~",'color':'#173177']
     }
+    public String getTemplateId(String appId){
+        return template_ids[appId]
+    }
 }
-
 
 /**
  * 抓中娃娃发钻石红包
  */
 class RedpacketTemplate extends WxTemplate{
+    static Map<String,String> TEMPLATE_IDS = ['wx45d43a50adf5a470':'pedgM13fkPvhs6E0LV6ew-8E9ociJuRpnrTso-TlZH4', 'wxf64f0972d4922815':'Ie5KJJ7UhNAowE6MHqY_8S3GTNLt85BSr6NgOlwa2Uw']
+
     public RedpacketTemplate(Integer uid, String nickName, String path){
         this.path = path;
         this.uid = uid;
@@ -467,6 +480,10 @@ class RedpacketTemplate extends WxTemplate{
         data['keyword1'] = ['value':'100钻石','color':'#173177']
         data['keyword2'] = ['value':"${new Date().format('yyyy-MM-dd')}".toString(),'color':'#173177']
         data['remark'] = ['value':'钻石数量有限，先到先得，速速去抢!','color':'#FF0000']
+    }
+
+    public String getTemplateId(String appId){
+        return TEMPLATE_IDS[appId]
     }
 }
 
@@ -479,7 +496,7 @@ abstract class WxTemplate{
     protected Integer uid;
     protected static final String STATIC_API_URL = "http://aochu-api.17laihou.com/statistic/weixin_template";
     protected static Map<String,String> DOMAIN_IDS = ['wx45d43a50adf5a470':'http://www.17laihou.com/', 'wxf64f0972d4922815':'http://aochu.17laihou.com/']
-    protected static Map<String,String> TEMPLATE_IDS = ['wx45d43a50adf5a470':'ktMO_XUO3BeWrPeXiVTTx_gmTGOqTdelt4YpZA-gqRI', 'wxf64f0972d4922815':'eAZMbdfp072nYir240cyU1Pr4p1w3d6B5VtpIs71B2s']
+
 
     public String getId(){return this.id}
     public String getUrl(){return this.url}
@@ -487,10 +504,12 @@ abstract class WxTemplate{
     public String getEvent_id(){return this.event_id}
 
     public Map generate(String appId){
-        if(!TEMPLATE_IDS.containsKey(appId)) return null
+        if(!DOMAIN_IDS.containsKey(appId)) return null
         String redirect = DOMAIN_IDS[appId] + path;
         String trace_id = "${event_id}_${uid}_${System.currentTimeMillis()}".toString()
         String url = STATIC_API_URL+"?event=${getEvent_id()}&uid=${uid}&trace_id=${trace_id}&redirect_url=${URLEncoder.encode(redirect, "UTF-8")}".toString()
-        return ['id': TEMPLATE_IDS[appId], url:url, data:this.getData()];
+        return ['id': getTemplateId(appId), url:url, data:this.getData()];
     }
+
+    protected abstract String getTemplateId(String appId);
 }

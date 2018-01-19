@@ -543,12 +543,12 @@ class UserBehaviorStatic {
         //staticsCatchUser()
         //邮寄用户
         //staticsDeliverUserOfPay()
-        msgPushStatistic('娃娃过期','ToyExpire');
+        /*msgPushStatistic('娃娃过期','ToyExpire');
         msgPushStatistic('积分过期','PointsExpire');
         msgPushStatistic('邀请好友','Inviter');
         msgPushStatistic('发货通知','DeliverInfo');
-        msgPushStatistic('红包发送','redpacket');
-        //msgPushStatistic('上新商品','ToyRenew');
+        msgPushStatistic('红包发送','redpacket');*/
+        msgPushStatistic('上新商品','ToyRenew');
         //统计渠道充值
         //staticChannlePay();
         //统计用户点击充值按钮后完成支付的情况
