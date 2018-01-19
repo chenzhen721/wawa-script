@@ -479,8 +479,8 @@ class StaticsRegPay {
             5.times { Integer i ->
                 regpay_last5(i + DAY, 0)
             }
-            /*61.times {Integer i ->
-                i.times {Integer n->
+            /*for(int i = 0; i < 62; i++) {
+                for(int n = 0; n <= i; n ++) {
                     regpay_last5(i, n)
                 }
             }*/
@@ -490,8 +490,8 @@ class StaticsRegPay {
             60.times { Integer i->
                 regpay_till_current(i + DAY, 0)
             }
-            /*61.times {Integer i ->
-                i.times { Integer n->
+            /*for(int i = 0; i < 62; i++) {
+                for(int n = 0; n <= i; n ++) {
                     regpay_till_current(i, n)
                 }
             }*/
@@ -501,8 +501,8 @@ class StaticsRegPay {
             60.times { Integer i->
                 diamondPresentStatics(i + DAY, 0)
             }
-            /*61.times {Integer i ->
-                i.times { Integer n->
+            /*for(int i = 0; i < 62; i++) {
+                for(int n = 0; n <= i; n ++) {
                     diamondPresentStatics(i, n)
                 }
             }*/
