@@ -7,7 +7,7 @@
 */1 * * * * root source /etc/profile && /empty/crontab/UpdateUserAndLive.groovy >> /empty/crontab/logs/star_UpdateUserAndLive.log
 
 ### 红包
-*/30 * * * * root source /etc/profile && /empty/crontab/Redpacket.groovy >> /empty/crontab/logs/Redpacket.log
+##*/30 * * * * root source /etc/profile && /empty/crontab/Redpacket.groovy >> /empty/crontab/logs/Redpacket.log
 
 ### 微信推送模板消息 7点到23点的每隔15分钟执行
 */15 7-23 * * * root source /etc/profile && /empty/crontab/WeixinMessage.groovy >> /empty/crontab/logs/WeixinMessage.log
