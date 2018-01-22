@@ -483,9 +483,11 @@ class UserBehaviorStatic {
         Long begin = Date.parse("yyyy-MM-dd HH:mm:ss","${date} 00:00:00".toString()).getTime()
         Integer userInvitedCount = 0;
         Integer invitedUserCount = 0;
+        Integer invitedUserPayCount = 0;
 
         Integer newuserInvitedCount = 0;
         Integer newInvitedUserCount = 0;
+        Integer newInvitedUserPayCount = 0;
         //活跃用户
         List<Integer> actives = day_login.find($$(timestamp:[$gte:begin, $lt:begin+DAY_MILLON])).toArray()*.user_id
         Integer activeUserCount = actives.size()
@@ -497,19 +499,33 @@ class UserBehaviorStatic {
         actives.each {Integer userId ->
             if(isInvitor(userId,begin,begin+DAY_MILLON)){
                 userInvitedCount++;
-                invitedUserCount += invitiedUsers(userId,begin,begin+DAY_MILLON).size()
+                List invitedUsers = invitiedUsers(userId,begin,begin+DAY_MILLON)
+                invitedUserCount += invitedUsers.size()
+                invitedUsers.each {Integer inviUserId ->
+                    if(finance_log.count($$(user_id:inviUserId,via: [$ne: 'Admin'], timestamp:[$gte:begin, $lt:begin+DAY_MILLON])) > 0){
+                        invitedUserPayCount++;
+                    }
+                }
+
             }
         }
         news.each {Integer userId ->
             if(isInvitor(userId,begin,begin+DAY_MILLON)){
                 newuserInvitedCount++;
-                newInvitedUserCount += invitiedUsers(userId,begin,begin+DAY_MILLON).size()
+                List invitedUsers = invitiedUsers(userId,begin,begin+DAY_MILLON)
+                newInvitedUserCount += invitedUsers.size()
+                invitedUsers.each {Integer inviUserId ->
+                    if(finance_log.count($$(user_id:inviUserId,via: [$ne: 'Admin'], timestamp:[$gte:begin, $lt:begin+DAY_MILLON])) > 0){
+                        newInvitedUserPayCount++;
+                    }
+                }
             }
         }
-        println "${new Date(begin).format('yyyy-MM-dd HH:mm:ss')} : " +
-                "\t活跃人数${activeUserCount}\t 新增人数:${news.size()}\t非新增用户${actives.size()}" +
-                "\t新增邀请好友成功的人数:${newuserInvitedCount}\t 新增邀请好友数量:${newInvitedUserCount} " +
-                "\t非新邀请好友成功的人数:${userInvitedCount}\t 非新增邀请好友数量:${invitedUserCount}"
+        println "${new Date(begin).format('yyyy-MM-dd')} : " +
+                "\t活跃人数:${activeUserCount}" +
+                "\t[新增人数:${news.size()} \t邀请好友成功的人数:${newuserInvitedCount}\t 邀请好友数量:${newInvitedUserCount} \t付费人数:${invitedUserPayCount}]" +
+                "\t[非新增人数:${actives.size()} \t邀请好友成功的人数:${userInvitedCount}\t 邀请好友数量:${invitedUserCount}\t付费人数:${newInvitedUserPayCount}]" +
+                ""
     }
 
     static Integer totalPay(Integer userId){
@@ -548,15 +564,17 @@ class UserBehaviorStatic {
         msgPushStatistic('邀请好友','Inviter');
         msgPushStatistic('发货通知','DeliverInfo');
         msgPushStatistic('红包发送','redpacket');*/
-        msgPushStatistic('上新商品','ToyRenew');
+        //msgPushStatistic('上新商品','ToyRenew');
         //统计渠道充值
         //staticChannlePay();
         //统计用户点击充值按钮后完成支付的情况
         //staticPaiedAfterClickButton()
         //量子云相关数据统计
         //staticsLiangziyunCatchUser()
-        //staticInvitorUser('2018-01-14');
-        //staticInvitorUser('2018-01-15');
+        staticInvitorUser('2018-01-12');
+        staticInvitorUser('2018-01-13');
+        staticInvitorUser('2018-01-19');
+        staticInvitorUser('2018-01-20');
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   UserBehaviorStatic, cost  ${System.currentTimeMillis() - l} ms"
     }
 
