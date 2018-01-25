@@ -53,7 +53,7 @@ class WeixinMessage {
     static Integer main_jedis_port = getProperties("main_jedis_port", 6379) as Integer
     static mainRedis = new Jedis(jedis_host, main_jedis_port)
 
-    static Map<String,String> APP_ID_SECRETS = ['wx45d43a50adf5a470':'40e8dc2daac9f04bfbac32a64eb6dfff', 'wxf64f0972d4922815':'fbf4fd32c00a82d5cbe5161c5e699a0e']
+    public static Map<String,String> APP_ID_SECRETS = ['wx45d43a50adf5a470':'40e8dc2daac9f04bfbac32a64eb6dfff', 'wxf64f0972d4922815':'fbf4fd32c00a82d5cbe5161c5e699a0e']
     static String WEIXIN_URL = 'https://api.weixin.qq.com/cgi-bin/'
     public static Integer requestCount = 0
     public static Integer successCount = 0
@@ -104,7 +104,7 @@ class WeixinMessage {
 
     static void sendMessage(){
         Long now = System.currentTimeMillis()
-        def msgs = weixin_msg.find($$(is_send:0,'next_fire': [$lte: now])).sort($$(next_fire:-1)).limit(5000).toArray()
+        def msgs = weixin_msg.find($$(is_send:0,'next_fire': [$lte: now])).sort($$(next_fire:-1)).limit(1000).toArray()
         println "msgs size : ${msgs.size()}".toString()
         if(msgs.size() == 0) return;
         initErrorCode();
@@ -117,6 +117,8 @@ class WeixinMessage {
                 @Override
                 void run() {
                     try{
+                        if(!APP_ID_SECRETS.containsKey(appId)) return
+
                         Integer error = -1
                         def template = row['template'] as DBObject
                         if(template != null){
@@ -137,6 +139,7 @@ class WeixinMessage {
                     }
                 }
             })
+
         }
         threadPool.shutdown();
 /*

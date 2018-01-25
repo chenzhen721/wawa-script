@@ -51,6 +51,7 @@ class MsgGenerator {
     static DBCollection apply_post_logs = mongo.getDB('xylog').getCollection('apply_post_logs')
     static DBCollection catch_record = mongo.getDB('xy_catch').getCollection('catch_record')
     static DBCollection weixin_msg = mongo.getDB('xy_union').getCollection('weixin_msgs')
+    static DBCollection red_packets = mongo.getDB('xy_activity').getCollection('red_packets')
     static DBCollection users = mongo.getDB('xy').getCollection("users")
     static DBCollection xy_users = mongo.getDB('xy_user').getCollection('users')
     static String jedis_host = getProperties("main_jedis_host", "192.168.31.249")
@@ -113,11 +114,6 @@ class MsgGenerator {
             scanUserPoints()
             println "每周5晚上9点 scanUserPoints :${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms"
         }
-/*
-        scanToyExpire(3)
-        scanToyExpire(1)
-        scanUserPoints()
-*/
 
         //邀请用户获得钻石
         Long begin = System.currentTimeMillis()
@@ -127,7 +123,12 @@ class MsgGenerator {
         //快递发货
         begin = System.currentTimeMillis()
         scanUserDeliverInfo()
-        println "scanUserDeliverInfo :${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms"
+        println "scanUserDeliverInfo :${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms"//快递发货
+
+        //用户抓中娃娃发送红包
+        begin = System.currentTimeMillis()
+        scanUserRedpacket()
+        println "scanUserRedpacket :${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms"
     }
 
     static test(){
@@ -136,7 +137,7 @@ class MsgGenerator {
             //pushMsg2Queue(userId, new PointsExpireTemplate(userId, '宁姐', 200))
             //pushMsg2Queue(userId, new InviterTemplate(userId, '宁姐','张三', 10, 1515554460000))
             //pushMsg2Queue(userId, new DeliverTemplate(userId, '宁姐','海绵宝宝','申通快递','5210213132','上海闵行区合川大厦6m'))
-            pushMsg2Queue(userId, new ToyRenewTemplate(userId, '兄弟','王者荣耀梦奇布偶、王者荣耀288皮肤','点击详情查看，抓王者荣耀劲爆新品~'))
+            pushMsg2Queue(userId, new RedpacketTemplate(userId, '兄弟','王者荣耀梦奇布偶、王者荣耀288皮肤','点击详情查看，抓王者荣耀劲爆新品~'))
         }
     }
 
@@ -224,19 +225,72 @@ class MsgGenerator {
         }
     }
 
-    //用户推送娃娃上新提醒
-    static void scanUserRenewToys(String toyNames, String remark){
-        def cur = users.find($$("last_login":[$gt: zeroMill - 15 * DAY_MILLION]), $$(nick_name:1)).batchSize(500)
-        while (cur.hasNext()){
-            def user = cur.next()
-            Integer userId = user['_id'] as Integer
-            String nick_name = user['nick_name'] as String
-            if(isTest(userId)) {
-                //println "${userId} ${nick_name}: ${points}"
-                pushMsg2Queue(userId, new ToyRenewTemplate(userId, nick_name, toyNames, remark))
+    //扫描用户是否抓中娃娃
+    static friends_limit = 1 //好友必须超过2名才能发红包
+    static void scanUserRedpacket(){
+        //抓中娃娃的用户
+        def userIds = catch_record.distinct("user_id", $$(status:true, timestamp:[$gt:per_begin, $lt:per_end]))
+        userIds.each {Integer userId ->
+            //邀请的好友
+            def friends = invitor_logs.find($$($or: [[user_id : userId], [invitor : userId]]),$$(user_id:1)).toArray()*.user_id;
+            if(friends.size() <= friends_limit) return;
+            //生成红包
+            def redpacket_id = generateRedpacket(userId, friends)
+            //生成红包成功,则生成微信客服消息模板
+            if(StringUtils.isNotBlank(redpacket_id)){
+                friends.each {Integer tid ->
+                    //不能给自己发红包
+                    if (userId.equals(tid)) return
+                    pushMsg2Queue(tid, new RedpacketTemplate(tid, getNickName(userId), "activity/packet?packet_id=${redpacket_id}".toString()))
+                }
             }
         }
     }
+
+    //生成红包
+    static String generateRedpacket(Integer userId, List<Integer> friends){
+        try {
+            Long time = System.currentTimeMillis();
+            def _id = "${new Date().format('yyyyMMdd')}_${userId}".toString()
+            def redpacket_id = "${userId}_${time}".toString()
+            //一个用户一天只能发一次红包
+            if(red_packets.count($$(_id :_id)) >= 1) return;
+            //红包数量 = 好友人数/2
+            Integer count = (friends.size() / 2) as Integer
+            //红包奖励总钻石 = 红包数量 * 20
+            def award_diamond = count * 20
+            List<Integer> packets = distribute(award_diamond, count);
+            def toy = getToyInfo(userId)
+            red_packets.insert($$(_id:_id, redpacket_id:redpacket_id,user_id:userId, friends:friends, packets:packets, draw_uids: [],toy:toy,
+                    count:count, award_diamond:award_diamond, status:1, timestamp:time, expires:time+3*DAY_MILLION))
+            return redpacket_id;
+        }catch (Exception e){
+            println e
+        }
+        return null
+    }
+
+    static getToyInfo(Integer userId){
+        def record = catch_record.findOne($$(user_id:userId,status:true, timestamp:[$gt:per_begin, $lt:per_end]),$$(room_id:1,toy:1))
+        def toy = $$(room_id:record['room_id'],name:record['toy']['name'],pic:record['toy']['head_pic'])
+        return toy
+    }
+
+    static min = 10d
+    public static List<Integer> distribute(Integer total, int num){
+        List<Integer> ar = new LinkedList<>();
+        for (int i = 1; i < num; i++) {
+            int remian = num - i;
+            Double safe_total =  Math.ceil((total - remian * min) / remian) ;//随机安全上限
+            Double money = min + RandomUtils.nextInt(safe_total.intValue());
+            total = total - money.intValue();
+            ar.add(money.intValue());
+        }
+        ar.add(total);
+        Collections.shuffle(ar);
+        return ar;
+    }
+
 
     static String getNickName(Integer userId){
         return users.findOne($$(_id:userId), $$(nick_name:1))?.get('nick_name')
@@ -263,9 +317,11 @@ class MsgGenerator {
         weixin.each {String app_id, String open_id ->
             Long time = System.currentTimeMillis()
             def template = wxTemplate.generate(app_id)
-            def msg = $$(_id: to_uid+'_'+app_id+'_'+time, to_id:to_uid,app_id:app_id,open_id:open_id,
-                            event:wxTemplate.getEvent_id(),timestamp:time,template:template, is_send:0, next_fire:time)
-            weixin_msg.insert(msg)
+            if(template){
+                def msg = $$(_id: to_uid+'_'+app_id+'_'+time, to_id:to_uid,app_id:app_id,open_id:open_id,
+                        event:wxTemplate.getEvent_id(),timestamp:time,template:template, is_send:0, next_fire:time)
+                weixin_msg.insert(msg)
+            }
         }
 
     }
@@ -309,14 +365,6 @@ class MsgGenerator {
         return hourOfDay;
     }
 }
-
-/**
-    购物车商品过期提醒
-     {{first.DATA}}
-     过期商品：{{keyword1.DATA}}
-     剩余时间：{{keyword2.DATA}}
-     {{remark.DATA}}
- */
 class ToyExpireTemplate extends WxTemplate{
     static Map<String,String> template_ids = ['wx45d43a50adf5a470':'64GFNFZVbdvpCT0G5BOBIMPOYkypMSisKkuujc9Cacs', 'wxf64f0972d4922815':'P1nqV2mcWKlNLpCa-IS3A6hpGTiOq_N6cCLC5eyRxE0']
 
@@ -367,10 +415,10 @@ class PointsExpireTemplate extends WxTemplate{
  *  邀请的好友注册时获得钻石
  *
  *   {{first.DATA}}
-     注册用户：{{keyword1.DATA}}
-     注册时间：{{keyword2.DATA}}
-     注册来源：{{keyword3.DATA}}
-     {{remark.DATA}}
+ 注册用户：{{keyword1.DATA}}
+ 注册时间：{{keyword2.DATA}}
+ 注册来源：{{keyword3.DATA}}
+ {{remark.DATA}}
  */
 class InviterTemplate extends WxTemplate{
     static Map<String,String> template_ids = ['wx45d43a50adf5a470':'9Szzu0vCp1XDz8mS51BM8BClv4XeQuBUXJ-CBvGbgCM', 'wxf64f0972d4922815':'YQa06vsqhXGTio3jNpSKdPdWTInMJH1Aizpe7HjeUh0']
@@ -418,27 +466,24 @@ class DeliverTemplate extends WxTemplate{
     }
 }
 
-
 /**
- * 娃娃上新提醒
- {{first.DATA}}
- 订单号：{{keyword1.DATA}}
- 商品：{{keyword2.DATA}}
- {{remark.DATA}}
+ * 抓中娃娃发钻石红包
  */
-class ToyRenewTemplate extends WxTemplate{
-    static Map<String,String> template_ids = ['wx45d43a50adf5a470':'ktMO_XUO3BeWrPeXiVTTx_gmTGOqTdelt4YpZA-gqRI', 'wxf64f0972d4922815':'eAZMbdfp072nYir240cyU1Pr4p1w3d6B5VtpIs71B2s']
-    public ToyRenewTemplate(Integer uid, String nickName, String toyName, String remark){
-        this.path = '';
+class RedpacketTemplate extends WxTemplate{
+    static Map<String,String> TEMPLATE_IDS = ['wx45d43a50adf5a470':'pedgM13fkPvhs6E0LV6ew-8E9ociJuRpnrTso-TlZH4', 'wxf64f0972d4922815':'Ie5KJJ7UhNAowE6MHqY_8S3GTNLt85BSr6NgOlwa2Uw']
+
+    public RedpacketTemplate(Integer uid, String nickName, String path){
+        this.path = path;
         this.uid = uid;
-        this.event_id = 'ToyRenew';
-        this.data["first"] = ['value':"${nickName}，有新商品上线啦!".toString(),'color':'#173177']
-        this.data["keyword1"] = ['value':"暂无",'color':'#173177']
-        this.data["keyword2"] = ['value':"${toyName}".toString(),'color':'#173177']
-        this.data["remark"] = ['value':remark,'color':'#173177']
+        this.event_id = 'redpacket';
+        data['first'] = ['value':"哇!好友${nickName}抓中了娃娃，特来给您发钻石拉，赶紧抢了钻石去抓娃娃。".toString(),'color':'#173177']
+        data['keyword1'] = ['value':'100钻石','color':'#173177']
+        data['keyword2'] = ['value':"${new Date().format('yyyy-MM-dd')}".toString(),'color':'#173177']
+        data['remark'] = ['value':'钻石数量有限，先到先得，速速去抢!','color':'#FF0000']
     }
+
     public String getTemplateId(String appId){
-        return template_ids[appId]
+        return TEMPLATE_IDS[appId]
     }
 }
 
@@ -452,16 +497,19 @@ abstract class WxTemplate{
     protected static final String STATIC_API_URL = "http://aochu-api.17laihou.com/statistic/weixin_template";
     protected static Map<String,String> DOMAIN_IDS = ['wx45d43a50adf5a470':'http://www.17laihou.com/', 'wxf64f0972d4922815':'http://aochu.17laihou.com/']
 
+
     public String getId(){return this.id}
     public String getUrl(){return this.url}
     public Map getData(){return this.data}
     public String getEvent_id(){return this.event_id}
 
     public Map generate(String appId){
+        if(!DOMAIN_IDS.containsKey(appId)) return null
         String redirect = DOMAIN_IDS[appId] + path;
         String trace_id = "${event_id}_${uid}_${System.currentTimeMillis()}".toString()
         String url = STATIC_API_URL+"?event=${getEvent_id()}&uid=${uid}&trace_id=${trace_id}&redirect_url=${URLEncoder.encode(redirect, "UTF-8")}".toString()
-        return ['id': this.getTemplateId(appId), url:url, data:this.getData()];
+        return ['id': getTemplateId(appId), url:url, data:this.getData()];
     }
+
     protected abstract String getTemplateId(String appId);
 }

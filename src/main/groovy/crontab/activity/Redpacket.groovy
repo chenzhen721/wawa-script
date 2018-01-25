@@ -179,7 +179,7 @@ class Redpacket {
                     data['remark'] = ['value':'钻石数量有限，先到先得，速速去抢!','color':'#FF0000']
                     template['data'] = data;
 
-                    def msg = $$(_id: redpacket_id+'_'+tid,from_id:userId,to_id:tid,app_id:app_id,open_id:open_id,timestamp:time,template:template, is_send:0, next_fire:time)
+                    def msg = $$(_id: redpacket_id+'_'+tid,from_id:userId,to_id:tid,app_id:app_id,open_id:open_id,event:'redpacket',timestamp:time,template:template, is_send:0, next_fire:time)
                     //def msg = $$(_id: redpacket_id+'_'+tid,from_id:userId,to_id:tid,timestamp:time,custom_text:customMsg,template:template, is_send:0, next_fire:time)
                     msgs.add(msg)
                 }

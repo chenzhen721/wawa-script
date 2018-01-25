@@ -48,6 +48,7 @@ class UserBehaviorStatic {
     static DBCollection invitor_logs = mongo.getDB('xylog').getCollection('invitor_logs')
     static DBCollection order_logs = mongo.getDB('xylog').getCollection('order_logs')
     static DBCollection event_logs = mongo.getDB('xylog').getCollection('event_logs')
+    static DBCollection day_login = mongo.getDB('xylog').getCollection('day_login')
     static DBCollection users = mongo.getDB('xy').getCollection('users')
     static DBCollection apply_post_logs = mongo.getDB('xylog').getCollection('apply_post_logs')
 
@@ -152,9 +153,19 @@ class UserBehaviorStatic {
         return invitor_logs.count($$(invitor:userId)) >= 1
     }
 
+    //是否成功邀请过用户
+    static isInvitor(Integer userId, Long begin, Long end){
+        return invitor_logs.count($$(invitor:userId,timestamp:[$gte:begin,$lt:end])) >= 1
+    }
+
     //邀请过来的用户
     static List invitiedUsers(Integer userId){
         return invitor_logs.find($$(invitor:userId)).toArray()*.user_id
+    }
+
+    //邀请过来的用户
+    static List invitiedUsers(Integer userId, Long begin, Long end){
+        return invitor_logs.find($$(invitor:userId,timestamp:[$gte:begin,$lt:end])).toArray()*.user_id
     }
 
     //来自公众号用户
@@ -242,7 +253,7 @@ class UserBehaviorStatic {
         Integer catchBingoCount = 0
         Integer invitedUserCount = 0
         Map<Long, Integer> userCatchCounts = new HashMap<>();
-        def cur = users.find($$(qd:"wawa_liangziyun", timestamp:[$gte:1516032000000,$lt:1516118400000])).batchSize(100)
+        def cur = users.find($$(qd:"wawa_liangziyun", timestamp:[$gte:1516118400000,$lt:1516204800000])).batchSize(100)
         while (cur.hasNext()) {
             def row = cur.next()
             Integer userId = row['_id'] as Integer
@@ -335,7 +346,7 @@ class UserBehaviorStatic {
     //红包相关数据统计 产生红包数/发送用户人数/领取红包人数/领取后抓取人数/领取后充值人数/充值金额
     static void msgPushStatistic(String eventName, String eventId){
         Long begin = Date.parse("yyyy-MM-dd HH:mm:ss","2018-01-12 00:00:00").getTime()
-        def msgs = weixin_msgs.distinct("to_id", $$(success_send:1,timestamp:[$gte:begin],'template.data.remark.value':'点击详情查看，抓王者荣耀劲爆新品~')).size()
+        def msgs = weixin_msgs.distinct("to_id", $$(success_send:1,timestamp:[$gte:begin],event:eventId)).size()
         def cur = event_logs.find($$(event:eventId,timestamp:[$gte:begin])).batchSize(10)
         Integer userCount = 0
         Integer userCatchCount = 0
@@ -351,29 +362,30 @@ class UserBehaviorStatic {
             Long timestamp = row['timestamp'] as Long
             if(users.add(userId)){
                 userCount++;
-                Long catchCount = catch_record.count($$($$(user_id:userId, timestamp:[$gt:timestamp])));
+                Long end = timestamp + 1 * 60 * 60 *1000l
+                Long catchCount = catch_record.count($$($$(user_id:userId, timestamp:[$gte:timestamp, $lt:end])));
                 if(catchCount > 0){
                     userCatchCount++;
                     catchCountTotal += catchCount
                 }
-                Boolean catched = catch_record.count($$($$(user_id:userId, status:true,timestamp:[$gt:timestamp]))) > 0
+                Boolean catched = catch_record.count($$($$(user_id:userId, status:true,timestamp:[$gte:timestamp, $lt:end]))) > 0
                 if(catched){
                     userCatchGotCount++;
                 }
-                Long end = timestamp + 24 * 60 * 60 *1000l
+
                 if(finance_log.count($$($$(user_id:userId,via: [$ne: 'Admin'], timestamp:[$gt:timestamp, $lt:end]))) > 0){
                     payUserCount++;
                     if(catched)
                         userCatchGotpayCount++
                 }
-                List<Integer> cnys = finance_log.find($$(user_id:userId,via: [$ne: 'Admin'], timestamp:[$gt:timestamp])).toArray()*.cny
+                List<Integer> cnys = finance_log.find($$(user_id:userId,via: [$ne: 'Admin'], timestamp:[$gt:timestamp, $lt:end])).toArray()*.cny
                 if(cnys != null && cnys.size() >0){
                     payCount += cnys.sum() as Integer
                 }
             }
 
         }
-        println "${eventName}推送 >> 推送用户数:${msgs}\t 点击人数: ${userCount}\t抓取人数: ${userCatchCount}\t抓取次数: ${catchCountTotal}" +
+        println "${eventName}推送 >> 推送用户数:${msgs}\t 点击人数: ${userCount}\t 1小时内抓取人数: ${userCatchCount}\t抓取次数: ${catchCountTotal}" +
                 " \t充值人数: ${payUserCount}\t总充值金额: ${payCount} 元\t抓中人数: ${userCatchGotCount}\t抓中后充值人数: ${userCatchGotpayCount}"
     }
 
@@ -466,6 +478,40 @@ class UserBehaviorStatic {
 
     }
 
+    //统计用户邀请
+    static staticInvitorUser(String date){
+        Long begin = Date.parse("yyyy-MM-dd HH:mm:ss","${date} 00:00:00".toString()).getTime()
+        Integer userInvitedCount = 0;
+        Integer invitedUserCount = 0;
+
+        Integer newuserInvitedCount = 0;
+        Integer newInvitedUserCount = 0;
+        //活跃用户
+        List<Integer> actives = day_login.find($$(timestamp:[$gte:begin, $lt:begin+DAY_MILLON])).toArray()*.user_id
+        Integer activeUserCount = actives.size()
+        //新增用户
+        List<Integer> news = users.find($$(timestamp:[$gte:begin, $lt:begin+DAY_MILLON])).toArray()*._id
+        //非新增用户
+        actives.removeAll(news)
+
+        actives.each {Integer userId ->
+            if(isInvitor(userId,begin,begin+DAY_MILLON)){
+                userInvitedCount++;
+                invitedUserCount += invitiedUsers(userId,begin,begin+DAY_MILLON).size()
+            }
+        }
+        news.each {Integer userId ->
+            if(isInvitor(userId,begin,begin+DAY_MILLON)){
+                newuserInvitedCount++;
+                newInvitedUserCount += invitiedUsers(userId,begin,begin+DAY_MILLON).size()
+            }
+        }
+        println "${new Date(begin).format('yyyy-MM-dd HH:mm:ss')} : " +
+                "\t活跃人数${activeUserCount}\t 新增人数:${news.size()}\t非新增用户${actives.size()}" +
+                "\t新增邀请好友成功的人数:${newuserInvitedCount}\t 新增邀请好友数量:${newInvitedUserCount} " +
+                "\t非新邀请好友成功的人数:${userInvitedCount}\t 非新增邀请好友数量:${invitedUserCount}"
+    }
+
     static Integer totalPay(Integer userId){
         Integer payCount = 0
         List<Integer> cnys = finance_log.find($$(user_id:userId,via: [$ne: 'Admin'])).toArray()*.cny
@@ -497,13 +543,20 @@ class UserBehaviorStatic {
         //staticsCatchUser()
         //邮寄用户
         //staticsDeliverUserOfPay()
-        //msgPushStatistic('上新商品','ToyRenew');
+        /*msgPushStatistic('娃娃过期','ToyExpire');
+        msgPushStatistic('积分过期','PointsExpire');
+        msgPushStatistic('邀请好友','Inviter');
+        msgPushStatistic('发货通知','DeliverInfo');
+        msgPushStatistic('红包发送','redpacket');*/
+        msgPushStatistic('上新商品','ToyRenew');
         //统计渠道充值
         //staticChannlePay();
         //统计用户点击充值按钮后完成支付的情况
         //staticPaiedAfterClickButton()
         //量子云相关数据统计
-        staticsLiangziyunCatchUser()
+        //staticsLiangziyunCatchUser()
+        //staticInvitorUser('2018-01-14');
+        //staticInvitorUser('2018-01-15');
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   UserBehaviorStatic, cost  ${System.currentTimeMillis() - l} ms"
     }
 
