@@ -122,8 +122,8 @@ class StaticsDoll {
         def prefix = date.format('yyyyMMdd_')
         coll.aggregate([
                 $$('$match', [timestamp: begin, type: 'day']),
-                $$('$project', [count: '$count', users: '$users', bingo_count: '$bingo_count', reg_count: '$reg_count', regs: '$regs']),
-                $$('$group', [_id: null, count: [$sum: '$count'], bingo_count: [$sum: '$bingo_count'], reg_count: [$sum: '$reg_count'],
+                $$('$project', [count: '$count', users: '$users', bingo_count: '$bingo_count', reg_count: '$reg_count', regs: '$regs', enter_count: '$enter_count']),
+                $$('$group', [_id: null, count: [$sum: '$count'], bingo_count: [$sum: '$bingo_count'], enter_count: [$sum: '$enter_count'], reg_count: [$sum: '$reg_count'],
                     user_set: ['$addToSet': '$users'], reg_set: ['$addToSet': '$regs']
                 ])
         ]).results().each {BasicDBObject obj ->
@@ -142,7 +142,7 @@ class StaticsDoll {
             //每日新增中抓中数
             def query = [user_id: [$in: regs], status: true, timestamp: [$gte: begin, $lt: end], is_delete: [$ne: true]]
             def reg_bingo_count = catch_record.count($$(query))
-            def set = [type: 'total_all', count: obj['count'], bingo_count: obj['bingo_count'], reg_count: obj['reg_count'], users: users, user_count: users.size(), reg_user_count: regs.size(), reg_bingo_count: reg_bingo_count, regs: regs]
+            def set = [type: 'total_all', count: obj['count'], bingo_count: obj['bingo_count'], enter_count: obj['enter_count'], reg_count: obj['reg_count'], users: users, user_count: users.size(), reg_user_count: regs.size(), reg_bingo_count: reg_bingo_count, regs: regs]
             coll.update($$(_id: YMD + '_total_doll'), $$($set: set), true, false)
             // 更新数据总表 5抓取次数 6 抓中 7 人数 13新抓
             def stat_report = mongo.getDB('xy_admin').getCollection('stat_report')
