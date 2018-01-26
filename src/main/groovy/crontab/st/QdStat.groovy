@@ -157,7 +157,6 @@ class QdStat {
                 }
             }
             def update = $$([pay_coin: pay_coin, pay_cny: pay_cny, pay_user: uids.size(), regs: regs.size(), reg_pay_cny: reg_pay_cny, reg_pay_user: reg_pay_user.size()])
-            println update
             stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: update), true, false)
         }
         //登录信息
@@ -168,7 +167,6 @@ class QdStat {
             def cid = obj['_id']
             def uids = obj['uids'] as Set ?: []
             def update = $$([logins: uids.size()])
-            println update
             stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: update), true, false)
         }
     }
