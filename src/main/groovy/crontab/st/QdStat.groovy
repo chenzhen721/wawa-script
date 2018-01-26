@@ -150,10 +150,10 @@ class QdStat {
             def reg_pay_cny = 0d
             def reg_pay_user = []
 
-            for(int i = 0; i < uids.size(); i++) {
-                if (regs.contains(uids[i])) {
-                    reg_pay_user.add(uids[i])
-                    reg_pay_cny = reg_pay_cny + (cnys[i] as Double ?: 0d)
+            for(int j = 0; j < uids.size(); j++) {
+                if (regs.contains(uids[j])) {
+                    reg_pay_user.add(uids[j])
+                    reg_pay_cny = reg_pay_cny + (cnys[j] as Double ?: 0d)
                 }
             }
             def update = $$([pay_coin: pay_coin, pay_cny: pay_cny, pay_user: uids.size(), regs: regs.size(), reg_pay_cny: reg_pay_cny, reg_pay_user: reg_pay_user.size()])
