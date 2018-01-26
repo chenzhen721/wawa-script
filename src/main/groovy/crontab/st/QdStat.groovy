@@ -134,31 +134,32 @@ class QdStat {
         def YMD = new Date(begin).format('yyyyMMdd')
 
         //充值信息
+        def cny = 0d
         finance_log.aggregate([
                 $$($match: [timestamp: [$gte: begin, $lt: end], via: [$ne: 'Admin']]),
-                $$($group: [_id: '$qd', uids: [$addToSet: '$user_id'], cnys: [$addToSet: '$cny'], diamond: [$sum: '$diamond']])
+                $$($group: [_id: '$qd', uids: [$addToSet: '$user_id'], cnys: [$sum: '$cny'], diamond: [$sum: '$diamond']])
         ]).results().each {BasicDBObject obj->
             def cid = obj['_id']
             def pay_coin = obj['diamond'] as Integer ?: 0
             def uids = obj['uids'] as Set ?: new HashSet()
-            def cnys = obj['cnys'] as Set ?: new HashSet()
-            def pay_cny = cnys.sum{ it as Double ?: 0 }
-
+            def pay_cny = obj['cnys'] as Double ?: 0d
+            cny = cny + pay_cny
             def regpay = stat_regpay.findOne($$(_id: "${YMD}_${cid}_regpay".toString(), type: 'qd')) ?: new HashMap()
+            println regpay
             //注册人数 新增人数 新增充值金额 新增充值人数
             def regs = regpay['regs'] as Set ?: []
-            def reg_pay_cny = 0d
             def reg_pay_user = []
-
             for(int j = 0; j < uids.size(); j++) {
                 if (regs.contains(uids[j])) {
                     reg_pay_user.add(uids[j])
-                    reg_pay_cny = reg_pay_cny + (cnys[j] as Double ?: 0d)
                 }
             }
+            def cnys = finance_log.find($$(timestamp: [$gte: begin, $lt: end], via: [$ne: 'Admin'], user_id: [$in: reg_pay_user]))*.cny
+            def reg_pay_cny = cnys.sum{it as Double ?: 0d} ?: 0d
             def update = $$([qd: cid, timestamp: begin, pay_coin: pay_coin, pay_cny: pay_cny, pay_user: uids.size(), regs: regs.size(), reg_pay_cny: reg_pay_cny, reg_pay_user: reg_pay_user.size()])
             stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: update), true, false)
         }
+        println cny
         //登录信息
         day_login.aggregate([
                 $$($match: [timestamp: [$gte: begin, $lt: end]]),
