@@ -143,7 +143,6 @@ class QdStat {
             def uids = obj['uids'] as Set ?: new HashSet()
             def pay_cny = obj['cnys'] as Double ?: 0d
             def regpay = stat_regpay.findOne($$(_id: "${YMD}_${cid}_regpay".toString(), type: 'qd')) ?: new HashMap()
-            println regpay
             //注册人数 新增人数 新增充值金额 新增充值人数
             def regs = regpay['regs'] as Set ?: []
             def reg_pay_user = []
@@ -235,30 +234,31 @@ class QdStat {
      */
     static stayStatics(int i) {
         def gteMill = yesTday - i * DAY_MILLON
-        def prefix = new Date(gteMill).format("yyyyMMdd_")
-        channels.find(new BasicDBObject(), new BasicDBObject("_id": 1)).toArray().each { BasicDBObject qdObj ->
-            String qd = qdObj.get("_id")
-            def channel = stat_channels.findOne(new BasicDBObject('_id', prefix + qd))
-            if (channel != null) {
-                def map = new HashMap<String, Long>(4)
-                [1, 3, 7, 30].each { Integer d ->
-                    def allUids = channel?.get('regs') as Collection
-                    if (allUids && allUids.size() > 0) {
-                        Long gt = gteMill + d * DAY_MILLON
-                        Integer count = 0;
-                        if (gt <= yesTday) {
-                            count = day_login.count(new BasicDBObject(user_id: [$in: allUids], timestamp:
-                                    [$gte: gt, $lt: gt + DAY_MILLON]))
-                        }
-                        map.put("${d}_day".toString(), count)
+        def YMD = new Date(gteMill).format("yyyyMMdd")
+        /*channels.find(new BasicDBObject(), new BasicDBObject("_id": 1)).toArray().each { BasicDBObject qdObj ->
+            String qd = qdObj.get("_id")*/
+        stat_channels.find(new BasicDBObject('timestamp', gteMill)).toArray().each {BasicDBObject channel ->
+            def cid = channel['qd']
+            def map = new HashMap<String, Long>(4)
+            def regpay = stat_regpay.findOne($$(_id: "${YMD}_${cid}_regpay".toString(), type: 'qd')) ?: new HashMap()
+            def regs = regpay['regs'] as Set ?: []
+            [1, 3, 7, 30].each { Integer d ->
+                if (regs && regs.size() > 0) {
+                    Long gt = gteMill + d * DAY_MILLON
+                    Integer count = 0
+                    if (gt <= yesTday) {
+                        count = day_login.count(new BasicDBObject(user_id: [$in: regs], timestamp:
+                                [$gte: gt, $lt: gt + DAY_MILLON]))
                     }
-                }
-                if (map.size() > 0) {
-                    stat_channels.update(new BasicDBObject('_id', "${prefix}${qd}".toString()),
-                            new BasicDBObject('$set', new BasicDBObject("stay", map)))
+                    map.put("${d}_day".toString(), count)
                 }
             }
+            if (map.size() > 0) {
+                stat_channels.update(new BasicDBObject('_id', "${YMD}_${cid}".toString()),
+                        new BasicDBObject('$set', new BasicDBObject("stay", map)))
+            }
         }
+        /*}*/
     }
 
     //父渠道信息汇总
