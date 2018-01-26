@@ -116,7 +116,7 @@ class QdStat {
      * 新增ARPU：reg_pay_cny/reg_pay_user
      * 新增用户抓取人数：reg_user_count //
      * 新增抓取率：reg_user_count/regs
-     * 充值用户次日留存：1_pay //todo
+     * 充值用户次日留存：1_pay //
      * 1、3、7、30日留存
      * "stay": {
      *     "1_day": 0,
@@ -153,7 +153,6 @@ class QdStat {
             }
             def cnys = finance_log.find($$(timestamp: [$gte: begin, $lt: end], via: [$ne: 'Admin'], user_id: [$in: reg_pay_user]))*.cny
             def reg_pay_cny = cnys.sum{it as Double ?: 0d} ?: 0d
-            //todo 这里需要初始化所有的数据为0
             def update = $$([qd: cid, timestamp: begin, pay_coin: pay_coin, pay_cny: pay_cny, pay_user: uids.size(), regs: regs.size(), reg_pay_cny: reg_pay_cny, reg_pay_user: reg_pay_user.size()])
             stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: update), true, false)
         }
