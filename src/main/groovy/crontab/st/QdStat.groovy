@@ -166,7 +166,7 @@ class QdStat {
         ]).results().each {BasicDBObject obj->
             def cid = obj['_id']
             def uids = obj['uids'] as Set ?: []
-            def update = $$([logins: uids.size()])
+            def update = $$([qd: cid, timestamp: begin, logins: uids.size()])
             stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: update), true, false)
         }
     }
@@ -208,7 +208,7 @@ class QdStat {
                     reg_user_count = reg_user_count + 1
                 }
             }
-            def update = $$([doll_count: doll_count, bingo_count: bingo_count, reg_user_count: reg_user_count])
+            def update = $$([qd: cid, timestamp: begin, doll_count: doll_count, bingo_count: bingo_count, reg_user_count: reg_user_count])
             stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: update), true, false)
         }
     }
@@ -226,7 +226,7 @@ class QdStat {
             def cid = obj['_id']
             def uids = obj['uids'] as Set ?: new HashSet()
             def retention = day_login.count($$(user_id: [$in: uids], timestamp: [$gte: end, $lt: end + DAY_MILLON]))
-            stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: ['1_pay': retention]), true, false)
+            stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: [qd: cid, timestamp: begin, '1_pay': retention]), true, false)
         }
     }
 
