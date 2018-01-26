@@ -314,10 +314,10 @@ class QdStat {
     static void main(String[] args) {
         long l = System.currentTimeMillis()
         long begin = l
-
+61.times { begin_day = it
         //渠道新增统计
         l = System.currentTimeMillis()
-        //regStatics(begin_day)
+        regStatics(begin_day)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regStatics, cost  ${System.currentTimeMillis() - l} ms"
 
         //渠道统计
@@ -345,7 +345,7 @@ class QdStat {
         }
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd stayStatics, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
-
+}
         //父级渠道的统计
         l = System.currentTimeMillis()
         //parentQdstatic(begin_day)
