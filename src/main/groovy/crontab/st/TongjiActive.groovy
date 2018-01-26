@@ -579,16 +579,16 @@ class TongjiActive {
         Thread.sleep(1000L)
 
         //更新渠道的1,3,7,30日留存率
-        l = System.currentTimeMillis()
+        /*l = System.currentTimeMillis()
         31.times {
             stayStatics(it)
         }
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd stayStatics, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
+        Thread.sleep(1000L)*/
 
         //03.父级渠道的统计
         l = System.currentTimeMillis()
-        parentQdstatic(day)
+        //parentQdstatic(day)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd parentQdstatic cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 

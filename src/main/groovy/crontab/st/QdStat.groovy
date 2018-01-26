@@ -134,7 +134,6 @@ class QdStat {
         def YMD = new Date(begin).format('yyyyMMdd')
 
         //充值信息
-        def cny = 0d
         finance_log.aggregate([
                 $$($match: [timestamp: [$gte: begin, $lt: end], via: [$ne: 'Admin']]),
                 $$($group: [_id: '$qd', uids: [$addToSet: '$user_id'], cnys: [$sum: '$cny'], diamond: [$sum: '$diamond']])
@@ -143,7 +142,6 @@ class QdStat {
             def pay_coin = obj['diamond'] as Integer ?: 0
             def uids = obj['uids'] as Set ?: new HashSet()
             def pay_cny = obj['cnys'] as Double ?: 0d
-            cny = cny + pay_cny
             def regpay = stat_regpay.findOne($$(_id: "${YMD}_${cid}_regpay".toString(), type: 'qd')) ?: new HashMap()
             println regpay
             //注册人数 新增人数 新增充值金额 新增充值人数
@@ -156,10 +154,10 @@ class QdStat {
             }
             def cnys = finance_log.find($$(timestamp: [$gte: begin, $lt: end], via: [$ne: 'Admin'], user_id: [$in: reg_pay_user]))*.cny
             def reg_pay_cny = cnys.sum{it as Double ?: 0d} ?: 0d
+            //todo 这里需要初始化所有的数据为0
             def update = $$([qd: cid, timestamp: begin, pay_coin: pay_coin, pay_cny: pay_cny, pay_user: uids.size(), regs: regs.size(), reg_pay_cny: reg_pay_cny, reg_pay_user: reg_pay_user.size()])
             stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: update), true, false)
         }
-        println cny
         //登录信息
         day_login.aggregate([
                 $$($match: [timestamp: [$gte: begin, $lt: end]]),
@@ -198,7 +196,8 @@ class QdStat {
             //抓中次数 抓取次数 新增用户抓取人数
             def list = catch_record.find(qd_query).toArray()
             def doll_count = list?.size() ?: 0
-            def bingo_count = 0, reg_user_count = 0
+            def bingo_count = 0
+            def reg_user_count = new HashSet()
             for(DBObject record : list) {
                 def status = record['status'] as Boolean ?: false
                 if (status) {
@@ -206,10 +205,10 @@ class QdStat {
                 }
                 def user_id = record['user_id'] as Integer
                 if (regs.contains(user_id)) {
-                    reg_user_count = reg_user_count + 1
+                    reg_user_count.add(user_id)
                 }
             }
-            def update = $$([qd: cid, timestamp: begin, doll_count: doll_count, bingo_count: bingo_count, reg_user_count: reg_user_count])
+            def update = $$([qd: cid, timestamp: begin, doll_count: doll_count, bingo_count: bingo_count, reg_user_count: reg_user_count.size()])
             stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: update), true, false)
         }
     }
@@ -231,7 +230,42 @@ class QdStat {
         }
     }
 
+    /**
+     * 1,3,7,30留存统计
+     */
+    static stayStatics(int i) {
+        def gteMill = yesTday - i * DAY_MILLON
+        def prefix = new Date(gteMill).format("yyyyMMdd_")
+        channels.find(new BasicDBObject(), new BasicDBObject("_id": 1)).toArray().each { BasicDBObject qdObj ->
+            String qd = qdObj.get("_id")
+            def channel = stat_channels.findOne(new BasicDBObject('_id', prefix + qd))
+            if (channel != null) {
+                def map = new HashMap<String, Long>(4)
+                [1, 3, 7, 30].each { Integer d ->
+                    def allUids = channel?.get('regs') as Collection
+                    if (allUids && allUids.size() > 0) {
+                        Long gt = gteMill + d * DAY_MILLON
+                        Integer count = 0;
+                        if (gt <= yesTday) {
+                            count = day_login.count(new BasicDBObject(user_id: [$in: allUids], timestamp:
+                                    [$gte: gt, $lt: gt + DAY_MILLON]))
+                        }
+                        map.put("${d}_day".toString(), count)
+                    }
+                }
+                if (map.size() > 0) {
+                    stat_channels.update(new BasicDBObject('_id', "${prefix}${qd}".toString()),
+                            new BasicDBObject('$set', new BasicDBObject("stay", map)))
+                }
+            }
+        }
+    }
+
     //父渠道信息汇总
+    /**
+     * @param i
+     * @return
+     */
     static parentQdstatic(int i) {
         def channel_db = mongo.getDB('xy_admin').getCollection('channels')
         def channels = channel_db.find($$(parent_qd: [$ne: null]), $$(parent_qd: 1)).toArray()
@@ -241,19 +275,28 @@ class QdStat {
             parentMap.put(parent_id, obj)
         }
         Long begin = yesTday - i * DAY_MILLON
-
+        def YMD = new Date(begin).format('yyyyMMdd')
         for (String key : parentMap.keySet()) {
             DBObject obj = parentMap.get(key)
             def parent_id = obj.get("parent_qd") as String
             def childqds = channel_db.find($$(parent_qd: parent_id), $$(_id: 1)).toArray()
             def qds = childqds.collect { ((Map) it).get('_id').toString()}
+            qds.add(parent_id)
             DBObject query = $$('qd', [$in: qds]).append("timestamp", begin)
-            def stat_child_channels = stat_channels.find(query).toArray()
             stat_channels.aggregate([
                 $$($match: query),
-                $$($group: [_id: null, uids: [$addToSet: '$user_id']])
+                $$($project: [pay_coin: '$pay_coin', pay_cny: '$pay_cny', pay_user: '$pay_user', logins: '$logins', bingo_count: '$bingo_count'
+                , doll_count: '$doll_count', regs: '$regs', reg_pay_cny: '$reg_pay_cny', reg_pay_user: '$reg_pay_user', reg_user_count: '$reg_user_count',
+                pay_1: '$1_pay', stay_1: '$stay.1_day', stay_3: '$stay.3_day', stay_7: '$stay.7_day', stay_30: '$stay.30_day']),
+                $$($group: [_id: null, pay_coin: [$sum: '$pay_coin'], pay_cny: [$sum: '$pay_cny'], pay_user: [$sum: '$pay_user'], logins: [$sum: '$logins'],
+                            bingo_count: [$sum: '$bingo_count'], doll_count: [$sum: '$doll_count'], regs: [$sum: '$regs'], reg_pay_cny: [$sum: '$reg_pay_cny'], reg_pay_user: [$sum: '$reg_pay_user'],
+                            reg_user_count: [$sum: '$reg_user_count'], pay_1: [$sum: '$pay_1'], stay_1: [$sum: '$stay_1'], stay_3: [$sum: '$stay_3'], stay_7: [$sum: '$stay_7'], stay_30: [$sum: '$stay_30']])
             ]).results().each {BasicDBObject item ->
-
+                def update = [pay_coin: item['pay_coin']?:0, pay_cny: item['pay_cny']?:0, pay_user: item['pay_user']?:0, logins: item['logins']?:0, bingo_count: item['bingo_count']?:0, doll_count: item['doll_count']?:0,
+                              regs: item['regs']?:0, reg_pay_cny: item['reg_pay_cny']?:0, reg_pay_user: item['reg_pay_user']?:0, reg_user_count: item['reg_user_count']?:0, '1_pay': item['pay_1']?:0,
+                    stay: ['1_day': item['stay_1']?:0, '3_day': item['stay_3']?:0, '7_day': item['stay_7']?:0, '30_day': item['stay_30']?:0]
+                ]
+                stat_channels.update($$(_id: "${YMD}_${parent_id}".toString()), $$($inc: update), true, false)
             }
         }
     }
@@ -293,6 +336,14 @@ class QdStat {
         l = System.currentTimeMillis()
         payRetentionQdStatic(begin_day + 1)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${QdStat.class.getSimpleName()},payRetentionQdStatic cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
+        //更新渠道的1,3,7,30日留存率
+        l = System.currentTimeMillis()
+        31.times {
+            stayStatics(it + begin_day)
+        }
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd stayStatics, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         //父级渠道的统计
