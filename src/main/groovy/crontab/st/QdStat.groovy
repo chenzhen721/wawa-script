@@ -156,6 +156,13 @@ class QdStat {
             def update = $$([qd: cid, timestamp: begin, pay_coin: pay_coin, pay_cny: pay_cny, pay_user: uids.size(), regs: regs.size(), reg_pay_cny: reg_pay_cny, reg_pay_user: reg_pay_user.size()])
             stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: update), true, false)
         }
+        //新增数据
+        stat_regpay.find($$(type: 'qd', timestamp: begin)).toArray().each {BasicDBObject obj ->
+            def cid = obj['qd']
+            def regs = obj['regs'] as Set ?: new HashSet()
+            stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: [regs: regs.size()]), true, false)
+        }
+
         //登录信息
         day_login.aggregate([
                 $$($match: [timestamp: [$gte: begin, $lt: end]]),
