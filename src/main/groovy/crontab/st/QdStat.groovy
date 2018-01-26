@@ -37,7 +37,16 @@ class QdStat {
     static long zeroMill = new Date().clearTime().getTime()
     static Long yesTday = zeroMill - DAY_MILLON
 
-    static create_chat_index(String currentMonth) {
+    static DBCollection users = mongo.getDB('xy').getCollection('users')
+    static DBCollection finance_log = mongo.getDB('xy_admin').getCollection('finance_log')
+    static DBCollection stat_daily = mongo.getDB('xy_admin').getCollection('stat_daily')
+    static DBCollection day_login = mongo.getDB("xylog").getCollection("day_login")
+    static DBCollection channels = mongo.getDB('xy_admin').getCollection('channels')
+    static DBCollection stat_channels = mongo.getDB('xy_admin').getCollection('stat_channels')
+    static DBCollection stat_regpay = mongo.getDB('xy_admin').getCollection('stat_regpay')
+    static DBCollection catch_record = mongo.getDB('xy_catch').getCollection('catch_record')
+
+    /*static create_chat_index(String currentMonth) {
         def index_name = '_user_id_timestamp_index_'
         DBCollection chat_collection = chatLog.getCollection(currentMonth)
         def isExists = Boolean.TRUE
@@ -51,210 +60,179 @@ class QdStat {
         if(isExists){
             def user_id_timestamp_index = $$('user_id': 1, 'timestamp': -1)
             chat_collection.createIndex(user_id_timestamp_index,index_name)
-            println  "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${QdStat.class.getSimpleName()},create index success"
+            println  "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${QdStat1.class.getSimpleName()},create index success"
+        }
+    }*/
+
+    static regStatics(int i){
+        def begin = yesTday - i * DAY_MILLON
+        if (begin < 1511107200000) return
+        def end = begin + DAY_MILLON
+        def YMD = new Date(begin).format('yyyyMMdd')
+        //def regs = users.count(new BasicDBObject(timestamp: [$gte: begin, $lt: end]))
+        def total_regs = []
+        users.aggregate([
+                $$('$match', [timestamp: [$gte: begin, $lt: end]]),
+                $$('$project', [user_id: '$_id', qd: '$qd']),
+                $$('$group', [_id: '$qd', user_id: [$addToSet: '$user_id']])
+        ]).results().each {BasicDBObject obj->
+            //qd信息,  对应的users
+            def qd = obj['_id'] as String
+            def regs = obj['user_id'] as Set
+            total_regs.addAll(regs)
+            def update = [type: 'qd', qd: qd, timestamp: begin, regs: regs, reg_count: regs.size()]
+            [1, 3, 7, 30].each {
+                update.put("pay_user_count${it}".toString(), 0)
+                update.put("pay_total${it}".toString(), 0)
+            }
+            stat_regpay.update($$(_id: "${YMD}_${qd}_regpay".toString()), $$($set: update), true, false)
+        }
+
+        def update = [type: 'total', timestamp: begin, regs: total_regs, reg_count: total_regs.size()]
+        [1, 3, 7, 30].each {
+            update.put("pay_user_count${it}".toString(), 0)
+            update.put("pay_total${it}".toString(), 0)
+        }
+        stat_regpay.update($$(_id: "${YMD}_regpay".toString()), $$($set: update), true, false)
+    }
+
+
+
+    /**
+     * 充值钻石：pay_coin
+     * 充值金额：pay_cny
+     * 充值人数：pay_user
+     * 充值ARPU：pay_cny/pay_user
+     * 日活：logins
+     * 活跃付费：pay_cny/logins
+     * 抓中次数：bingo_count //
+     * 抓取次数：doll_count //
+     * 当日抓中率：bingo_count/doll_count //
+     * 新增抓中率：reg_bingo_count/reg_user_count //
+     * 新增人数：regs
+     * 新增充值金额：reg_pay_cny
+     * 新增充值人数：reg_pay_user
+     * 新增付费率：reg_pay_user/regs
+     * 新增ARPU：reg_pay_cny/reg_pay_user
+     * 新增用户抓取人数：reg_user_count //
+     * 新增抓取率：reg_user_count/regs
+     * 充值用户次日留存：1_pay //todo
+     * 1、3、7、30日留存
+     * "stay": {
+     *     "1_day": 0,
+     *     "30_day": 0,
+     *     "7_day": 0,
+     *     "3_day": 0
+     * }
+     *
+     * @param i
+     * @return
+     */
+    static statics(int i) {
+        Long begin = yesTday - i * DAY_MILLON
+        Long end = begin + DAY_MILLON
+        def YMD = new Date(begin).format('yyyyMMdd')
+
+        //充值信息
+        finance_log.aggregate([
+                $$($match: [timestamp: [$gte: begin, $lt: end], via: [$ne: 'Admin']]),
+                $$($group: [_id: '$qd', uids: [$addToSet: '$user_id'], cnys: [$addToSet: '$cny'], diamond: [$sum: '$diamond']])
+        ]).results().each {BasicDBObject obj->
+            def cid = obj['_id']
+            def pay_coin = obj['diamond'] as Integer ?: 0
+            def uids = obj['uids'] as Set ?: new HashSet()
+            def cnys = obj['cnys'] as Set ?: new HashSet()
+            def pay_cny = cnys.sum{ it as Double ?: 0 }
+
+            def regpay = stat_regpay.findOne($$(_id: "${YMD}_${cid}_regpay".toString(), type: 'qd')) ?: new HashMap()
+            //注册人数 新增人数 新增充值金额 新增充值人数
+            def regs = regpay['regs'] as Set ?: []
+            def reg_pay_cny = 0d
+            def reg_pay_user = []
+
+            for(int i = 0; i < uids.size(); i++) {
+                if (regs.contains(uids[i])) {
+                    reg_pay_user.add(uids[i])
+                    reg_pay_cny = reg_pay_cny + (cnys[i] as Double ?: 0d)
+                }
+            }
+            def update = $$([pay_coin: pay_coin, pay_cny: pay_cny, pay_user: uids.size(), regs: regs.size(), reg_pay_cny: reg_pay_cny, reg_pay_user: reg_pay_user.size()])
+            stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: update), true, false)
+        }
+        //登录信息
+        day_login.aggregate([
+                $$($match: [timestamp: [$gte: begin, $lt: end]]),
+                $$($group: [_id: '$qd', uids: [$addToSet: '$user_id']])
+        ]).results().each {BasicDBObject obj->
+            def cid = obj['_id']
+            def uids = obj['uids'] as Set ?: []
+            def update = $$([logins: uids.size()])
+            stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: update), true, false)
         }
     }
 
-    static statics(int i) {
-        def coll = mongo.getDB('xy_admin').getCollection('stat_channels')
-        def users = mongo.getDB('xy').getCollection('users')
-        def finance_log = mongo.getDB('xy_admin').getCollection('finance_log')
-        def stat_daily = mongo.getDB('xy_admin').getCollection('stat_daily')
-        def day_login = mongo.getDB("xylog").getCollection("day_login")
-
-        Long begin = yesTday - i * DAY_MILLON
-        def timeBetween = [$gte: begin, $lt: begin + DAY_MILLON]
-        // 查询30天新充值用户
-        def new_payed_user = new ArrayList(2000)
-        stat_daily.find($$(type: "allpay", timestamp: [$gte: begin - 30 * DAY_MILLON, $lt: begin + DAY_MILLON]), $$(first_pay: 1))
-                .toArray().each { BasicDBObject obj ->
-            def uids = (obj.get('first_pay') as List) ?: []
-            new_payed_user.addAll(uids)
+    /**
+     * 统计渠道抓取情况
+     * @param i
+     */
+    static dollQdStatic(int i) {
+        def begin = yesTday - i * DAY_MILLON
+        def end = begin + DAY_MILLON
+        def YMD = new Date(begin).format('yyyyMMdd')
+        def time = [timestamp: [$gte: begin, $lt: end], is_delete: [$ne: true]]
+        def query = new BasicDBObject(time)
+        //查询当天抓取人，并且对人进行渠道分类
+        def allids = catch_record.distinct('user_id', query)
+        users.aggregate([
+            $$($match: [_id: [$in: allids]]),
+            $$($group: [_id: '$qd', uids: [$addToSet: '$_id']])
+        ]).results().each {BasicDBObject obj ->
+            //每个渠道用户
+            def cid = obj['_id'] as String
+            def uids = obj['uids'] as Set
+            def qd_query = $$(time).append('user_id', [$in: uids])
+            def regpay = stat_regpay.findOne($$(_id: "${YMD}_${cid}_regpay".toString(), type: 'qd')) ?: new HashMap()
+            //渠道新增
+            def regs = regpay['regs'] as Set ?: []
+            //抓中次数 抓取次数 新增用户抓取人数
+            def list = catch_record.find(qd_query).toArray()
+            def doll_count = list?.size() ?: 0
+            def bingo_count = 0, reg_user_count = 0
+            for(DBObject record : list) {
+                def status = record['status'] as Boolean ?: false
+                if (status) {
+                    bingo_count = bingo_count + 1
+                }
+                def user_id = record['user_id'] as Integer
+                if (regs.contains(user_id)) {
+                    reg_user_count = reg_user_count + 1
+                }
+            }
+            def update = $$([doll_count: doll_count, bingo_count: bingo_count, reg_user_count: reg_user_count])
+            stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: update), true, false)
         }
+    }
 
-        def chat_query = $$('timestamp': timeBetween)
-        def currentMonth = new Date(begin).format('yyyy/M')
-        create_chat_index(currentMonth)
-        def chatList = chatLog.getCollection(currentMonth).distinct('user_id',chat_query)
-        mongo.getDB('xy_admin').getCollection('channels').find(
-                $$("_id", [$ne: null]), $$("reg_discount", 1).append("child_qd", 1).append("sence_id", 1)
-        ).toArray().each { BasicDBObject channnel ->
-            def cId = channnel.removeField("_id")
-            def user_query = $$(qd: cId, timestamp: timeBetween)
-            def YMD = new Date(begin).format("yyyyMMdd")
-            def st = $$(_id: "${YMD}_${cId}" as String, qd: cId, timestamp: begin)
-            def regUsers = users.find(user_query, $$('status', 1))*.get('_id')
+    //充值次日留存
+    static payRetentionQdStatic(int i) {
+        def begin = yesTday - i * DAY_MILLON
+        def end = begin + DAY_MILLON
+        def YMD = new Date(begin).format('yyyyMMdd')
 
-            def regNum = regUsers.size()
-            st.append("regs", regUsers).append("reg", regNum)
-
-            // 统计该渠道下的发言人数,去重
-            def login_count = 0
-            def res = day_login.aggregate(
-                    $$('$match', ['qd':cId,timestamp: timeBetween]),
-                    $$('$project', [_id: '$user_id']),
-                    $$('$group', [_id: null,'ids':[$addToSet:'$_id']])
-            ).results().iterator()
-
-            // 获取该渠道登陆总人数，并且初始化用户列表user_set
-            def user_set = new HashSet()
-            if(res.hasNext()){
-                def loginList = res.next().ids as List
-                login_count = loginList.size()
-                user_set.addAll(loginList)
-            }
-
-            // 通过user_set与聊天列表，注册列表对比，统计聊天人数和新增聊天人数 聊天率 = 聊天人数/登陆人数 新增聊天率 = 新注册用户聊天/新注册用户总数
-            def current_speechs = 0
-            def first_speechs = 0
-            chatList.each {
-                Integer userId ->
-                    if(user_set.contains(userId)){
-                        current_speechs += 1
-                    }
-                    if(regUsers.contains(userId)){
-                        first_speechs += 1
-                    }
-            }
-
-            st.append('speechs', current_speechs)
-            st.append('login_count', login_count)
-            // 新增的发言人数
-            st.append('first_speechs', first_speechs)
-
-            // 统计该渠道下的新增的消费人数
-            //def betDB = mongo.getDB('game_log').getCollection('user_bet')
-            //def gameBetList = betDB.distinct('user_id', $$('timestamp': timeBetween, 'user_id': ['$in': regUsers])) as String[]
-            //def room_cost_db = mongo.getDB('xylog').getCollection('room_cost')
-            //def roomCostList = room_cost_db.distinct('session._id', $$('timestamp': timeBetween, 'session._id': ['$in': regUsers as String[]]))
-
-            //def first_cost_list = new HashSet()
-            //first_cost_list.addAll(gameBetList)
-            //first_cost_list.addAll(roomCostList)
-
-            //st.append('first_cost', first_cost_list.size())
-
-            //设置注册扣量cpa2
-            def discountMap = channnel.removeField("reg_discount") as Map
-            if (discountMap != null && discountMap.size() > 0) {
-                def cpa = null
-                def keyList = discountMap.keySet().toArray().sort { String a, String b ->
-                    Long.parseLong(b) <=> Long.parseLong(a)
-                }
-                for (it in keyList) {
-                    if (begin >= (it as Long)) {
-                        def discount = discountMap.get(it) as Integer
-                        cpa = new BigDecimal((double) (regNum * discount / 100)).toInteger()
-                        break
-                    }
-                }
-                if (cpa != null) st.append("s_cpa2", cpa)
-            }
-
-            //优化后
-            def iter = finance_log.aggregate(
-                    $$('$match', [via: [$ne: 'Admin'], qd: cId, timestamp: timeBetween]),
-                    $$('$project', [cny: '$cny', user_id: '$user_id']),
-                    $$('$group', [_id: null, cny: [$sum: '$cny'], count: [$sum: 1], pays: [$addToSet: '$user_id']])
-            ).results().iterator()
-
-            if (iter.hasNext()) {
-                def obj = iter.next()
-                obj.removeField('_id')
-                st.putAll(obj)
-                st['s_pay'] = st['pays'].size()
-                st['s_cny'] = st['cny']
-                st['s_avg'] = st['s_pay'] == 0 ? 0 : (st['cny'] as Double) / st['s_pay']//
-                if (!channnel.isEmpty()) {
-                    st.putAll(channnel)
-                }
-            }
-
-            //查询该渠道下30天的新充值用户
-            def payed_user = new HashSet(), reg_user = new HashSet()
-            coll.find($$(qd: cId, timestamp: [$gte: begin - 30 * DAY_MILLON, $lt: begin + DAY_MILLON]),
-                    $$(pays: 1, regs: 1)).toArray().each { BasicDBObject obj ->
-                def pays = (obj.get('pays') as List) ?: []
-                def regs = (obj.get('regs') as List) ?: []
-                payed_user.addAll(pays)
-                payed_user.addAll(st['pays'] ?: [])
-                reg_user.addAll(regs)
-                reg_user.addAll(regUsers)
-            }
-            //每个用户30天内的充值金额
-            def total = 0, reg_total = 0, pay_user = new HashSet(), pay_reg = new HashSet()
-            finance_log.aggregate(
-                    $$('$match', [user_id: [$in: payed_user], timestamp: [$gte: begin - 30 * DAY_MILLON, $lt: begin + DAY_MILLON]]),
-                    $$('$project', [_id: '$user_id', cny: '$cny']),
-                    $$('$group', [_id: '$_id', cny: [$sum: '$cny']])
-            ).results().each { BasicDBObject obj ->
-                def uid = obj.get('_id') as Integer
-                def cny = obj.get('cny') as Double
-                total += cny
-                pay_user.add(uid)
-                if (reg_user.contains(uid)) {
-                    reg_total += cny
-                    pay_reg.add(uid)
-                }
-            }
-            st.put('reg_pay_cny', reg_total)
-            st.put('reg_user30', reg_user.size())
-            st.put('reg_pay_user', pay_reg.size())
-            st.put('first_pay_cny', total)
-            st.put('first_pay_user', pay_user.size())
-
-            coll.update($$(_id: st.remove('_id') as String), $$($set: st), true, false)
-            //注册次日留存
-            Long before = begin - DAY_MILLON
-            def before_day = new Date(before)
-            def before_ymd = before_day.format('yyyyMMdd')
-            //查询前一天的注册用户
-            def beforeObj = coll.findOne($$(_id: "${before_ymd}_${cId}".toString()), $$(regs: 1))
-            def regs = (beforeObj?.get('regs') as List) ?: []
-            def reg_retention = day_login.count($$(user_id: [$in: regs], timestamp: [$gte: begin, $lt: begin + DAY_MILLON]))
-            coll.update($$(_id: "${before_ymd}_${cId}".toString()), $$($set: [reg_retention: reg_retention]))
-
-            //查询当月注册用户截止到当前日期的充值信息
-            def cal = Calendar.getInstance()
-            cal.setTimeInMillis(begin)
-            cal.set(Calendar.DAY_OF_MONTH, 1)//设置为1号,当前日期既为本月第一天
-            cal.set(Calendar.HOUR_OF_DAY, 0)
-            cal.set(Calendar.MINUTE, 0)
-            cal.set(Calendar.SECOND, 0)
-            cal.set(Calendar.MILLISECOND, 0)
-            def month_begin = cal.getTimeInMillis()
-            def month_reg = users.find($$(qd: cId, timestamp: [$gte: month_begin, $lt: begin + DAY_MILLON])).toArray()*._id
-            def cny = 0, uset = new HashSet()
-            finance_log.aggregate(
-                    $$('$match', [
-                            $or      : [[user_id: [$in: month_reg]], [to_id: [$in: month_reg]]],
-                            via      : [$ne: 'Admin'],
-                            timestamp: [$gte: month_begin, $lt: begin + DAY_MILLON]]),
-                    $$('$project', [cny: '$cny', user_id: '$user_id', to_id: '$to_id']),
-                    $$('$group', [_id: [fid: '$user_id', tid: '$to_id'], cny: [$sum: '$cny'], uids: [$addToSet: '$to_id']])
-            ).results().each { BasicDBObject obj ->
-                cny += obj.get('cny') as Double
-                def id = obj.remove('_id') as Map
-                def fid = id.get('fid') as Integer
-                def tid = id.get('tid') as Integer
-                if (tid != null) {
-                    uset.add(tid)
-                } else {
-                    if (fid != null) {
-                        uset.add(fid)
-                    }
-                }
-            }
-            coll.update($$(_id: "${YMD}_${cId}".toString()),
-                    $$($set: [month_cny: cny, month_pay: uset.size()]))
+        finance_log.aggregate([
+            $$($match: [timestamp: [$gte: begin, $lt: end], via: [$ne: 'Admin']]),
+            $$($group: [_id: '$qd', uids: [$addToSet: '$user_id']])
+        ]).results().each {BasicDBObject obj ->
+            def cid = obj['_id']
+            def uids = obj['uids'] as Set ?: new HashSet()
+            def retention = day_login.count($$(user_id: [$in: uids], timestamp: [$gte: end, $lt: end + DAY_MILLON]))
+            stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: ['1_pay': retention]), true, false)
         }
-
     }
 
     //父渠道信息汇总
     static parentQdstatic(int i) {
         def channel_db = mongo.getDB('xy_admin').getCollection('channels')
-        def stat_channels = mongo.getDB('xy_admin').getCollection('stat_channels')
         def channels = channel_db.find($$(parent_qd: [$ne: null]), $$(parent_qd: 1)).toArray()
         Map<String, DBObject> parentMap = new HashMap<String, DBObject>()
         for (DBObject obj : channels) {
@@ -267,110 +245,16 @@ class QdStat {
             DBObject obj = parentMap.get(key)
             def parent_id = obj.get("parent_qd") as String
             def childqds = channel_db.find($$(parent_qd: parent_id), $$(_id: 1)).toArray()
-            DBObject query = $$('qd', [$in: childqds.collect {
-                ((Map) it).get('_id').toString()
-            }]).append("timestamp", begin)
+            def qds = childqds.collect { ((Map) it).get('_id').toString()}
+            DBObject query = $$('qd', [$in: qds]).append("timestamp", begin)
             def stat_child_channels = stat_channels.find(query).toArray()
-            Integer payNum = 0
-            Integer regNum = 0
-            Integer cny = 0
-            Integer month_pay = 0
-            Double month_cny = 0
-            Integer count = 0
-            Integer daylogin = 0
-            Integer day7login = 0
-            Integer day30login = 0
-            Integer stay1 = 0
-            Integer stay3 = 0
-            Integer stay7 = 0
-            Integer stay30 = 0
-            Integer cpa2 = 0
-            int size = stat_child_channels.size()
-            //println "stat_child_channels.size-------------->:$size"
-            for (DBObject myObj : stat_child_channels) {
-                payNum += (myObj.get("s_pay") ?: 0) as Integer
-                regNum += (myObj.get("reg") ?: 0) as Integer
-                cny += (myObj.get("s_cny") ?: 0) as Integer
-                month_pay += (myObj.get("month_pay") ?: 0) as Integer
-                month_cny += (myObj.get("month_cny") ?: 0) as Double
-                count += (myObj.get("count") ?: 0) as Integer
-                daylogin += (myObj.get("daylogin") ?: 0) as Integer
-                day7login += (myObj.get("day7login") ?: 0) as Integer
-                day30login += (myObj.get("day30login") ?: 0) as Integer
-                def myStay = myObj.get("stay") as Map
-                if (myStay != null) {
-                    stay1 += (myStay.get("1_day") ?: 0) as Integer
-                    stay3 += (myStay.get("3_day") ?: 0) as Integer
-                    stay7 += (myStay.get("7_day") ?: 0) as Integer
-                    stay30 += (myStay.get("30_day") ?: 0) as Integer
-                }
-                Integer currentCpa2 = (myObj.get("s_cpa2") != null) ? myObj.get("s_cpa2") as Integer : 0
-                cpa2 += currentCpa2
+            stat_channels.aggregate([
+                $$($match: query),
+                $$($group: [_id: null, uids: [$addToSet: '$user_id']])
+            ]).results().each {BasicDBObject item ->
 
             }
-            def s_avg = (payNum == 0 ? 0 : cny / payNum) as Double
-            def YMD = new Date(begin).format("yyyyMMdd")
-            println YMD + ':' + s_avg
-            def st = $$(_id: "${YMD}_${parent_id}" as String, qd: parent_id, timestamp: begin)
-            def setObject = $$(
-                    s_pay: payNum,
-                    reg: regNum,
-                    s_cny: cny,
-                    s_avg: s_avg,
-                    month_pay: month_pay,
-                    month_cny: month_cny,
-                    count: count,
-                    daylogin: daylogin,
-                    day7login: day7login,
-                    day30login: day30login,
-                    'stay.1_day': stay1,
-                    'stay.3_day': stay3,
-                    'stay.7_day': stay7,
-                    'stay.30_day': stay30,
-                    s_cpa2: cpa2,
-                    qd: parent_id,
-                    timestamp: begin
-            )
-//            def setObject = $$(qd: parent_id, timestamp: begin)
-            stat_channels.findAndModify(st, null, null, false,
-                    $$($set: setObject), true, true)
         }
-    }
-
-    /**
-     * ASO优化统计 (App Store Optimization)
-     * @param i
-     * @return
-     */
-    static ASOstatics(int i) {
-        def stat_aso = mongo.getDB('xy_admin').getCollection('stat_aso')
-        def ad_logs = mongo.getDB('xylog').getCollection('ad_logs')
-        Long begin = yesTday - i * DAY_MILLON
-        def timeBetween = [$gte: begin, $lt: begin + DAY_MILLON]
-        def iter = ad_logs.aggregate(
-                $$('$match', [timestamp: timeBetween, status: 1]),
-                $$('$project', [from: '$from']),
-                $$('$group', [_id: '$from', count: [$sum: 1]])
-        ).results().iterator()
-        def _id = new Date(begin).format("yyyyMMdd")
-        def aso = $$(_id: _id, timestamp: begin);
-        def data = new ArrayList();
-        if (iter.hasNext()) {
-            def obj = iter.next()
-            data.add([(obj.get('_id') as String): obj.get('count') as Integer] as Map)
-        }
-        aso.append('data', data)
-        stat_aso.save(aso)
-    }
-
-    private static Calendar getCalendar() {
-        Calendar cal = Calendar.getInstance()//获取当前日期
-        cal.set(Calendar.DAY_OF_MONTH, 1)//设置为1号,当前日期既为本月第一天
-        cal.set(Calendar.HOUR_OF_DAY, 0)
-        cal.set(Calendar.MINUTE, 0)
-        cal.set(Calendar.SECOND, 0)
-        cal.set(Calendar.MILLISECOND, 0)
-        return cal
     }
 
     public static BasicDBObject $$(String key, Object value) {
@@ -387,23 +271,34 @@ class QdStat {
         long l = System.currentTimeMillis()
         long begin = l
 
+        //渠道新增统计
+        l = System.currentTimeMillis()
+        regStatics(begin_day)
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regStatics, cost  ${System.currentTimeMillis() - l} ms"
+
         //渠道统计
         l = System.currentTimeMillis()
         statics(begin_day)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${QdStat.class.getSimpleName()},statics cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
-        //父级渠道的统计
+        //抓取统计
         l = System.currentTimeMillis()
-        parentQdstatic(begin_day)
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${QdStat.class.getSimpleName()},parentQdstatic cost  ${System.currentTimeMillis() - l} ms"
+        dollQdStatic(begin_day)
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${QdStat.class.getSimpleName()},dollQdStatic cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
-        //ASO优化统计 (App Store Optimization) mygreen
-        /*l = System.currentTimeMillis()
-        //ASOstatics(begin_day)
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${QdStat.class.getSimpleName()},ASOstatics cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)*/
+        //付费次日留存统计
+        l = System.currentTimeMillis()
+        payRetentionQdStatic(begin_day)
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${QdStat.class.getSimpleName()},payRetentionQdStatic cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
+        //父级渠道的统计
+        l = System.currentTimeMillis()
+        //parentQdstatic(begin_day)
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   ${QdStat.class.getSimpleName()},parentQdstatic cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
 
         //落地定时执行的日志
         jobFinish(begin)

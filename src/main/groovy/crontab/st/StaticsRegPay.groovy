@@ -71,37 +71,6 @@ class StaticsRegPay {
      *
      * @param i
      */
-    static regStatics(int i){
-        def begin = yesTday - i * DAY_MILLON
-        if (begin < 1511107200000) return
-        def end = begin + DAY_MILLON
-        def YMD = new Date(begin).format('yyyyMMdd')
-        //def regs = users.count(new BasicDBObject(timestamp: [$gte: begin, $lt: end]))
-        def total_regs = []
-        users.aggregate([
-                $$('$match', [timestamp: [$gte: begin, $lt: end]]),
-                $$('$project', [user_id: '$_id', qd: '$qd']),
-                $$('$group', [_id: '$qd', user_id: [$addToSet: '$user_id']])
-        ]).results().each {BasicDBObject obj->
-            //qd信息,  对应的users
-            def qd = obj['_id'] as String
-            def regs = obj['user_id'] as Set
-            total_regs.addAll(regs)
-            def update = [type: 'qd', qd: qd, timestamp: begin, regs: regs, reg_count: regs.size()]
-            [1, 3, 7, 30].each {
-                update.put("pay_user_count${it}".toString(), 0)
-                update.put("pay_total${it}".toString(), 0)
-            }
-            stat_regpay.update($$(_id: "${YMD}_${qd}_regpay".toString()), $$($set: update), true, false)
-        }
-
-        def update = [type: 'total', timestamp: begin, regs: total_regs, reg_count: total_regs.size()]
-        [1, 3, 7, 30].each {
-            update.put("pay_user_count${it}".toString(), 0)
-            update.put("pay_total${it}".toString(), 0)
-        }
-        stat_regpay.update($$(_id: "${YMD}_regpay".toString()), $$($set: update), true, false)
-    }
 
     /**
      * i天的n日新增付费
@@ -464,10 +433,6 @@ class StaticsRegPay {
     static void main(String[] args) {
         try {
             long l = System.currentTimeMillis()
-            regStatics(DAY)
-            println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   regStatics, cost  ${System.currentTimeMillis() - l} ms"
-
-            l = System.currentTimeMillis()
             [0, 1, 3, 7, 30].each { Integer i ->
                 [0, 1, 3, 7, 30].each { Integer n ->
                     regPayStatics(i + DAY, n)
