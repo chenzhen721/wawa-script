@@ -53,7 +53,7 @@ class WeixinMessage {
     static Integer main_jedis_port = getProperties("main_jedis_port", 6379) as Integer
     static mainRedis = new Jedis(jedis_host, main_jedis_port)
 
-    public static Map<String,String> APP_ID_SECRETS = ['wx45d43a50adf5a470':'40e8dc2daac9f04bfbac32a64eb6dfff', 'wxf64f0972d4922815':'fbf4fd32c00a82d5cbe5161c5e699a0e']
+    public static Map<String,String> APP_ID_SECRETS = ['wx87f81569b7e4b5f6':'8421fd4781b1c29077c2e82e71ce3d2a', 'wxf64f0972d4922815':'fbf4fd32c00a82d5cbe5161c5e699a0e']
     static String WEIXIN_URL = 'https://api.weixin.qq.com/cgi-bin/'
     public static Integer requestCount = 0
     public static Integer successCount = 0

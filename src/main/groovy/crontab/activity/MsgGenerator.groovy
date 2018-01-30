@@ -494,8 +494,8 @@ abstract class WxTemplate{
     protected Map data = new HashMap();
     protected String event_id;
     protected Integer uid;
-    protected static final String STATIC_API_URL = "http://aochu-api.17laihou.com/statistic/weixin_template";
-    protected static Map<String,String> DOMAIN_IDS = ['wx45d43a50adf5a470':'http://www.17laihou.com/', 'wxf64f0972d4922815':'http://aochu.17laihou.com/']
+    protected static final String STATIC_API_URL = "http://api.lezhuale.com/statistic/weixin_template";
+    protected static Map<String,String> DOMAIN_IDS = ['wx87f81569b7e4b5f6':'http://test.lezhuale.com/', 'wxf64f0972d4922815':'http://www.lezhuale.com/']
 
 
     public String getId(){return this.id}
