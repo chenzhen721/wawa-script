@@ -95,7 +95,7 @@ class DomainReplace {
                     }
                 }
                 if(flag){
-                    //col.update(obj, new BasicDBObject('$set',update))
+                    col.update(obj, new BasicDBObject('$set',update))
                 }
 
             }
