@@ -47,16 +47,17 @@ class StaticsDoll {
     static DBCollection catch_success_log = mongo.getDB('xylog').getCollection('catch_success_logs')
     static DBCollection apply_post_logs = mongo.getDB('xylog').getCollection('apply_post_logs')
     static DBCollection user_award_logs = mongo.getDB('xylog').getCollection('user_award_logs')
+    static DBCollection stat_daily = mongo.getDB('xy_admin').getCollection('stat_daily')
 
     // 每日抓取人数，次数，抓中次数
     /**
      * toy_id:娃娃编号
      * name:娃娃名称
      * head_pic: 娃娃图片
-     * 进入次数（目前没有）
+     * enter_count: 进入次数
      * count:抓取次数
      * bingo_count:抓中次数
-     * 下抓率（没有 依赖进入次数）
+     * 下抓率(count/enter_count)
      * rate: 实际抓中概率
      * winrate: 设定概率
      * price: 单次抓取价格
@@ -99,7 +100,13 @@ class StaticsDoll {
             q.putAll(['toy._id': toyId, user_id: [$in: new_user]])
             def reg_count = catch_record.count($$(q))
             def toy = catch_toy.findOne($$(_id: toyId))
-            def log = $$(type:'day',toy_id:toyId, count:count, bingo_count:bingo, user_count:userSet.size(), users:userSet,
+            //进入次数
+            def totals = stat_daily.distinct('total', $$(type: 'room_entry_event', toy_id: toyId, timestamp: begin))
+            def enter_count = 0
+            if (totals != null) {
+                enter_count = totals.sum {it as Integer}
+            }
+            def log = $$(type:'day',toy_id:toyId, enter_count: enter_count, count:count, bingo_count:bingo, user_count:userSet.size(), users:userSet,
                     reg_count: reg_count, regs: new_user, winrate: toy['winrate'], rate: (bingo/count).toDouble(), price: toy['price'], cost: toy['cost'],
                     stock: toy['stock']['total'] ?: 0, timestamp: begin)
             coll.update($$(_id: "${YMD}_${toyId}_doll".toString()), new BasicDBObject('$set': log), true, false)
@@ -115,8 +122,8 @@ class StaticsDoll {
         def prefix = date.format('yyyyMMdd_')
         coll.aggregate([
                 $$('$match', [timestamp: begin, type: 'day']),
-                $$('$project', [count: '$count', users: '$users', bingo_count: '$bingo_count', reg_count: '$reg_count', regs: '$regs']),
-                $$('$group', [_id: null, count: [$sum: '$count'], bingo_count: [$sum: '$bingo_count'], reg_count: [$sum: '$reg_count'],
+                $$('$project', [count: '$count', users: '$users', bingo_count: '$bingo_count', reg_count: '$reg_count', regs: '$regs', enter_count: '$enter_count']),
+                $$('$group', [_id: null, count: [$sum: '$count'], bingo_count: [$sum: '$bingo_count'], enter_count: [$sum: '$enter_count'], reg_count: [$sum: '$reg_count'],
                     user_set: ['$addToSet': '$users'], reg_set: ['$addToSet': '$regs']
                 ])
         ]).results().each {BasicDBObject obj ->
@@ -135,7 +142,7 @@ class StaticsDoll {
             //每日新增中抓中数
             def query = [user_id: [$in: regs], status: true, timestamp: [$gte: begin, $lt: end], is_delete: [$ne: true]]
             def reg_bingo_count = catch_record.count($$(query))
-            def set = [type: 'total_all', count: obj['count'], bingo_count: obj['bingo_count'], reg_count: obj['reg_count'], users: users, user_count: users.size(), reg_user_count: regs.size(), reg_bingo_count: reg_bingo_count, regs: regs]
+            def set = [type: 'total_all', count: obj['count'], bingo_count: obj['bingo_count'], enter_count: obj['enter_count'], reg_count: obj['reg_count'], users: users, user_count: users.size(), reg_user_count: regs.size(), reg_bingo_count: reg_bingo_count, regs: regs]
             coll.update($$(_id: YMD + '_total_doll'), $$($set: set), true, false)
             // 更新数据总表 5抓取次数 6 抓中 7 人数 13新抓
             def stat_report = mongo.getDB('xy_admin').getCollection('stat_report')

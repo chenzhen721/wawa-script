@@ -579,36 +579,17 @@ class TongjiActive {
         Thread.sleep(1000L)
 
         //更新渠道的1,3,7,30日留存率
-        l = System.currentTimeMillis()
+        /*l = System.currentTimeMillis()
         31.times {
             stayStatics(it)
         }
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd stayStatics, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-        l = System.currentTimeMillis()
-        31.times {
-            stayAllStatics(it)
-        }
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd stayAllStatics, cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
+        Thread.sleep(1000L)*/
 
         //03.父级渠道的统计
         l = System.currentTimeMillis()
-        parentQdstatic(day)
+        //parentQdstatic(day)
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd parentQdstatic cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-
-        // 运营关键数据统计（PC、手机），对应财务管理
-        l = System.currentTimeMillis()
-        staticQdReport(day)
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd staticQdReport cost  ${System.currentTimeMillis() - l} ms"
-        Thread.sleep(1000L)
-
-        // 次日留存统计（对应财务管理-运营关键数据里边的三个留存数据）
-        staticRetention(day + 1)
-        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd staticRetention cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         //落地定时执行的日志
