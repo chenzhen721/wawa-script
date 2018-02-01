@@ -68,34 +68,46 @@ class UserBehaviorStatic {
     static staticsPayUser(){
         Integer totalPayUserCount = 0
         Integer totalPayCny = 0
+        Integer catchBingoUserCount = 0
         Integer catchUserCount = 0
         Integer fromInvitorUserCount = 0
         Integer fromGZHUserCount = 0
-        def time = [via: [$ne: 'Admin']]
-        def query = new BasicDBObject(time)
+
+        Integer catchDaizhuaCountUserCount = 0
+
+        def query = new BasicDBObject(via: [$ne: 'Admin'])
+        List<Map> top20Users = new ArrayList<>();
         finance_log.aggregate([new BasicDBObject('$match', query),
                                 new BasicDBObject('$project', [user_id: '$user_id', cny: '$cny']),
-                                new BasicDBObject('$group', [_id: '$user_id',  count: [$sum: '$cny']])]
+                                new BasicDBObject('$group', [_id: '$user_id',  count: [$sum: '$cny']]),
+                                new BasicDBObject('$sort', [count:-1])]
         ).results().each {
             def obj = $$(it as Map)
             Integer userId = obj?.get('_id') as Integer;
-            def catchQuery = new BasicDBObject(time).append('user_id', userId) //抓中次数
+            def catchQuery = new BasicDBObject('user_id', userId) //抓中次数
             def cny = obj?.get('count') as Integer; //充值总额度
             def count = catch_record.count(catchQuery) as Long;
             def bingoQuery = catchQuery.append('status',true) //抓中次数
             def bingoCount = catch_record.count(bingoQuery) as Long;
             //大于10RMB的
-            if(cny >= 2){
-                //println obj;
+            if(top20Users.size() < 20){
+                top20Users.add(obj);
+            }
+            if(count > 0){
+                catchUserCount++
+            }
+            if(cny > 0){
                 Integer period = payPeriod(userId)
                 //while(period > 0){
                     Integer periodCount = payPeriodCount.get(period) ?: 0
                     payPeriodCount.put(period, ++periodCount);
                 //}
-
+               if(catch_record.count($$('user_id':userId,'toy.channel':3)) > 0){
+                   catchDaizhuaCountUserCount++
+               }
             }
             if(freeCatchBingo(userId)){
-                catchUserCount++;
+                catchBingoUserCount++;
             }
             if(fromInvitor(userId)){
                 fromInvitorUserCount++;
@@ -123,9 +135,34 @@ class UserBehaviorStatic {
                     "\t ${cRateUser.cny}  \t\t ${fmtNumber(cRateUser.cny.toInteger() / cRateUser.count.toInteger())}" +
                     "\t\t${(cRateUser.catchCount.toInteger()/cRateUser.count.toInteger()) as Integer}"
         }
-        println "付费前免费抓中人数:${catchUserCount}\t占比: ${fmtNumber(catchUserCount / totalPayUserCount * 100)}%"
+        println "付费前免费抓中人数:${catchBingoUserCount}\t占比: ${fmtNumber(catchBingoUserCount / totalPayUserCount * 100)}%"
+        println "付费用户代抓人数:${catchDaizhuaCountUserCount}\t占比: ${fmtNumber(catchDaizhuaCountUserCount / catchUserCount * 100)}%"
         println "付费用户中为邀请用户 \t占比: ${fmtNumber(fromInvitorUserCount / totalPayUserCount * 100)}%"
         println "付费用户中为公众号用户 \t占比: ${fmtNumber(fromGZHUserCount / totalPayUserCount * 100)}%"
+        println "付费TOP20用户 : ${top20Users}"
+    }
+
+
+    static staticsTopPayUser(Integer limit){
+        def query = new BasicDBObject(via: [$ne: 'Admin'])
+        List<Map> top20Users = new ArrayList<>();
+        println "用户\t充值\t抓取\t抓中\t命中率".toString()
+        finance_log.aggregate([new BasicDBObject('$match', query),
+                               new BasicDBObject('$project', [user_id: '$user_id', cny: '$cny']),
+                               new BasicDBObject('$group', [_id: '$user_id',  count: [$sum: '$cny']]),
+                               new BasicDBObject('$sort', [count:-1]),
+                               new BasicDBObject('$limit',limit)
+                              ]
+        ).results().each {
+            def obj = $$(it as Map)
+            Integer userId = obj?.get('_id') as Integer;
+            def catchQuery = new BasicDBObject('user_id', userId) //抓中次数
+            def cny = obj?.get('count') as Integer; //充值总额度
+            def count = catch_record.count(catchQuery) as Long;//抓取次数
+            def bingoQuery = catchQuery.append('status',true) //抓中次数
+            def bingoCount = catch_record.count(bingoQuery) as Long;
+            println "${userId}\t${cny}\t${count}\t${bingoCount}\t${fmtNumber(bingoCount/count * 100)}%"
+        }
     }
 
     //付费周期
@@ -228,7 +265,7 @@ class UserBehaviorStatic {
         }
     }
 
-    //统计量子云
+
     /**
      *
      抓取的人数
@@ -239,9 +276,15 @@ class UserBehaviorStatic {
      前三次未抓取到娃娃且成功邀请了至少一个好友的人数
      * @return
      */
-    static staticsLiangziyunCatchUser(){
+    static staticsChannelCatchUser(String qd, String date){
+        def channel_db = mongo.getDB('xy_admin').getCollection('channels')
+        List<String> qds = channel_db.find($$(parent_qd: qd), $$(_id: 1)).toArray()*._id
+        qds.add(qd);
+
         Integer userCount = 0
         Integer totalplayUserCount = 0
+        Integer totalFollowerUserCount = 0
+
         Integer catchUserCount = 0
         Integer catchUserPayCount = 0
         Integer catchUserInvitedCount = 0
@@ -253,10 +296,12 @@ class UserBehaviorStatic {
         Integer catchBingoCount = 0
         Integer invitedUserCount = 0
         Map<Long, Integer> userCatchCounts = new HashMap<>();
-        def cur = users.find($$(qd:"wawa_liangziyun", timestamp:[$gte:1516118400000,$lt:1516204800000])).batchSize(100)
+        Long begin = Date.parse("yyyy-MM-dd",date).clearTime().getTime()
+        def cur = users.find($$(qd:[$in:qds], timestamp:[$gte:begin,$lt:begin+DAY_MILLON])).batchSize(200)
         while (cur.hasNext()) {
             def row = cur.next()
             Integer userId = row['_id'] as Integer
+            Long weixin_focus_timestamp = row['weixin_focus_timestamp'] as Long
             userCount++
             def catchQuery = new BasicDBObject('user_id', userId)//抓取次数
             def count = catch_record.count(catchQuery) as Long;
@@ -276,7 +321,6 @@ class UserBehaviorStatic {
                     }
                     if(isInvitor(userId)){
                         catchUserInvitedCount++;
-                        invitedUserCount += invitiedUsers(userId).size()
                     }
                 }else{
                     uncatchUserCount++
@@ -285,20 +329,23 @@ class UserBehaviorStatic {
                     }
                     if(isInvitor(userId)){
                         uncatchUserInvitedCount++;
-                        invitedUserCount += invitiedUsers(userId).size()
                     }
                 }
             }
-
+            invitedUserCount += invitiedUsers(userId).size()
+            if(weixin_focus_timestamp != null && weixin_focus_timestamp > 0){
+                totalFollowerUserCount++;
+            }
         }
-        println "总人数:${userCount} \t抓取人数:${totalplayUserCount} \t抓中人数:${catchUserCount}\t平均命中率${fmtNumber(catchBingoCount / catchCount * 100)}%" +
+        Integer totalPayUserCount = catchUserPayCount+uncatchUserPayCount
+        println "${qd}: 总人数:${userCount} \t抓取人数:${totalplayUserCount}\t抓中人数:${catchUserCount}" +
+                "\t付费人数:${totalPayUserCount}\t关注人数:${totalFollowerUserCount}\t邀请人数:${invitedUserCount}"
+        println "平均命中率${fmtNumber(catchBingoCount / catchCount * 100)}%"+
                 "\t抓中付费用户:${catchUserPayCount} 占比: ${fmtNumber(catchUserPayCount / catchUserCount * 100)}%" +
                 "\t抓中用户邀请了至少一个好友的人数:${catchUserInvitedCount}" +
                 "\t未抓中用户${uncatchUserCount}\t 未抓中付费用户:${uncatchUserPayCount} 占比: ${fmtNumber( uncatchUserPayCount / uncatchUserCount * 100)}%" +
-                "\t未抓中用户邀请了至少一个好友的人数:${uncatchUserInvitedCount}\t一共邀请:${invitedUserCount}"
-
-
-        println userCatchCounts;
+                "\t未抓中用户邀请了至少一个好友的人数:${uncatchUserInvitedCount}"
+        //println "[次数:人数]="+userCatchCounts;
     }
 
     //付费周期
@@ -483,9 +530,11 @@ class UserBehaviorStatic {
         Long begin = Date.parse("yyyy-MM-dd HH:mm:ss","${date} 00:00:00".toString()).getTime()
         Integer userInvitedCount = 0;
         Integer invitedUserCount = 0;
+        Integer invitedUserPayCount = 0;
 
         Integer newuserInvitedCount = 0;
         Integer newInvitedUserCount = 0;
+        Integer newInvitedUserPayCount = 0;
         //活跃用户
         List<Integer> actives = day_login.find($$(timestamp:[$gte:begin, $lt:begin+DAY_MILLON])).toArray()*.user_id
         Integer activeUserCount = actives.size()
@@ -497,19 +546,73 @@ class UserBehaviorStatic {
         actives.each {Integer userId ->
             if(isInvitor(userId,begin,begin+DAY_MILLON)){
                 userInvitedCount++;
-                invitedUserCount += invitiedUsers(userId,begin,begin+DAY_MILLON).size()
+                List invitedUsers = invitiedUsers(userId,begin,begin+DAY_MILLON)
+                invitedUserCount += invitedUsers.size()
+                invitedUsers.each {Integer inviUserId ->
+                    if(finance_log.count($$(user_id:inviUserId,via: [$ne: 'Admin'], timestamp:[$gte:begin, $lt:begin+DAY_MILLON])) > 0){
+                        invitedUserPayCount++;
+                    }
+                }
+
             }
         }
         news.each {Integer userId ->
             if(isInvitor(userId,begin,begin+DAY_MILLON)){
                 newuserInvitedCount++;
-                newInvitedUserCount += invitiedUsers(userId,begin,begin+DAY_MILLON).size()
+                List invitedUsers = invitiedUsers(userId,begin,begin+DAY_MILLON)
+                newInvitedUserCount += invitedUsers.size()
+                invitedUsers.each {Integer inviUserId ->
+                    if(finance_log.count($$(user_id:inviUserId,via: [$ne: 'Admin'], timestamp:[$gte:begin, $lt:begin+DAY_MILLON])) > 0){
+                        newInvitedUserPayCount++;
+                    }
+                }
             }
         }
-        println "${new Date(begin).format('yyyy-MM-dd HH:mm:ss')} : " +
-                "\t活跃人数${activeUserCount}\t 新增人数:${news.size()}\t非新增用户${actives.size()}" +
-                "\t新增邀请好友成功的人数:${newuserInvitedCount}\t 新增邀请好友数量:${newInvitedUserCount} " +
-                "\t非新邀请好友成功的人数:${userInvitedCount}\t 非新增邀请好友数量:${invitedUserCount}"
+        println "${new Date(begin).format('yyyy-MM-dd')} : " +
+                "\t活跃人数:${activeUserCount}" +
+                "\t[新增人数:${news.size()} \t邀请好友成功的人数:${newuserInvitedCount}\t 邀请好友数量:${newInvitedUserCount} \t付费人数:${invitedUserPayCount}]" +
+                "\t[非新增人数:${actives.size()} \t邀请好友成功的人数:${userInvitedCount}\t 邀请好友数量:${invitedUserCount}\t付费人数:${newInvitedUserPayCount}]" +
+                ""
+    }
+
+    //统计抓取和代抓次数
+    static staticsCatch(String date){
+        Long begin = Date.parse("yyyy-MM-dd HH:mm:ss","${date} 00:00:00".toString()).getTime()
+        int i = 0
+        Long total = 0;
+        Long daizhua_total = 0;
+        while (i++ <= 23){
+            long end = begin+ 1 * 60 * 60 * 1000
+            Long count = catch_record.count($$(timestamp:[$gte:begin, $lt:end]))
+            total+=count
+            Long daizhua_count = catch_record.count($$('toy.channel':3,timestamp:[$gte:begin, $lt:end]))
+            daizhua_total+=daizhua_count
+            println "${new Date(begin).format('yyyy-MM-dd HH:mm:ss')} : ${count}, 代抓${daizhua_count},非代抓${count-daizhua_count}"
+            begin = end
+        }
+        println "总计 : ${total}, 代抓${daizhua_total} , 代抓占比:${fmtNumber(daizhua_total/total * 100)}% ,非代抓${total-daizhua_total}"
+    }
+
+    //统计分享层级
+    static staticsShareLevel(){
+        def allUsers = invitor_logs.distinct("user_id")
+        Map<Integer, Integer> userCatchCounts = new HashMap<>();
+        allUsers.each {Integer userId ->
+            Integer level = findLevel(1, userId)
+            Integer userCounts = userCatchCounts.get(level) ?: 0
+            userCatchCounts.put(level, ++userCounts)
+        }
+        println "发出邀请人数:${allUsers.size()}"
+        println "邀请层级"
+        userCatchCounts.each {Integer level, Integer count->
+            println "${level} : ${count}  占比:${fmtNumber(count/allUsers.size() * 100)}%"
+        }
+    }
+
+    static Integer findLevel(Integer level, Integer userId){
+        List invitorUsers = invitor_logs.find($$(user_id:userId)).toArray()*.invitor
+        if(invitorUsers.size() == 0) return level;
+        return findLevel(level+1, invitorUsers[0] as Integer);
     }
 
     static Integer totalPay(Integer userId){
@@ -538,25 +641,37 @@ class UserBehaviorStatic {
     static void main(String[] args) {
         long l = System.currentTimeMillis()
         //统计付费行为
-        //staticsPayUser()
+        staticsPayUser()
+        //staticsTopPayUser(50)
         //抓取行为
         //staticsCatchUser()
         //邮寄用户
         //staticsDeliverUserOfPay()
-        /*msgPushStatistic('娃娃过期','ToyExpire');
+/*
+        msgPushStatistic('娃娃过期','ToyExpire');
         msgPushStatistic('积分过期','PointsExpire');
         msgPushStatistic('邀请好友','Inviter');
         msgPushStatistic('发货通知','DeliverInfo');
-        msgPushStatistic('红包发送','redpacket');*/
+        msgPushStatistic('红包发送','redpacket');
         msgPushStatistic('上新商品','ToyRenew');
+        */
         //统计渠道充值
         //staticChannlePay();
         //统计用户点击充值按钮后完成支付的情况
         //staticPaiedAfterClickButton()
-        //量子云相关数据统计
-        //staticsLiangziyunCatchUser()
-        //staticInvitorUser('2018-01-14');
-        //staticInvitorUser('2018-01-15');
+        //统计渠道数据统计
+        //staticsChannelCatchUser('amds1411565', "2018-01-24")
+        //staticsChannelCatchUser('amds1395007', "2018-01-24")
+        //staticsChannelCatchUser('amds1404474', "2018-01-24")
+        //staticsChannelCatchUser('amds1395148', "2018-01-24")
+        /*staticInvitorUser('2018-01-12');
+        staticInvitorUser('2018-01-13');
+        staticInvitorUser('2018-01-19');
+        staticInvitorUser('2018-01-20');*/
+        //staticsShareLevel();
+        //staticsCatch('2018-01-26');
+        //staticsCatch('2018-01-27');
+        //staticsCatch('2018-01-28');
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   UserBehaviorStatic, cost  ${System.currentTimeMillis() - l} ms"
     }
 
