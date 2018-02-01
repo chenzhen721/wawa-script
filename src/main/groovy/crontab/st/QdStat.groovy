@@ -45,6 +45,7 @@ class QdStat {
     static DBCollection stat_channels = mongo.getDB('xy_admin').getCollection('stat_channels')
     static DBCollection stat_regpay = mongo.getDB('xy_admin').getCollection('stat_regpay')
     static DBCollection catch_record = mongo.getDB('xy_catch').getCollection('catch_record')
+    static DBCollection invitor_logs = mongo.getDB('xylog').getCollection('invitor_logs')
 
     /*static create_chat_index(String currentMonth) {
         def index_name = '_user_id_timestamp_index_'
@@ -201,19 +202,22 @@ class QdStat {
             //抓中次数 抓取次数 新增用户抓取人数
             def list = catch_record.find(qd_query).toArray()
             def doll_count = list?.size() ?: 0
-            def bingo_count = 0
+            def bingo_count = 0, reg_bingo_count = 0
             def reg_user_count = new HashSet()
             for(DBObject record : list) {
                 def status = record['status'] as Boolean ?: false
+                def user_id = record['user_id'] as Integer
                 if (status) {
                     bingo_count = bingo_count + 1
+                    if (regs.contains(user_id)) {
+                        reg_bingo_count = reg_bingo_count + 1
+                    }
                 }
-                def user_id = record['user_id'] as Integer
                 if (regs.contains(user_id)) {
                     reg_user_count.add(user_id)
                 }
             }
-            def update = $$([qd: cid, timestamp: begin, doll_count: doll_count, bingo_count: bingo_count, reg_user_count: reg_user_count.size()])
+            def update = $$([qd: cid, timestamp: begin, doll_count: doll_count, bingo_count: bingo_count, reg_bingo_count: reg_bingo_count, reg_user_count: reg_user_count.size()])
             stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: update), true, false)
         }
     }
@@ -265,6 +269,46 @@ class QdStat {
             }
         }
         /*}*/
+    }
+
+    /**
+     * reg_invitor 新增用户中邀请到新用户的人数
+     * reg_invitee 新增用户当日邀请到的用户数
+     * reg_weixin_focus 新增用户当中关注公众号的人
+     *
+     * 渠道邀请用户统计
+     * @param i
+     */
+    static inviteQdStatic(int i) {
+        def gteMill = yesTday - i * DAY_MILLON
+        def YMD = new Date(gteMill).format("yyyyMMdd")
+        def invitors = invitor_logs.distinct('invitor', $$(timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON]))
+
+        //新增用户中邀请到新用户的人
+        users.aggregate([
+                $$($match: [_id: [$in: invitors], timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON]]),
+                $$($group: [_id: '$qd', uids: [$addToSet: '$_id']])
+        ]).results().each { BasicDBObject obj ->
+            def cid = obj['_id'] as String
+            def uids = obj['uids'] as Set
+            //查询对应邀请到的用户
+            def reg_invitee = invitor_logs.count($$(invitor: [$in: uids], timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON]))
+
+            def update = $$([reg_invitor: uids.size(), reg_invitee: reg_invitee])
+            stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: update), true, false)
+        }
+
+        //关注
+        users.aggregate([
+                $$($match: [weixin_focus: 1, weixin_next: [$gte: gteMill, $lt: gteMill + DAY_MILLON], timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON]]),
+                $$($group: [_id: '$qd', count: [$sum: 1]])
+        ]).results().each { BasicDBObject obj ->
+            def cid = obj['_id']
+            def count = obj['count']
+            //查询当日新增关注的用户
+            def update = $$([reg_weixin_focus: count])
+            stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: update), true, false)
+        }
     }
 
     //父渠道信息汇总
@@ -350,6 +394,12 @@ class QdStat {
             stayStatics(it + begin_day)
         }
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd stayStatics, cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
+        //渠道的邀请统计
+        l = System.currentTimeMillis()
+        inviteQdStatic(begin_day)
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd inviteQdStatic, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)
 
         //父级渠道的统计
