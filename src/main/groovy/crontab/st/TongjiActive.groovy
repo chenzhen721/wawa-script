@@ -586,6 +586,13 @@ class TongjiActive {
         println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd stayStatics, cost  ${System.currentTimeMillis() - l} ms"
         Thread.sleep(1000L)*/
 
+        l = System.currentTimeMillis()
+        31.times {
+            stayAllStatics(it)
+        }
+        println "${new Date().format('yyyy-MM-dd HH:mm:ss')}   update qd stayAllStatics, cost  ${System.currentTimeMillis() - l} ms"
+        Thread.sleep(1000L)
+
         //03.父级渠道的统计
         l = System.currentTimeMillis()
         //parentQdstatic(day)
