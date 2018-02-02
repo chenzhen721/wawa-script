@@ -284,31 +284,42 @@ class QdStat {
         def YMD = new Date(gteMill).format("yyyyMMdd")
         def invitors = invitor_logs.distinct('invitor', $$(timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON]))
 
+        def total_invitee = 0
+        def total_invitor = []
         //新增用户中邀请到新用户的人
         users.aggregate([
                 $$($match: [_id: [$in: invitors], timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON]]),
                 $$($group: [_id: '$qd', uids: [$addToSet: '$_id']])
         ]).results().each { BasicDBObject obj ->
             def cid = obj['_id'] as String
-            def uids = obj['uids'] as Set
+            def uids = obj['uids'] as Set ?: []
             //查询对应邀请到的用户
             def reg_invitee = invitor_logs.count($$(invitor: [$in: uids], timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON]))
 
             def update = $$([reg_invitor: uids.size(), reg_invitee: reg_invitee])
             stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: update), true, false)
+            total_invitor.addAll(uids)
+            total_invitee = total_invitee + reg_invitee
         }
 
+
         //关注
+        def total_focus = 0
         users.aggregate([
                 $$($match: [weixin_focus: 1, weixin_next: [$gte: gteMill, $lt: gteMill + DAY_MILLON], timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON]]),
                 $$($group: [_id: '$qd', count: [$sum: 1]])
         ]).results().each { BasicDBObject obj ->
             def cid = obj['_id']
-            def count = obj['count']
+            def count = obj['count'] as Integer ?: 0
             //查询当日新增关注的用户
             def update = $$([reg_weixin_focus: count])
             stat_channels.update($$(_id: "${YMD}_${cid}".toString()), $$($set: update), true, false)
+            total_focus = total_focus + count
         }
+        def stat_report = mongo.getDB('xy_admin').getCollection('stat_report')
+        def report = $$(reg_weixin_focus: total_focus, reg_invitor: total_invitor, reg_invitee: total_invitee)
+        stat_report.update(new BasicDBObject(_id: "${YMD}_allreport".toString()), $$($set: report), true, false)
+
     }
 
     //父渠道信息汇总
