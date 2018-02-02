@@ -317,7 +317,7 @@ class QdStat {
             total_focus = total_focus + count
         }
         def stat_report = mongo.getDB('xy_admin').getCollection('stat_report')
-        def report = $$(reg_weixin_focus: total_focus, reg_invitor: total_invitor, reg_invitee: total_invitee)
+        def report = $$(reg_weixin_focus: total_focus, reg_invitor: total_invitor.size(), reg_invitee: total_invitee)
         stat_report.update(new BasicDBObject(_id: "${YMD}_allreport".toString()), $$($set: report), true, false)
 
     }
