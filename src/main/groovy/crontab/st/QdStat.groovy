@@ -306,7 +306,7 @@ class QdStat {
         //关注
         def total_focus = 0
         users.aggregate([
-                $$($match: [weixin_focus: 1, weixin_next: [$gte: gteMill, $lt: gteMill + DAY_MILLON], timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON]]),
+                $$($match: [weixin_focus: 1, weixin_focus_timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON], timestamp: [$gte: gteMill, $lt: gteMill + DAY_MILLON]]),
                 $$($group: [_id: '$qd', count: [$sum: 1]])
         ]).results().each { BasicDBObject obj ->
             def cid = obj['_id']
