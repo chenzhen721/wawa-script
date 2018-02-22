@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * 每天统计一份数据
+ * 每小时统计一份数据
  */
 class StaticsEveryHour {
 
