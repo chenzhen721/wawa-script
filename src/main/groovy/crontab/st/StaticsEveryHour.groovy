@@ -71,6 +71,9 @@ class StaticsEveryHour {
         // 当前时间的前i + 1个小时
         def begin = startTime(-1 - i)
         def end = begin + HOUR_MILLION
+        Calendar cal = Calendar.getInstance()
+        cal.setTimeInMillis(begin)
+        int hour = cal.get(Calendar.HOUR_OF_DAY)
 
         //一小时内分享获得的用户
         def ids = users.distinct('_id', $$(timestamp: [$gte: begin, $lt: end], qd: [$in: ['wawa_share_lianjie', 'wawa_share_erweima']]))
@@ -85,7 +88,8 @@ class StaticsEveryHour {
         }
 
         def _id = "${new Date(begin).format('yyyyMMddHH')}_share_users".toString()
-        def update = $$(type: 'share_users', timestamp: begin, share_users: ids?.size() ?: 0, invitors: invitors.size(), invitees: invitees)
+
+        def update = $$(type: 'share_users', timestamp: begin, hour_of_day: hour, share_users: ids?.size() ?: 0, invitors: invitors.size(), invitees: invitees)
 
         stat_hourly.update($$(_id: _id), $$($set: update), true, false)
     }
