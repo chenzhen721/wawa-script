@@ -294,7 +294,7 @@ class WeixinMessage {
             String responseContent = EntityUtils.toString(entity, "utf-8");
             def jsonSlurper = new JsonSlurper()
             map = jsonSlurper.parseText(responseContent) as Map
-            println "post response  : ${map}".toString()
+            //println "post response  : ${map}".toString()
             // 如果是40001 token问题 则需要再次生成token,防止token正好过期
             Integer errcode = map.get('errcode') as Integer
             if (errcode == 40001) {
