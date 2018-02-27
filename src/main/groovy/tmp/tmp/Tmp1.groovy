@@ -74,6 +74,26 @@ class Tmp1 {
         def category = mongo.getDB('xy_admin').getCollection('category')
         def sdf = new SimpleDateFormat('yyyyMMdd')
 
+        /*def total = catch_record.count($$(device_type: 3))
+        def count = 0, fail_count = 0, succ_count = 0, fail_succ_count = 0
+        catch_record.find($$(device_type: 3, first_doll: [$exists: true])).toArray().each {BasicDBObject obj->
+            def score = obj.get('score') as Integer
+            def config = obj.get('config_num') as Integer
+            def status = obj['status'] as Boolean ?: false
+            if (score <= config) {
+                count = count + 1
+                if (status) {
+                    succ_count = succ_count + 1
+                }
+            }else if (score > config) {
+                fail_count = fail_count + 1
+                if (status) {
+                    fail_succ_count = fail_succ_count + 1
+                }
+            }
+        }
+        println "total: ${total}, count: ${count}, succ_count: ${succ_count}, fail_count: ${fail_count}, fail_succ_count: ${fail_succ_count}".toString()*/
+
         /*[20171201:20171215, 20171216:20171231, 20180101:20180115].each {Integer key, Integer value ->
             //12月1号 - 12月15号
             def start = sdf.parse('' + key).getTime()
@@ -139,11 +159,9 @@ class Tmp1 {
             println '新增抓取：' + catch_record.distinct('user_id', $$([user_id: [$in: regs], timestamp: timebtn, is_delete: [$ne: true]])).size()
         }*/
 
-        /*[20180125:20180203].each {Integer start, Integer end ->
+        [20180208:20180218].each {Integer start, Integer end ->
             def s = sdf.parse('' + start).getTime()
             def e = sdf.parse('' + end).getTime()
-            println s
-            println e
             def payed = [:], nopay = [:]
             users.find($$(timestamp: [$gte: s, $lt: e])).toArray().each {BasicDBObject obj ->
                 def finance = finance_log_DB.find($$(user_id: obj['_id'], diamond: [$ne: 0], via: [$ne: 'Admin'])).sort($$(timestamp: 1)).limit(1).toArray()
@@ -214,7 +232,7 @@ class Tmp1 {
                 }
                 def fi = finance_log_DB.find($$(user_id: [$in: f], via: [$ne: 'Admin'])).toArray().sum { it.cny ?: 0d }
 
-                println "增加项${j}：" + f.size() + ' ' + fi
+                println "增加项${j}：" + f.size() + ':' + fi + ':' + ':' + getInviteDiamond(f, s, e)
 
 
 
@@ -229,10 +247,7 @@ class Tmp1 {
                             def cny = obj['cny'] as Double ?: 0d
                             total = total + cny
                         }
-                        println "付费寄送 ${j} ${index}：   ${ids.size()},  ${total}".toString()
-                        *//*if (j == 1 && index == 1) {
-                            println "${j} ${index} ${ids}".toString()
-                        }*//*
+                        println "付费寄送 ${j} ${index}：   ${ids.size()},  ${total},  ${getInviteDiamond(ids, s, e)}".toString()
                     }
                     c.removeAll(ids)
                     def total = 0d
@@ -240,12 +255,12 @@ class Tmp1 {
                         def cny = obj['cny'] as Double ?: 0d
                         total = total + cny
                     }
-                    println "${j} ${index}:   ${c.size()},  ${total}".toString()
+                    println "${j} ${index}:   ${c.size()},  ${total}, ${getInviteDiamond(c, s, e)}".toString()
                     index = index + 1
                 }
                 j = j + 1
             }
-        }*/
+        }
 
         //println mainRedis.get("user:1208411:first:doll")
         /*def begin = sdf.parse('20180201').clearTime().getTime()
@@ -285,16 +300,21 @@ class Tmp1 {
             println "${ymd}, ${count}, ${bingo}".toString()
         }*/
 
-        def total = 0
+        /*def total = 0
         apply_post_logs.find($$(timestamp: [$gte: 1517932800000, $lt: 1518019200000])).toArray().each {BasicDBObject obj ->
             total = total + (obj['record_ids'] as List).size()
         }
-        println total
+        println total*/
 
+    }
 
-
-
-
+    static getInviteDiamond(def ids, long s, long e) {
+        def diamond_logs = mongo.getDB('xylog').getCollection('diamond_add_logs')
+        Integer diamond = 0 as Integer
+        diamond_logs.find($$(type: 'invite_diamond', user_id: [$in: ids], timestamp: [$gte: s, $lt: e])).toArray().each {BasicDBObject obj ->
+            diamond = diamond + (obj['award']['diamond'] as Integer ?: 0)
+        }
+        diamond
     }
 
     public static final String APP_ID = "984069e5f8edd8ca4411e81863371f16"
