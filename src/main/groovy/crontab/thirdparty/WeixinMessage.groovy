@@ -54,6 +54,8 @@ class WeixinMessage {
     static mainRedis = new Jedis(jedis_host, main_jedis_port)
 
     public static Map<String,String> APP_ID_SECRETS = ['wx87f81569b7e4b5f6':'8421fd4781b1c29077c2e82e71ce3d2a', 'wxf64f0972d4922815':'fbf4fd32c00a82d5cbe5161c5e699a0e']
+    public static Map<String,String> APP_ID_TOKENS = new HashMap<>();
+
     static String WEIXIN_URL = 'https://api.weixin.qq.com/cgi-bin/'
     public static Integer requestCount = 0
     public static Integer successCount = 0
@@ -83,17 +85,24 @@ class WeixinMessage {
     public static CountDownLatch downLatch = new CountDownLatch(0)
 
     static final ThreadPoolExecutor threadPool =
-            new ThreadPoolExecutor(1, 10,
-                    60L, TimeUnit.SECONDS,
-                    new LinkedBlockingQueue<Runnable>()) ;
+                        new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors() * 2, 200,
+                                    60L, TimeUnit.SECONDS,
+                                        new LinkedBlockingQueue<Runnable>(1000)) ;
 
     static void main(String[] args) {
         Long begin = System.currentTimeMillis()
+        mainRedis.del(redis_lock_key)
         if(mainRedis.setnx(redis_lock_key, begin.toString()) == 1){
-            mainRedis.expire(redis_lock_key, 60 * 60 * 1000)
-            sendMessage()
-            downLatch.await();
-            mainRedis.del(redis_lock_key)
+            try{
+                mainRedis.expire(redis_lock_key, 60 * 60 * 1000)
+                sendMessage()
+                downLatch.await();
+            }catch (Exception e){
+                println e
+            }finally{
+                threadPool.shutdown();
+                mainRedis.del(redis_lock_key)
+            }
             println "${WeixinMessage.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: total ${requestCount} , success ${successCount} " +
                     "fail ${requestCount - successCount} finish cost ${System.currentTimeMillis() - begin} ms"
         }else{
@@ -102,12 +111,18 @@ class WeixinMessage {
         //testTemplateMsg();
     }
 
+    static testToken(){
+        String access_token = mainRedis.get(getAccessRedisKey('wxf64f0972d4922815'))
+        println "access_token:${access_token} ttl : ${mainRedis.ttl(getAccessRedisKey('wxf64f0972d4922815'))}".toString()
+    }
+
     static void sendMessage(){
         Long now = System.currentTimeMillis()
         def msgs = weixin_msg.find($$(is_send:0,'next_fire': [$lte: now])).sort($$(next_fire:-1)).limit(1000).toArray()
         println "msgs size : ${msgs.size()}".toString()
         if(msgs.size() == 0) return;
-        initErrorCode();
+        //初始化微信token
+        initAccessToken();
         downLatch = new CountDownLatch(msgs.size())
         msgs.each {row ->
             final String appId = row['app_id'] as String
@@ -133,64 +148,14 @@ class WeixinMessage {
                         row['is_send'] = 1;
                         weixin_msg.save(row)
                     }catch (Exception e){
-                        println "Exception :"+e;
+                        println e;
                     }finally{
                         downLatch.countDown();
                     }
                 }
             })
-
         }
-        threadPool.shutdown();
-/*
-        def cur = weixin_msg.find($$(is_send : 0, app_id:[$ne:null], openId:[$ne:null], 'next_fire': [$lte: now])).batchSize(1000)
-        while (cur.hasNext()) {
-            final row = cur.next()
-            final String appId = row['app_id'] as String
-            final String openId = row['open_id'] as String
-            if(openId == null || appId == null) return
-            threadPool.execute(new Runnable() {
-                @Override
-                void run() {
-                    Integer error = -1
-                    def template = row['template'] as DBObject
-                    if(template != null){
-                        error = sendTemplateMsg(template, openId, appId)
-                    }
-                    WeixinMessage.requestCount++
-                    if (error == 0) {
-                        WeixinMessage.successCount++
-                        row['success_send'] = 1;
-                    }
-                    row['send_time'] = now;
-                    row['is_send'] = 1;
-                    weixin_msg.save(row)
-                }
-            })
 
-        }
-        threadPool.shutdown();
-        */
-    }
-
-    static String getOpenIdByUid(String appId, Integer uid){
-        String openId = null;
-        def user = users.findOne($$(mm_no:uid.toString()), $$(weixin:1))
-        if(user != null){
-            def weixin = user['weixin'] as Map
-            if(weixin != null && weixin.size() > 0){
-                openId = weixin[appId]
-            }
-        }
-        return openId
-    }
-
-    public static BasicDBObject $$(String key, Object value) {
-        return new BasicDBObject(key, value);
-    }
-
-    public static BasicDBObject $$(Map map) {
-        return new BasicDBObject(map)
     }
 
     /**
@@ -268,21 +233,35 @@ class WeixinMessage {
      * 微信每日调用accessToken次数有限(2000次/日,有效7200秒)
      * @param req
      */
-    static String getAccessToken(String appId) {
-        String access_token = mainRedis.get(getAccessRedisKey(appId))
-        if (access_token == null) {
-            String requestUrl = WEIXIN_URL + 'token?grant_type=client_credential&appid=' + appId + '&secret=' + APP_ID_SECRETS[appId]
-            println requestUrl
-            Map respMap = postWX('GET', requestUrl, new HashMap(), appId)
-            println respMap
-            String errcode = respMap['errcode']
-            access_token = respMap['access_token']
-            Integer expires = respMap['expires_in'] as Integer
+    static void initAccessToken() {
+        APP_ID_SECRETS.keySet().each {String appId ->
+            String access_token = mainRedis.get(getAccessRedisKey(appId))
+            //println "${appId} : access_token:${access_token} ttl : ${mainRedis.ttl(getAccessRedisKey(appId))}".toString()
+            if (access_token == null) {
+                String requestUrl = WEIXIN_URL + 'token?grant_type=client_credential&appid=' + appId + '&secret=' + APP_ID_SECRETS[appId]
+                println requestUrl
+                Map respMap = postWX('GET', requestUrl, new HashMap(), appId)
+                println respMap
+                String errcode = respMap['errcode']
+                access_token = respMap['access_token']
+                Integer expires = respMap['expires_in'] as Integer
+                if(access_token != null){
+                    mainRedis.setex(getAccessRedisKey(appId), expires, access_token)
+                }
+            }
             if(access_token != null){
-                mainRedis.setex(getAccessRedisKey(appId), expires, access_token)
+                APP_ID_TOKENS[appId] = access_token
             }
         }
-        return access_token
+    }
+
+    static String getAccessToken(String appId){
+        String access_token =  APP_ID_TOKENS[appId]
+        if(access_token == null){
+            initAccessToken();
+            return getAccessToken(appId);
+        }
+        return access_token;
     }
 
     /**
@@ -320,10 +299,7 @@ class WeixinMessage {
             // 如果是40001 token问题 则需要再次生成token,防止token正好过期
             Integer errcode = map.get('errcode') as Integer
             if (errcode == 40001) {
-                mainRedis.del(getAccessRedisKey(appId))
-                requestUrl = requestUrl.substring(0, requestUrl.indexOf('access_token'))
-                requestUrl = requestUrl.concat('access_token=' + getAccessToken(appId))
-                return postWX(postMethod, requestUrl, params,appId)
+                initAccessToken()
             }
             EntityUtils.consume(entity);
         } else {
@@ -345,103 +321,12 @@ class WeixinMessage {
         return httpClient
     }
 
+    public static BasicDBObject $$(String key, Object value) {
+        return new BasicDBObject(key, value);
+    }
 
-    /**
-     * @return
-     */
-    static initErrorCode() {
-        errorCode.put(-1, '系统繁忙，此时请开发者稍候再试')
-        errorCode.put(0, '请求成功')
-        errorCode.put(40001, '获取access_token时AppSecret错误，或者access_token无效。请开发者认真比对 AppSecret的正确性，或查看是否正在为恰当的公众号调用接口')
-        errorCode.put(40002, '不合法的凭证类型')
-        errorCode.put(40003, '不合法的OpenID，请开发者确认OpenID(该用户)是否已关注公众号，或是否是其他公众 号的OpenID')
-        errorCode.put(40004, '不合法的媒体文件类型')
-        errorCode.put(40005, '不合法的文件类型')
-        errorCode.put(40006, '不合法的文件大小')
-        errorCode.put(40007, '不合法的媒体文件id')
-        errorCode.put(40008, '不合法的消息类型')
-        errorCode.put(40009, '不合法的图片文件大小')
-        errorCode.put(40010, '不合法的语音文件大小')
-        errorCode.put(40011, '不合法的视频文件大小')
-        errorCode.put(40012, '不合法的缩略图文件大小')
-        errorCode.put(40013, '不合法的AppID，请开发者检查AppID的正确性，避免异常字符，注意大小写')
-        errorCode.put(40014, '不合法的access_token，请开发者认真比对access_token的有效性(如是否过期)，或查 看是否正在为恰当的公众号调用接口')
-        errorCode.put(40015, '不合法的菜单类型')
-        errorCode.put(40016, '不合法的按钮个数')
-        errorCode.put(40017, '不合法的按钮个数')
-        errorCode.put(40018, '不合法的按钮名字长度')
-        errorCode.put(40019, '不合法的按钮KEY长度')
-        errorCode.put(40020, '不合法的按钮URL长度')
-        errorCode.put(40021, '不合法的菜单版本号')
-        errorCode.put(40022, '不合法的子菜单级数')
-        errorCode.put(40023, '不合法的子菜单按钮个数')
-        errorCode.put(40024, '不合法的子菜单按钮类型')
-        errorCode.put(40025, '不合法的子菜单按钮名字长度')
-        errorCode.put(40026, '不合法的子菜单按钮KEY长度')
-        errorCode.put(40027, '不合法的子菜单按钮URL长度')
-        errorCode.put(40028, '不合法的自定义菜单使用用户')
-        errorCode.put(40029, '不合法的oauth_code')
-        errorCode.put(40030, '不合法的refresh_token')
-        errorCode.put(40031, '不合法的openid列表')
-        errorCode.put(40032, '不合法的openid列表长度')
-        errorCode.put(40033, '不合法的请求字符，不能包含\\uxxxx格式的字符')
-        errorCode.put(40035, '不合法的参数')
-        errorCode.put(40038, '不合法的请求格式')
-        errorCode.put(40039, '不合法的URL长度')
-        errorCode.put(40050, '不合法的分组id')
-        errorCode.put(40051, '分组名字不合法')
-        errorCode.put(41001, '缺少access_token参数')
-        errorCode.put(41002, '缺少appid参数')
-        errorCode.put(41003, '缺少refresh_token参数')
-        errorCode.put(41004, '缺少secret参数')
-        errorCode.put(41005, '缺少多媒体文件数据')
-        errorCode.put(41006, '缺少media_id参数')
-        errorCode.put(41007, '缺少子菜单数据')
-        errorCode.put(41008, '缺少oauth code')
-        errorCode.put(41009, '缺少openid')
-        errorCode.put(42001, 'access_token超时，请检查access_token的有效期，请参考基础支持-获取access_token 中，对access_token的详细机制说明')
-        errorCode.put(42002, 'refresh_token超时')
-        errorCode.put(42003, 'oauth_code超时')
-        errorCode.put(43001, '需要GET请求')
-        errorCode.put(43002, '需要POST请求')
-        errorCode.put(43003, '需要HTTPS请求')
-        errorCode.put(43004, '需要接收者关注')
-        errorCode.put(43005, '需要好友关系')
-        errorCode.put(44001, '多媒体文件为空')
-        errorCode.put(44002, 'POST的数据包为空')
-        errorCode.put(44003, '图文消息内容为空')
-        errorCode.put(44004, '文本消息内容为空')
-        errorCode.put(45001, '多媒体文件大小超过限制')
-        errorCode.put(45002, '消息内容超过限制')
-        errorCode.put(45003, '标题字段超过限制')
-
-        errorCode.put(45004, '描述字段超过限制')
-        errorCode.put(45005, '链接字段超过限制')
-        errorCode.put(45006, '图片链接字段超过限制')
-
-        errorCode.put(45007, '语音播放时间超过限制')
-        errorCode.put(45008, '图文消息超过限制')
-        errorCode.put(45009, '接口调用超过限制')
-        errorCode.put(45010, '创建菜单个数超过限制')
-        errorCode.put(45015, '回复时间超过限制')
-        errorCode.put(45016, '系统分组，不允许修改')
-        errorCode.put(45017, '分组名字过长')
-        errorCode.put(45018, '分组数量超过上限')
-        errorCode.put(46001, '不存在媒体数据')
-        errorCode.put(46002, '不存在的菜单版本')
-        errorCode.put(46003, '不存在的菜单数据')
-        errorCode.put(46004, '不存在的用户')
-        errorCode.put(47001, '解析JSON/XML内容错误')
-        errorCode.put(48001, 'api功能未授权，请确认公众号已获得该接口，可以在公众平台官网-开发者中心页中查看 接口权限')
-        errorCode.put(50001, '用户未授权该api')
-        errorCode.put(61451, '参数错误(invalid parameter)')
-        errorCode.put(61452, '无效客服账号(invalid kf_account)')
-        errorCode.put(61453, '客服帐号已存在(kf_account exsited)')
-        errorCode.put(61454, '客服帐号名长度超过限制(仅允许10个英文字符，不包括@及@后的公众号的微信 号)(invalid kf_acount length)')
-        errorCode.put(61455, '客服帐号名包含非法字符(仅允许英文+数字)(illegal character in kf_account)')
-        errorCode.put(61456, '客服帐号个数超过限制(10个客服账号)(kf_account count exceeded)')
-        errorCode.put(61457, '无效头像文件类型(invalid file type)')
-        errorCode.put(61450, '系统错误(system error)')
+    public static BasicDBObject $$(Map map) {
+        return new BasicDBObject(map)
     }
 
 }
