@@ -148,7 +148,7 @@ class StaticsEveryHour {
      * @return
      */
     private static jobFinish(Long begin) {
-        def timerName = 'StaticsEveryDay'
+        def timerName = 'StaticsEveryHour'
         Long totalCost = System.currentTimeMillis() - begin
         saveTimerLogs(timerName, totalCost)
         println "${new Date().format('yyyy-MM-dd')}:${StaticsEveryHour.class.getSimpleName()}:finish  cost  ${System.currentTimeMillis() - begin} ms"
