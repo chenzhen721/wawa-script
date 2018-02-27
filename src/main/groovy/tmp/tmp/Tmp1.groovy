@@ -159,7 +159,8 @@ class Tmp1 {
             println '新增抓取：' + catch_record.distinct('user_id', $$([user_id: [$in: regs], timestamp: timebtn, is_delete: [$ne: true]])).size()
         }*/
 
-        [20180208:20180218].each {Integer start, Integer end ->
+        //付费未付费用户的邮寄统计等
+        /*[20180208:20180218].each {Integer start, Integer end ->
             def s = sdf.parse('' + start).getTime()
             def e = sdf.parse('' + end).getTime()
             def payed = [:], nopay = [:]
@@ -260,7 +261,7 @@ class Tmp1 {
                 }
                 j = j + 1
             }
-        }
+        }*/
 
         //println mainRedis.get("user:1208411:first:doll")
         /*def begin = sdf.parse('20180201').clearTime().getTime()
@@ -305,6 +306,65 @@ class Tmp1 {
             total = total + (obj['record_ids'] as List).size()
         }
         println total*/
+
+        //查询某一时间段内的抓取情况，排除送的强力抓
+        [20180201:20180211, 20180211:20180221].each {Long start, Long end ->
+            def s = sdf.parse('' + start).getTime()
+            def e = sdf.parse('' + end).getTime()
+            def ids = catch_record.distinct('user_id', $$(device_type: [$in: [2, 3]], timestamp: [$gte: s, $lt: e]))
+            def firstThree = [:]
+            ids.each {Integer id ->
+                def thirds = catch_record.find($$(user_id: id)).sort($$(timestamp: 1)).limit(3).toArray()
+                def third = thirds.get(thirds.size() - 1)
+                def time = third['timestamp'] as Long
+                if (time >= s && time <= e) {
+                    firstThree.put(id, time)
+                }
+            }
+
+            def award_count = 0, award = 0, normal_count = 0, normal = 0, qiyiguo_count = 0, qiyiguo = 0
+            catch_record.find($$(timestamp: [$gte: s, $lt: e])).toArray().each {BasicDBObject obj ->
+                def device_type = obj['device_type'] as Integer
+                def status = obj['status'] as Boolean
+                def first_doll = obj['first_doll'] as Boolean
+
+                if (device_type == 1) {
+                    qiyiguo_count = qiyiguo_count + 1
+                    if (status) {
+                        qiyiguo = qiyiguo + 1
+                    }
+                } else {
+                    def user_id = obj['user_id'] as Integer
+                    def three_last = (firstThree.get(user_id) ?: s) as Long
+                    def timestamp = obj['timestamp'] as Long
+                    if (timestamp < three_last) {
+                        if (first_doll == null || first_doll) { //前三次新抓
+                            award_count = award_count + 1
+                            if (status) {
+                                award = award + 1
+                            }
+                        } else {
+                            normal_count = normal_count + 1
+                            if (status) {
+                                normal = normal + 1
+                            }
+                        }
+                    } else {
+                        normal_count = normal_count + 1
+                        if (status) {
+                            normal = normal + 1
+                        }
+                    }
+                }
+            }
+
+            println '送强力抓总次数：' + award_count
+            println '送强力抓抓中总次数：' + award
+            println '正常抓总次数：' + normal_count
+            println '正常抓中总次数：' + normal
+            println 'qyg抓总次数：' + qiyiguo_count
+            println 'qyg抓中总次数：' + qiyiguo
+        }
 
     }
 
