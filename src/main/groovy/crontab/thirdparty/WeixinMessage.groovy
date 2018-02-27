@@ -91,29 +91,22 @@ class WeixinMessage {
 
     static void main(String[] args) {
         Long begin = System.currentTimeMillis()
-        mainRedis.del(redis_lock_key)
         if(mainRedis.setnx(redis_lock_key, begin.toString()) == 1){
             try{
                 mainRedis.expire(redis_lock_key, 60 * 60 * 1000)
                 sendMessage()
                 downLatch.await();
+                println "${WeixinMessage.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: total ${requestCount} , success ${successCount} " +
+                        "fail ${requestCount - successCount} finish cost ${System.currentTimeMillis() - begin} ms"
             }catch (Exception e){
                 println e
             }finally{
-                threadPool.shutdown();
                 mainRedis.del(redis_lock_key)
             }
-            println "${WeixinMessage.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: total ${requestCount} , success ${successCount} " +
-                    "fail ${requestCount - successCount} finish cost ${System.currentTimeMillis() - begin} ms"
         }else{
             println "${WeixinMessage.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: already running..........."
         }
         //testTemplateMsg();
-    }
-
-    static testToken(){
-        String access_token = mainRedis.get(getAccessRedisKey('wxf64f0972d4922815'))
-        println "access_token:${access_token} ttl : ${mainRedis.ttl(getAccessRedisKey('wxf64f0972d4922815'))}".toString()
     }
 
     static void sendMessage(){
@@ -155,7 +148,7 @@ class WeixinMessage {
                 }
             })
         }
-
+        threadPool.shutdown();
     }
 
     /**
@@ -238,16 +231,7 @@ class WeixinMessage {
             String access_token = mainRedis.get(getAccessRedisKey(appId))
             //println "${appId} : access_token:${access_token} ttl : ${mainRedis.ttl(getAccessRedisKey(appId))}".toString()
             if (access_token == null) {
-                String requestUrl = WEIXIN_URL + 'token?grant_type=client_credential&appid=' + appId + '&secret=' + APP_ID_SECRETS[appId]
-                println requestUrl
-                Map respMap = postWX('GET', requestUrl, new HashMap(), appId)
-                println respMap
-                String errcode = respMap['errcode']
-                access_token = respMap['access_token']
-                Integer expires = respMap['expires_in'] as Integer
-                if(access_token != null){
-                    mainRedis.setex(getAccessRedisKey(appId), expires, access_token)
-                }
+                access_token = getTokenFromWeixin(appId)
             }
             if(access_token != null){
                 APP_ID_TOKENS[appId] = access_token
@@ -255,8 +239,22 @@ class WeixinMessage {
         }
     }
 
+    static String getTokenFromWeixin(String appId){
+        String requestUrl = WEIXIN_URL + 'token?grant_type=client_credential&appid=' + appId + '&secret=' + APP_ID_SECRETS[appId]
+        println requestUrl
+        Map respMap = postWX('GET', requestUrl, new HashMap(), appId)
+        String errcode = respMap['errcode']
+        String access_token = respMap['access_token']
+        Integer expires = respMap['expires_in'] as Integer
+        if(access_token != null){
+            mainRedis.setex(getAccessRedisKey(appId), expires, access_token)
+        }
+        return access_token;
+    }
+
     static String getAccessToken(String appId){
         String access_token =  APP_ID_TOKENS[appId]
+        //println "getAccessToken : ${access_token}".toString()
         if(access_token == null){
             initAccessToken();
             return getAccessToken(appId);
@@ -296,10 +294,11 @@ class WeixinMessage {
             String responseContent = EntityUtils.toString(entity, "utf-8");
             def jsonSlurper = new JsonSlurper()
             map = jsonSlurper.parseText(responseContent) as Map
+            println "post response  : ${map}".toString()
             // 如果是40001 token问题 则需要再次生成token,防止token正好过期
             Integer errcode = map.get('errcode') as Integer
             if (errcode == 40001) {
-                initAccessToken()
+                getTokenFromWeixin(appId)
             }
             EntityUtils.consume(entity);
         } else {
