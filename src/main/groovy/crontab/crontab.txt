@@ -23,6 +23,9 @@
 ### 统计运营数据
 1 1 * * * root source /etc/profile && /empty/crontab/StaticsEveryDay.groovy  >> /empty/crontab/logs/StaticsEveryDay.log &
 
+### 每小时统计一次
+*/31 * * * * root source /etc/profile && /empty/crontab/StaticsEveryHour.groovy >> /empty/crontab/logs/StaticsEveryHour.log &
+
 ### 渠道数据统计
 21 1 * * * root source /etc/profile && /empty/crontab/QdStat.groovy  >> /empty/crontab/logs/star_Qd.log &
 
@@ -32,7 +35,5 @@
 ### 新增付费统计
 30 02 * * * root source /etc/profile && /empty/crontab/StaticsRegPay.groovy >> /empty/crontab/logs/StaticsRegPay.log &
 
-### 每小时统计一次
-2/30 * * * * root source /etc/profile && /empty/crontab/StaticsEveryHour.groovy >> /empty/crontab/logs/StaticsEveryHour.log &
 
 ###
