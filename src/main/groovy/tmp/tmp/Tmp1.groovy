@@ -308,7 +308,7 @@ class Tmp1 {
         println total*/
 
         //查询某一时间段内的抓取情况，排除送的强力抓
-        [20180201:20180211, 20180211:20180221].each {Long start, Long end ->
+        /*[20180201:20180211, 20180211:20180221].each {Long start, Long end ->
             def s = sdf.parse('' + start).getTime()
             def e = sdf.parse('' + end).getTime()
             def ids = catch_record.distinct('user_id', $$(device_type: [$in: [2, 3]], timestamp: [$gte: s, $lt: e]))
@@ -364,7 +364,19 @@ class Tmp1 {
             println '正常抓中总次数：' + normal
             println 'qyg抓总次数：' + qiyiguo_count
             println 'qyg抓中总次数：' + qiyiguo
+        }*/
+        def query = $$(timestamp: [$lt: new Date().clearTime().getTime() + DAY_MILLON], post_type: [$ne: 3], is_delete: false, is_pay_postage: false, need_postage: true)
+        apply_post_logs.find(query).toArray().each {BasicDBObject post_log ->
+            def toys = post_log['record_ids'] as List
+            if (toys != null && toys.size() > 0) {
+                toys.each { String r_id ->
+                    //记录还原
+                    catch_success_logs.update($$(_id: r_id), $$($set: [post_type: 0], $unset: [pack_id: 1, apply_time: 1]))
+                }
+            }
+            apply_post_logs.update($$(_id: post_log['_id'], is_delete: [$ne: true]), $$($set: [is_delete: true, status: 2, desc: 'batch unbox']), false, false)
         }
+
 
     }
 
