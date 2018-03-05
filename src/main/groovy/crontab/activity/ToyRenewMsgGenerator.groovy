@@ -78,7 +78,7 @@ class ToyRenewMsgGenerator {
 
     static void main(String[] args) {
         Long begin = System.currentTimeMillis()
-        testSend('王者荣耀梦奇布偶、王者荣耀288皮肤','点击详情查看，抓王者荣耀劲爆新品~');
+        //testSend('王者荣耀梦奇布偶、王者荣耀288皮肤','点击详情查看，抓王者荣耀劲爆新品~');
         //scanUserRenewToys('王者荣耀梦奇布偶、王者荣耀288皮肤','点击详情查看，抓王者荣耀劲爆新品~')
         //removeDuplicate();
         println "${ToyRenewMsgGenerator.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms" +
@@ -96,11 +96,11 @@ class ToyRenewMsgGenerator {
         }
     }
 
-    static testSend(String toyName, String remark){
+    /*static testSend(String toyName, String remark){
         test_ids.each {Integer userId ->
             pushMsg2Queue(userId, new ToyRenewTemplate(userId,'测试消息', toyName, remark),System.currentTimeMillis())
         }
-    }
+    }*/
 
     //用户推送娃娃上新提醒
     static void scanUserRenewToys(String toyNames, String remark){
@@ -136,7 +136,7 @@ class ToyRenewMsgGenerator {
         return Boolean.TRUE
     }
     //推送消息到消息队列待发送
-    static pushMsg2Queue(Integer to_uid, WxTemplate wxTemplate, Long next_fire){
+    /*static pushMsg2Queue(Integer to_uid, WxTemplate wxTemplate, Long next_fire){
         //获取用户appid和openid
         def user = xy_users.findOne($$(mm_no:to_uid.toString()), $$(weixin:1))
         if(user == null) {
@@ -156,7 +156,7 @@ class ToyRenewMsgGenerator {
             weixin_msg.insert(msg)
         }
 
-    }
+    }*/
 
     public static BasicDBObject $$(String key, Object value) {
         return new BasicDBObject(key, value);
@@ -174,7 +174,7 @@ class ToyRenewMsgGenerator {
  商品：{{keyword2.DATA}}
  {{remark.DATA}}
  */
-class ToyRenewTemplate extends WxTemplate{
+/*class ToyRenewTemplate extends WxTemplate{
     static Map<String,String> template_ids = ['wx45d43a50adf5a470':'ktMO_XUO3BeWrPeXiVTTx_gmTGOqTdelt4YpZA-gqRI', 'wxf64f0972d4922815':'eAZMbdfp072nYir240cyU1Pr4p1w3d6B5VtpIs71B2s']
     public ToyRenewTemplate(Integer uid, String nickName, String toyName, String remark){
         this.path = '';
@@ -188,8 +188,9 @@ class ToyRenewTemplate extends WxTemplate{
     public String getTemplateId(String appId){
         return template_ids[appId]
     }
-}
+}*/
 
+/*
 abstract class WxTemplate{
     protected String id;
     protected String url;
@@ -211,4 +212,4 @@ abstract class WxTemplate{
         return ['id': this.getTemplateId(appId), url:url, data:this.getData()];
     }
     protected abstract String getTemplateId(String appId);
-}
+}*/

@@ -365,7 +365,7 @@ class Tmp1 {
             println 'qyg抓总次数：' + qiyiguo_count
             println 'qyg抓中总次数：' + qiyiguo
         }*/
-        def query = $$(timestamp: [$lt: new Date().clearTime().getTime() + DAY_MILLON], post_type: [$ne: 3], is_delete: false, is_pay_postage: false, need_postage: true)
+        /*def query = $$(timestamp: [$lt: new Date().clearTime().getTime() + DAY_MILLON], post_type: [$ne: 3], is_delete: false, is_pay_postage: false, need_postage: true)
         apply_post_logs.find(query).toArray().each {BasicDBObject post_log ->
             def toys = post_log['record_ids'] as List
             if (toys != null && toys.size() > 0) {
@@ -375,7 +375,28 @@ class Tmp1 {
                 }
             }
             apply_post_logs.update($$(_id: post_log['_id'], is_delete: [$ne: true]), $$($set: [is_delete: true, status: 2, desc: 'batch unbox']), false, false)
+        }*/
+
+        def invitor_logs = mongo.getDB('xylog').getCollection('invitor_logs')
+        def HOUR_MILLION = 3600 * 1000L
+        def begin = sdf.parse('20180222150000').getTime()
+        def end = begin + HOUR_MILLION
+
+        //一小时内分享获得的用户
+        def ids = users.distinct('_id', $$(timestamp: [$gte: begin, $lt: end], qd: [$in: ['wawa_share_lianjie', 'wawa_share_erweima']]))
+        println ids
+        //30分钟后这些用户分享获得的用户
+        def invitors = [] as Set
+        def invitees = 0
+        println 'end: ' + new Date(end + 30 * 60000L).format('yyyyMMdd HH')
+        invitor_logs.find($$(timestamp: [$gte: begin, $lt: end + 30 * 60000L], invitor: [$in: ids])).toArray().each {BasicDBObject obj->
+            if (obj['invitor'] != null) {
+                invitors.add(obj['invitor'] as Integer)
+            }
+            invitees = invitees + 1
+            println obj
         }
+
 
 
     }

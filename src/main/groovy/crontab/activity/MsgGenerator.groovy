@@ -53,6 +53,9 @@ class MsgGenerator {
     static DBCollection weixin_msg = mongo.getDB('xy_union').getCollection('weixin_msgs')
     static DBCollection red_packets = mongo.getDB('xy_activity').getCollection('red_packets')
     static DBCollection users = mongo.getDB('xy').getCollection("users")
+    static DBCollection diamond_add_logs = mongo.getDB('xylog').getCollection("diamond_add_logs")
+    static DBCollection catch_observe_logs = mongo.getDB('xylog').getCollection("catch_observe_logs")
+    static DBCollection post_exception_logs = mongo.getDB('xylog').getCollection("post_exception_logs")
     static DBCollection xy_users = mongo.getDB('xy_user').getCollection('users')
     static String jedis_host = getProperties("main_jedis_host", "192.168.31.249")
     static Integer main_jedis_port = getProperties("main_jedis_port", 6379) as Integer
@@ -124,6 +127,21 @@ class MsgGenerator {
         begin = System.currentTimeMillis()
         scanUserDeliverInfo()
         println "scanUserDeliverInfo :${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms"//快递发货
+
+        //申述通知
+        begin = System.currentTimeMillis()
+        scanUserDiamondAdd()
+        println "scanUserDiamondAdd :${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms"//申述通知
+
+        //申述通知
+        begin = System.currentTimeMillis()
+        scanObservResult()
+        println "scanObservResult :${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms"//申述通知
+
+        //快递异常信息通知
+        begin = System.currentTimeMillis()
+        scanPostError()
+        println "scanPostError :${new Date().format('yyyy-MM-dd HH:mm:ss')}: finish cost ${System.currentTimeMillis() - begin} ms"//申述通知
 
         //用户抓中娃娃发送红包
         begin = System.currentTimeMillis()
@@ -243,6 +261,67 @@ class MsgGenerator {
                     if (userId.equals(tid)) return
                     pushMsg2Queue(tid, new RedpacketTemplate(tid, getNickName(userId), "activity/packet?packet_id=${redpacket_id}".toString()))
                 }
+            }
+        }
+    }
+
+    //扫描用户钻石变动
+    static void scanUserDiamondAdd(){
+        def cur = diamond_add_logs.find($$('award.diamond': [$exists: true], type: [$in: ['new_user', 'sign_diamond', 'invite_diamond', 'item_exchange_diamond']],timestamp: [$gt: per_begin, $lt: per_end]))
+        while(cur.hasNext()) {
+            def obj = cur.next()
+            def userId = obj['user_id'] as Integer
+            def award = obj['award']['diamond'] as Integer
+            def timestamp = obj['timestamp'] as Long
+            def type = obj['type']
+            def award_type = ''
+            if ('new_user' == type) {
+                award_type = '首次加入【阿喵抓娃娃】赠送'
+            } else if ('sign_diamond' == type) {
+                award_type = '首次关注【阿喵抓娃娃机】公众号 赠送'
+            } else if ('invite_diamond' == type) {
+                award_type = '成功邀请1位好友 赠送'
+            } else if ('item_exchange_diamond' == type) {
+                award_type = '积分兑换钻石'
+            }
+            if (isTest(userId)) {
+                pushMsg2Queue(userId, new AddDiamondTemplate(userId, getNickName(userId), '' + award, timestamp, award_type))
+            }
+        }
+    }
+
+    //扫描用户申述结果
+    static void scanObservResult(){
+        //抓中娃娃的用户
+        def cur = catch_observe_logs.find($$(status: 1, timestamp:[$gt:per_begin, $lt:per_end])).batchSize(100)
+        while(cur.hasNext()) {
+            def obj = cur.next()
+            def userId = obj['user_id'] as Integer
+            def type = obj['type'] as Integer
+            def content = ""
+            if (type == 0) {
+                content = "抓到娃娃不算"
+            } else if (type == 1) {
+                content = "卡顿延迟"
+            }
+            def result = "通过"
+            if (isTest(userId)) {
+                pushMsg2Queue(userId, new ObserveTemplate(userId, getNickName(userId), content, result))
+            }
+        }
+    }
+
+    //扫描快递信息错误通知
+    static void scanPostError(){
+        //抓中娃娃的用户
+        def cur = post_exception_logs.find($$(timestamp:[$gt:per_begin, $lt:per_end]))
+        while(cur.hasNext()) {
+            def obj = cur.next()
+            def userId = obj['user_id'] as Integer
+            def content = obj['content'] as String ?: ""
+            def message = obj['message'] as String ?: ""
+            if (isTest(userId)) {
+                pushMsg2Queue(userId, new PostErrorTemplate(userId, getNickName(userId), content, message))
             }
         }
     }
@@ -465,6 +544,78 @@ class DeliverTemplate extends WxTemplate{
         return template_ids[appId]
     }
 }
+
+/**
+ * 到账提醒
+ * {{first.DATA}}
+ 到账金额：{{keyword1.DATA}}
+ 到账时间：{{keyword2.DATA}}
+ 到账详情：{{keyword3.DATA}}
+ {{remark.DATA}}
+ */
+class AddDiamondTemplate extends WxTemplate{
+    static Map<String,String> template_ids = ['wxf64f0972d4922815':'dalEfkHzHYCzeO3nXbuDUFjnv7w7fkMOsuftEwI7AVw']
+    public AddDiamondTemplate(Integer uid, String nickName, String award, Long timestamp, String award_type){
+        this.path = '';
+        this.event_id = 'adddiamond';
+        this.uid = uid;
+        this.data["first"] = ['value':"${nickName}，您有一笔钻石到账，请即时查收！".toString(),'color':'#173177']
+        this.data["keyword1"] = ['value':"${award}钻石".toString(),'color':'#173177']
+        this.data["keyword2"] = ['value':"${new Date(timestamp).format('yyyy-MM-dd HH:mm:ss')}".toString(),'color':'#173177']
+        this.data["keyword3"] = ['value':"${award_type}".toString(),'color':'#173177']
+        this.data["remark"] = ['value':"请点击详情，进入个人中心查看钻石余额~",'color':'#173177']
+    }
+    public String getTemplateId(String appId){
+        return template_ids[appId]
+    }
+}
+
+/**
+ * 收件人信息填写错误通知
+ * {{first.DATA}}
+ 错误信息：{{keyword1.DATA}}
+ 修改建议：{{keyword2.DATA}}
+ {{remark.DATA}}
+ */
+class PostErrorTemplate extends WxTemplate{
+    static Map<String,String> template_ids = ['wxf64f0972d4922815':'dalEfkHzHYCzeO3nXbuDUFjnv7w7fkMOsuftEwI7AVw']
+    public PostErrorTemplate(Integer uid, String nickName, String content, String message){
+        this.path = '';
+        this.event_id = 'postinfo';
+        this.uid = uid;
+        this.data["first"] = ['value':"${nickName}，您有一个信息填写错误，快递无法寄出，请尽快修改~".toString(),'color':'#173177']
+        this.data["keyword1"] = ['value':"${content}".toString(),'color':'#173177']
+        this.data["keyword2"] = ['value':"${message}".toString(),'color':'#173177']
+        this.data["remark"] = ['value':"",'color':'#173177']
+    }
+    public String getTemplateId(String appId){
+        return template_ids[appId]
+    }
+}
+
+/**
+ * 申述结果通知
+ * {{first.DATA}}
+ 申诉内容：{{keyword1.DATA}}
+ 申诉结果：{{keyword2.DATA}}
+ {{remark.DATA}}
+ */
+class ObserveTemplate extends WxTemplate{
+    static Map<String,String> template_ids = ['wxf64f0972d4922815':'dalEfkHzHYCzeO3nXbuDUFjnv7w7fkMOsuftEwI7AVw']
+    public ObserveTemplate(Integer uid, String nickName, String content, String result){
+        this.path = '';
+        this.event_id = 'observe';
+        this.uid = uid;
+        this.data["first"] = ['value':"${nickName}，您的申诉已处理！".toString(),'color':'#173177']
+        this.data["keyword1"] = ['value':"${content}".toString(),'color':'#173177']
+        this.data["keyword2"] = ['value':"${result}".toString(),'color':'#173177']
+        this.data["remark"] = ['value':"您的申诉已通过，补偿已发放，请点击详情进入个人中心查看~",'color':'#173177']
+    }
+    public String getTemplateId(String appId){
+        return template_ids[appId]
+    }
+}
+
 
 /**
  * 抓中娃娃发钻石红包

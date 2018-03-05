@@ -80,7 +80,7 @@ class StaticsEveryHour {
         //30分钟后这些用户分享获得的用户
         def invitors = [] as Set
         def invitees = 0
-        invitor_logs.find($$(timestamp: [$gte: end, $lt: end + 30 * 60000L], invitor: [$in: ids])).toArray().each {BasicDBObject obj->
+        invitor_logs.find($$(timestamp: [$gte: begin, $lt: end + 30 * 60000L], invitor: [$in: ids])).toArray().each {BasicDBObject obj->
             if (obj['invitor'] != null) {
                 invitors.add(obj['invitor'] as Integer)
             }
