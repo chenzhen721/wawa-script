@@ -535,6 +535,18 @@ class Tmp {
             println count + ',' + c
         }*/
 
+        def count = 0
+        apply_post_log.find($$('toys.channel': 0, is_delete: false)).toArray().each {BasicDBObject obj ->
+            def toys = obj['toys'] as List<BasicDBObject>
+            toys.each {BasicDBObject toy ->
+                if (toy['channel'] == 0) {
+                    count = count + 1
+                }
+            }
+        }
+
+        println count
+
     }
 
     public static final String APP_ID = "984069e5f8edd8ca4411e81863371f16"

@@ -3,7 +3,6 @@ package tmp.tmp
 
 import com.mongodb.BasicDBObject
 import com.mongodb.DBCollection
-import com.mongodb.DBObject
 @Grapes([
         @Grab('org.mongodb:mongo-java-driver:2.14.2'),
         @Grab('commons-lang:commons-lang:2.6'),
@@ -12,9 +11,10 @@ import com.mongodb.DBObject
 ])
 import com.mongodb.Mongo
 import com.mongodb.MongoURI
+import groovy.json.JsonSlurper
+import org.apache.commons.lang.StringUtils
 import redis.clients.jedis.Jedis
 
-import java.text.SimpleDateFormat
 
 /**
  * 房间发言数统计
@@ -39,7 +39,7 @@ class Tmp1 {
     static final Integer main_jedis_port = getProperties("main_jedis_port",6379) as Integer
     static mainRedis = new Jedis(jedis_host, main_jedis_port, 50000)
 
-    static mongo  = new Mongo(new MongoURI(getProperties('mongo.uri','mongodb://192.168.2.27:10000/?w=1') as String))
+    static mongo  = new Mongo(new MongoURI(getProperties('mongo.uri','mongodb://127.0.0.1:27017/?w=1') as String))
     /*static final String jedis_host = getProperties("main_jedis_host", "192.168.31.236")
     static final Integer main_jedis_port = getProperties("main_jedis_port", 6379) as Integer*/
 //    static redis = new Jedis(jedis_host, main_jedis_port)
@@ -63,342 +63,82 @@ class Tmp1 {
         //补充线上中奖id
         def catch_user = mongo.getDB('xy_catch').getCollection('catch_user')
         def users = mongo.getDB('xy').getCollection('users')
+        def xy_users = mongo.getDB('xy_user').getCollection('users')
         def finance_log_DB = mongo.getDB('xy_admin').getCollection('finance_log')
         def apply_post_logs = mongo.getDB('xylog').getCollection('apply_post_logs')
         def catch_success_logs = mongo.getDB('xylog').getCollection('catch_success_logs')
         def diamond_cost_logs = mongo.getDB("xylog").getCollection("diamond_cost_logs")
         def diamond_add_logs = mongo.getDB("xylog").getCollection("diamond_add_logs")
+        def day_login = mongo.getDB("xylog").getCollection("day_login")
+        def impression_logs = mongo.getDB("xylog").getCollection("impression_logs")
         def stat_daily = mongo.getDB('xy_admin').getCollection('stat_daily')
         def goods = mongo.getDB('xy_admin').getCollection('goods')
         def stat_regpay = mongo.getDB('xy_admin').getCollection('stat_regpay')
         def category = mongo.getDB('xy_admin').getCollection('category')
-        def sdf = new SimpleDateFormat('yyyyMMdd')
+        //def sdf = new SimpleDateFormat('yyyyMMdd')
 
-        /*def total = catch_record.count($$(device_type: 3))
-        def count = 0, fail_count = 0, succ_count = 0, fail_succ_count = 0
-        catch_record.find($$(device_type: 3, first_doll: [$exists: true])).toArray().each {BasicDBObject obj->
-            def score = obj.get('score') as Integer
-            def config = obj.get('config_num') as Integer
-            def status = obj['status'] as Boolean ?: false
-            if (score <= config) {
-                count = count + 1
-                if (status) {
-                    succ_count = succ_count + 1
-                }
-            }else if (score > config) {
-                fail_count = fail_count + 1
-                if (status) {
-                    fail_succ_count = fail_succ_count + 1
-                }
+        /*StringBuffer stringBuffer = new StringBuffer()
+        users.find($$(qd: 'quanmincai')).toArray().each {BasicDBObject obj ->
+            def _id = obj.get('_id')
+            def tuid = obj.get('tuid') as String ?: ''
+            stringBuffer.append(_id).append(',').append(tuid).append(System.lineSeparator())
+        }
+        println stringBuffer.toString()*/
+
+        /*def file = new File('/empty/crontab/wawaid.txt')
+        def ids = new HashMap()
+        file.readLines().each {String line ->
+            if (line != null && line.trim() != '') {
+                ids.put(Integer.parseInt(line), 0)
             }
         }
-        println "total: ${total}, count: ${count}, succ_count: ${succ_count}, fail_count: ${fail_count}, fail_succ_count: ${fail_succ_count}".toString()*/
-
-        /*[20171201:20171215, 20171216:20171231, 20180101:20180115].each {Integer key, Integer value ->
-            //12月1号 - 12月15号
-            def start = sdf.parse('' + key).getTime()
-            def end = sdf.parse('' + value).getTime()
-            def uids = users.distinct('_id', $$(timestamp: [$gte: start, $lt: end]))
-            def a = [] as Set, a_pay = [] as Set, b = [] as Set, b_pay = [] as Set
-            def a_cny = 0d, b_cny = 0d
-            uids.each {Integer id ->
-                def records = catch_record.find($$(user_id: id, is_delete: false, type: 2)).sort($$(timestamp: 1)).limit(3)
-                if (records.size() >= 2) { //抓取次数大于等于两次
-                    boolean status = false
-                    for(DBObject obj : records) {
-                        if (obj['status'] != null && obj['status'] == true) {
-                            status = true
-                            break
-                        }
-                    }
-                    if (status) {
-                        a.add(id)
-                    } else {
-                        b.add(id)
-                    }
-                }
-            }
-            finance_log_DB.find($$(user_id: [$in: a], via: [$ne: 'Admin'])).toArray().each {BasicDBObject obj ->
-                a_pay.add(obj['user_id'])
-                a_cny = a_cny + (obj['cny'] as Double)
-            }
-            finance_log_DB.find($$(user_id: [$in: b], via: [$ne: 'Admin'])).toArray().each {BasicDBObject obj ->
-                b_pay.add(obj['user_id'])
-                b_cny = b_cny + (obj['cny'] as Double)
-            }
-            println "start: ${key}  end: ${value}".toString()
-            println "A 总数-${a.size()} 付费-${a_pay.size()} LTV-${a_cny/a_pay.size()}".toString()
-            println "B 总数-${b.size()} 付费-${b_pay.size()} LTV-${b_cny/b_pay.size()}".toString()
-        }
-
-
-        def list = finance_log_DB.find($$(via: [$ne: 'Admin'], timestamp: [$gte: 1516809600000, $lt: 1516896000000])).toArray()*.cny
-        println list
-        println list.sum{ it as Double}
-
-        println finance_log_DB.find($$(via: [$ne: 'Admin'], timestamp: [$gte: 1516809600000, $lt: 1516896000000])).toArray()*.qd*/
-
-        /*[20180121, 20180122, 20180123, 20180124, 20180125].each {Integer ymd ->
-            def begin = sdf.parse('' + ymd).getTime()
-            def end = begin + 24 * 3600 * 1000L
-            def timebtn = [$gte: begin, $lt: end]
-            println ymd
-            def logs = finance_log_DB.distinct('user_id', $$(timestamp: timebtn))
-            println '充值人数：' + logs.size()
-
-            def regpay = stat_regpay.findOne($$(_id: ymd + '_meme_union_regpay'))
-            def regs = regpay['regs'] as Set
-            println '注册人数：' + regs.size()
-            def regspay = []
-            logs.each {Integer id ->
-                if (regs.contains(id)) {
-                    regspay.add(id)
-                }
-            }
-            println '新增充值：' + regspay
-            println '新增抓取：' + catch_record.distinct('user_id', $$([user_id: [$in: regs], timestamp: timebtn, is_delete: [$ne: true]])).size()
-        }*/
-
-        //付费未付费用户的邮寄统计等
-        /*[20180208:20180218].each {Integer start, Integer end ->
-            def s = sdf.parse('' + start).getTime()
-            def e = sdf.parse('' + end).getTime()
-            def payed = [:], nopay = [:]
-            users.find($$(timestamp: [$gte: s, $lt: e])).toArray().each {BasicDBObject obj ->
-                def finance = finance_log_DB.find($$(user_id: obj['_id'], diamond: [$ne: 0], via: [$ne: 'Admin'])).sort($$(timestamp: 1)).limit(1).toArray()
-                if (finance.size() <= 0) {
-                    nopay.put(obj['_id'], null) //未付费
-                } else {
-                    payed.put(obj['_id'], finance[0]['timestamp']) //付费
-                }
-            }
-            //前三次抓到娃娃的用户
-            //付费用户
-            int j = 1
-            [payed, nopay].each { Map pay ->
-                def succ = [], fail = []
-                pay.each { Integer user_id, Long timestamp ->
-                    //付费前
-                    def query = $$(user_id: user_id)
-                    if (j == 1) query.put('timestamp', [$lt: timestamp])
-
-                    def precatch = catch_record.find(query).sort($$(timestmap: 1)).limit(3).toArray()
-                    def status = false
-                    for (DBObject item : precatch) {
-                        if (item['status'] == Boolean.TRUE) {
-                            status = true
-                        }
-                        if (status) {
-                            //前三次抓中, 至今抓到娃娃的个数
-                            succ.add(user_id)
-                        } else {
-                            //前三次未中
-                            fail.add(user_id)
-                        }
-                    }
-                }
-                def s1 = [], s2 = [], s3 = [], s4 = [], s5 = []
-                def f1 = [], f2 = [], f3 = [], f4 = [], f5 = []
-                int sf = 0
-                [succ, fail].each { List uids ->
-                    def total_count3 = 0, total_count4 = 0
-                    catch_record.aggregate([
-                            $$($match: [user_id: [$in: uids], status: true]),
-                            $$($group: [_id: '$user_id', count: [$sum: 1]])
-                    ]).results().each { BasicDBObject group ->
-
-                        def count = group['count'] as Integer ?: 0
-                        if (count == 1) {
-                            sf == 0 ? s1.add(group['_id'] as Integer) : f1.add(group['_id'] as Integer)
-                        } else if (count == 2) {
-                            sf == 0 ? s2.add(group['_id'] as Integer) : f2.add(group['_id'] as Integer)
-                        } else if (count == 3) {
-                            sf == 0 ? s3.add(group['_id'] as Integer) : f3.add(group['_id'] as Integer)
-                            total_count3 = total_count3 + count
-                        } else {
-                            sf == 0 ? s4.add(group['_id'] as Integer) : f4.add(group['_id'] as Integer)
-                            total_count4 = total_count4 + count
-                        }
-                    }
-                    sf = sf + 1
-
-                    println "抓中总数3个：" + total_count3 + ",抓中总数3+：" + total_count4
-                }
-
-                def f = []
-                fail.each {Integer id ->
-                    if (catch_record.count($$(user_id: id, status: true, is_delete: false)) <= 0) {
-                        f.add(id)
-                    }
-                }
-                def fi = finance_log_DB.find($$(user_id: [$in: f], via: [$ne: 'Admin'])).toArray().sum { it.cny ?: 0d }
-
-                println "增加项${j}：" + f.size() + ':' + fi + ':' + ':' + getInviteDiamond(f, s, e)
-
-
-
-                int index = 1
-                [s1, s2, s3, s4, f1, f2, f3, f4].each { List c ->
-                    //付费寄送的
-                    def ids = []
-                    if (index == 1 || index == 2 || index == 5 || index == 6) {
-                        ids = finance_log_DB.distinct('user_id', $$(diamond: 0, user_id: [$in: c]))
-                        def total = 0d
-                        finance_log_DB.find($$(user_id: [$in: ids], diamond: [$gt: 0])).toArray().each { BasicDBObject obj ->
-                            def cny = obj['cny'] as Double ?: 0d
-                            total = total + cny
-                        }
-                        println "付费寄送 ${j} ${index}：   ${ids.size()},  ${total},  ${getInviteDiamond(ids, s, e)}".toString()
-                    }
-                    c.removeAll(ids)
-                    def total = 0d
-                    finance_log_DB.find($$(user_id: [$in: c])).toArray().each { BasicDBObject obj ->
-                        def cny = obj['cny'] as Double ?: 0d
-                        total = total + cny
-                    }
-                    println "${j} ${index}:   ${c.size()},  ${total}, ${getInviteDiamond(c, s, e)}".toString()
-                    index = index + 1
-                }
-                j = j + 1
-            }
-        }*/
-
-        //println mainRedis.get("user:1208411:first:doll")
-        /*def begin = sdf.parse('20180201').clearTime().getTime()
-        def toy_map = MapWithDefault.<Integer, Integer>newInstance(new HashMap<Integer, Integer>()) { 0 }
-        finance_log_DB.distinct('user_id', $$(via: [$ne: 'Admin'])).each {Integer user_id ->
-            def first_pay_list = finance_log_DB.find($$(user_id: user_id, via: [$ne: 'Admin'])).sort($$(timestamp: 1)).limit(1).toArray() ?: []
-            if (first_pay_list.size() > 0) {
-                def start = first_pay_list[0]['timestamp'] as Long
-                if (start > begin) {
-                    catch_record.aggregate([
-                            $$('$match', [user_id: user_id, timestamp: [$gte: start], is_delete: false, type: 2]),
-                            $$('$group', [_id: '$toy._id', count: [$sum: 1]])
-                    ]).results().each { BasicDBObject obj ->
-                        def toyId = obj['_id'] as Integer
-                        def count = obj['count'] as Integer
-                        toy_map[toyId] = toy_map[toyId] + count
-                    }
-                }
-            }
-        }
-        toy_map.each {Integer toyId, Integer count->
-            def toy = catch_toy.findOne($$(_id: toyId))
-            def g = goods.findOne($$(toy_id: toyId))
-            def cateName = ''
-            if (g != null && g['cate_id'] != null) {
-                def cate = category.findOne($$(_id: g['cate_id']))
-                cateName = cate?.get('name') ?: ''
-            }
-            println "${toy['_id']},${toy['name']},${cateName},${toy['price']},${count}".toString()
-        }*/
-
-        /*[20180201,20180202,20180203,20180204,20180205].each {Integer ymd ->
-            def start = sdf.parse('' + ymd).getTime()
-            def end = start + DAY_MILLON
-            def count = catch_record.count($$(first_doll: true, is_delete: false, timestamp: [$gte: start, $lt: end]))
-            def bingo = catch_record.count($$(first_doll: true, is_delete: false, status: true, timestamp: [$gte: start, $lt: end]))
-            println "${ymd}, ${count}, ${bingo}".toString()
-        }*/
-
-        /*def total = 0
-        apply_post_logs.find($$(timestamp: [$gte: 1517932800000, $lt: 1518019200000])).toArray().each {BasicDBObject obj ->
-            total = total + (obj['record_ids'] as List).size()
-        }
-        println total*/
-
-        //查询某一时间段内的抓取情况，排除送的强力抓
-        /*[20180201:20180211, 20180211:20180221].each {Long start, Long end ->
-            def s = sdf.parse('' + start).getTime()
-            def e = sdf.parse('' + end).getTime()
-            def ids = catch_record.distinct('user_id', $$(device_type: [$in: [2, 3]], timestamp: [$gte: s, $lt: e]))
-            def firstThree = [:]
-            ids.each {Integer id ->
-                def thirds = catch_record.find($$(user_id: id)).sort($$(timestamp: 1)).limit(3).toArray()
-                def third = thirds.get(thirds.size() - 1)
-                def time = third['timestamp'] as Long
-                if (time >= s && time <= e) {
-                    firstThree.put(id, time)
-                }
-            }
-
-            def award_count = 0, award = 0, normal_count = 0, normal = 0, qiyiguo_count = 0, qiyiguo = 0
-            catch_record.find($$(timestamp: [$gte: s, $lt: e])).toArray().each {BasicDBObject obj ->
-                def device_type = obj['device_type'] as Integer
-                def status = obj['status'] as Boolean
-                def first_doll = obj['first_doll'] as Boolean
-
-                if (device_type == 1) {
-                    qiyiguo_count = qiyiguo_count + 1
-                    if (status) {
-                        qiyiguo = qiyiguo + 1
-                    }
-                } else {
-                    def user_id = obj['user_id'] as Integer
-                    def three_last = (firstThree.get(user_id) ?: s) as Long
-                    def timestamp = obj['timestamp'] as Long
-                    if (timestamp < three_last) {
-                        if (first_doll == null || first_doll) { //前三次新抓
-                            award_count = award_count + 1
-                            if (status) {
-                                award = award + 1
-                            }
-                        } else {
-                            normal_count = normal_count + 1
-                            if (status) {
-                                normal = normal + 1
-                            }
-                        }
-                    } else {
-                        normal_count = normal_count + 1
-                        if (status) {
-                            normal = normal + 1
-                        }
-                    }
-                }
-            }
-
-            println '送强力抓总次数：' + award_count
-            println '送强力抓抓中总次数：' + award
-            println '正常抓总次数：' + normal_count
-            println '正常抓中总次数：' + normal
-            println 'qyg抓总次数：' + qiyiguo_count
-            println 'qyg抓中总次数：' + qiyiguo
-        }*/
-        /*def query = $$(timestamp: [$lt: new Date().clearTime().getTime() + DAY_MILLON], post_type: [$ne: 3], is_delete: false, is_pay_postage: false, need_postage: true)
-        apply_post_logs.find(query).toArray().each {BasicDBObject post_log ->
-            def toys = post_log['record_ids'] as List
-            if (toys != null && toys.size() > 0) {
-                toys.each { String r_id ->
-                    //记录还原
-                    catch_success_logs.update($$(_id: r_id), $$($set: [post_type: 0], $unset: [pack_id: 1, apply_time: 1]))
-                }
-            }
-            apply_post_logs.update($$(_id: post_log['_id'], is_delete: [$ne: true]), $$($set: [is_delete: true, status: 2, desc: 'batch unbox']), false, false)
-        }*/
-
-        def invitor_logs = mongo.getDB('xylog').getCollection('invitor_logs')
-        def HOUR_MILLION = 3600 * 1000L
-        def begin = sdf.parse('20180222150000').getTime()
-        def end = begin + HOUR_MILLION
-
-        //一小时内分享获得的用户
-        def ids = users.distinct('_id', $$(timestamp: [$gte: begin, $lt: end], qd: [$in: ['wawa_share_lianjie', 'wawa_share_erweima']]))
         println ids
-        //30分钟后这些用户分享获得的用户
-        def invitors = [] as Set
-        def invitees = 0
-        println 'end: ' + new Date(end + 30 * 60000L).format('yyyyMMdd HH')
-        invitor_logs.find($$(timestamp: [$gte: begin, $lt: end + 30 * 60000L], invitor: [$in: ids])).toArray().each {BasicDBObject obj->
-            if (obj['invitor'] != null) {
-                invitors.add(obj['invitor'] as Integer)
+        //查询这些id的发货数量
+        apply_post_logs.find($$(is_delete: false, post_type: [$in: [2, 3]])).toArray().each {BasicDBObject obj ->
+            def toys = obj['toys'] as Set
+            toys.each {BasicDBObject toy ->
+                if (toy['_id'] != null && ids.containsKey(toy['_id'])) {
+                    Integer count = ids.get(toy['_id']) as Integer
+                    count = count + 1
+                    ids.put(toy['_id'], count)
+                }
             }
-            invitees = invitees + 1
-            println obj
         }
+        println ids*/
+
+        def json = new JsonSlurper()
+        /*def file = new File('C:\\Users\\Administrator\\Desktop\\server_src\\db\\xy_user_users.txt')
+
+        Map<String, Integer> map = new HashMap<String, Integer>();*/
+
+        /* 读取数据 */
+        /*try {
+            BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(file), "UTF-8"));
+            String lineTxt = null;
+            while ((lineTxt = br.readLine()) != null) {
+                xy_users.save($$(json.parseText(lineTxt) as Map))
+            }
+            br.close();
+        } catch (Exception e) {
+            System.err.println("read errors :" + e);
+        }
+        println 'xy_user_users finish.'*/
 
 
-
+        def file1 = new File('C:\\Users\\Administrator\\Desktop\\server_src\\db\\xy_users.txt')
+        /* 读取数据 */
+        try {
+            BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(file1), "UTF-8"))
+            String lineTxt = null;
+            while ((lineTxt = br.readLine()) != null) {
+                println lineTxt
+                users.save($$(json.parseText(lineTxt) as Map))
+            }
+            br.close();
+        } catch (Exception e) {
+            System.err.println("read errors :" + e);
+        }
+        println 'xy_users finish.'
     }
 
     static getInviteDiamond(def ids, long s, long e) {

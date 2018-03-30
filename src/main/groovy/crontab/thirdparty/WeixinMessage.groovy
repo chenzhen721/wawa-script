@@ -49,11 +49,12 @@ class WeixinMessage {
     static DBCollection weixin_msg = mongo.getDB('xy_union').getCollection('weixin_msgs')
     static DBCollection users = mongo.getDB('xy_user').getCollection('users')
 
-    static String jedis_host = getProperties("main_jedis_host", "192.168.31.249")
+    static String jedis_host = getProperties("main_jedis_host", "192.168.2.16")
     static Integer main_jedis_port = getProperties("main_jedis_port", 6379) as Integer
     static mainRedis = new Jedis(jedis_host, main_jedis_port)
 
-    public static Map<String,String> APP_ID_SECRETS = ['wx87f81569b7e4b5f6':'8421fd4781b1c29077c2e82e71ce3d2a', 'wxf64f0972d4922815':'fbf4fd32c00a82d5cbe5161c5e699a0e']
+    public static Map<String,String> APP_ID_SECRETS = ['wxf64f0972d4922815': 'fbf4fd32c00a82d5cbe5161c5e699a0e']
+//    public static Map<String,String> APP_ID_SECRETS = ['wx45d43a50adf5a470': '40e8dc2daac9f04bfbac32a64eb6dfff', 'wx87f81569b7e4b5f6':'8421fd4781b1c29077c2e82e71ce3d2a', 'wxf64f0972d4922815':'fbf4fd32c00a82d5cbe5161c5e699a0e']
     public static Map<String,String> APP_ID_TOKENS = new HashMap<>();
 
     static String WEIXIN_URL = 'https://api.weixin.qq.com/cgi-bin/'
@@ -65,7 +66,7 @@ class WeixinMessage {
     static Map errorCode = [:]
 
     //test
-    static List<String> openIds = ["ok2Ip1hYtZOjKzacYzr06gskuNcs","ok2Ip1rk-Fx4PdJSdH25zKObb_oU"];
+    static List<String> openIds = ["o_MKO0vQW2yfeQ8DRwJceOE_3NA0"];
     static getProperties(String key, Object defaultValue) {
         try {
             if (props == null) {
@@ -90,7 +91,7 @@ class WeixinMessage {
                                         new LinkedBlockingQueue<Runnable>(1000)) ;
 
     static void main(String[] args) {
-        Long begin = System.currentTimeMillis()
+        /*Long begin = System.currentTimeMillis()
         if(mainRedis.setnx(redis_lock_key, begin.toString()) == 1){
             try{
                 mainRedis.expire(redis_lock_key, 60 * 60 * 1000)
@@ -105,8 +106,8 @@ class WeixinMessage {
             }
         }else{
             println "${WeixinMessage.class.getSimpleName()}:${new Date().format('yyyy-MM-dd HH:mm:ss')}: already running..........."
-        }
-        //testTemplateMsg();
+        }*/
+        testTemplateMsg();
     }
 
     static void sendMessage(){
@@ -192,10 +193,10 @@ class WeixinMessage {
         def template = $$('template_id':"pedgM13fkPvhs6E0LV6ew-8E9ociJuRpnrTso-TlZH4")
         template['url'] = "www.17laihou.com"
         def data = new HashMap();
-        data['first'] = ['value':'哇!好友泽新抓中了娃娃，特来给您发钻石拉，赶紧抢了钻石去抓娃娃。','color':'#173177']
-        data['keyword1'] = ['value':'100钻石','color':'#173177']
-        data['keyword2'] = ['value':'2018年01月05日','color':'#173177']
-        data['remark'] = ['value':'钻石数量有限，先到先得，速速去抢!','color':'#FF0000']
+        data['first'] = ['value':'哇!hello。','color':'#173177']
+        data['keyword1'] = ['value':'main','color':'#173177']
+        data['keyword2'] = ['value':'can you see me?','color':'#173177']
+        data['remark'] = ['value':'','color':'#FF0000']
         template['data'] = data;
         openIds.each {String openid ->
             sendTemplateMsg(template, openid,'wx45d43a50adf5a470')
@@ -230,9 +231,10 @@ class WeixinMessage {
         APP_ID_SECRETS.keySet().each {String appId ->
             String access_token = mainRedis.get(getAccessRedisKey(appId))
             //println "${appId} : access_token:${access_token} ttl : ${mainRedis.ttl(getAccessRedisKey(appId))}".toString()
-            if (access_token == null) {
+            /*if (access_token == null) {
                 access_token = getTokenFromWeixin(appId)
-            }
+            }*/
+            println access_token
             if(access_token != null){
                 APP_ID_TOKENS[appId] = access_token
             }
@@ -253,13 +255,14 @@ class WeixinMessage {
     }
 
     static String getAccessToken(String appId){
+        /*initAccessToken();
         String access_token =  APP_ID_TOKENS[appId]
         //println "getAccessToken : ${access_token}".toString()
-        if(access_token == null){
-            initAccessToken();
+        *//*if(access_token == null){
             return getAccessToken(appId);
-        }
-        return access_token;
+        }*//*
+        println access_token*/
+        return '8_0ncMxVZjp-oy_GYDHa7iHW5v-QYnzEIHaIVFeTXt12hapOJbaaFUxHjTKlBfZPRWAYZu2IDHR1k1yLl4-m6MotE-XU-fa11b139LK3edLELZ4DXDIH9t5U-obW5fZypEZxCWeI814PknGYVJCLRdADAIRX';
     }
 
     /**
